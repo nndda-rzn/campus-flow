@@ -1,0 +1,9 @@
+go 1.25.3
+
+use (
+	./apps/services/academic-service
+	./apps/services/api-gateway
+	./apps/services/auth-service
+	./apps/services/file-service
+	./apps/services/notification-service
+)
