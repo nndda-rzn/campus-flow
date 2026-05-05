@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: campusflow-postgres
+    environment:
+      POSTGRES_USER: campusflow
+      POSTGRES_PASSWORD: campusflow_password
+      POSTGRES_DB: campusflow_main
+    ports:
+      - "5432:5432"
+    volumes:
+      - campusflow_postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+    networks:
+      - campusflow-network
+
+networks:
+  campusflow-network:
+    driver: bridge
+
+volumes:
+  campusflow_postgres_data:

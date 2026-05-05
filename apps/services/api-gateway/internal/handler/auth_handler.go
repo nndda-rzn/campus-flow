@@ -25,6 +25,13 @@ type LoginHTTPBody struct {
 	Password string `json:"password"`
 }
 
+type RegisterHTTPBody struct {
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}
+
 type APIResponse struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message"`
@@ -80,8 +87,61 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+
+
 func writeJSON(w http.ResponseWriter, statusCode int, payload APIResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	var body RegisterHTTPBody
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid request body",
+		})
+		return
+	}
+
+	if body.FullName == "" || body.Email == "" || body.Password == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "full_name, email, and password are required",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.authClient.Client.Register(ctx, &authv1.RegisterRequest{
+		FullName: body.FullName,
+		Email:    body.Email,
+		Password: body.Password,
+		Role:     body.Role,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to call auth service",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, APIResponse{
+		Success: true,
+		Message: "register success",
+		Data:    res,
+	})
 }
