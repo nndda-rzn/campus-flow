@@ -6,4 +6,6 @@ use (
 	./apps/services/auth-service
 	./apps/services/file-service
 	./apps/services/notification-service
+	./apps/services/reporting-service
+	./proto/gen
 )

@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package campusflow.common.v1;
+
+option go_package = "campus-flow/proto/gen/common/v1;commonv1";
+
+message Empty {}
+
+message PaginationRequest {
+  int32 page = 1;
+  int32 limit = 2;
+}
+
+message PaginationResponse {
+  int32 page = 1;
+  int32 limit = 2;
+  int32 total_items = 3;
+  int32 total_pages = 4;
+}
+
+message ErrorResponse {
+  string code = 1;
+  string message = 2;
+}
