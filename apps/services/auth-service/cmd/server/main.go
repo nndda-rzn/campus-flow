@@ -30,8 +30,16 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(dbpool)
-	authService := service.NewAuthService(userRepo)
-	authHandler := handler.NewAuthHandler(authService)
+	tokenRepo := repository.NewTokenRepository(dbpool)
+	authService := service.NewAuthService(
+		userRepo,
+		tokenRepo,
+		cfg.JWTSecret,
+		cfg.AccessTokenTTL,
+		cfg.RefreshTokenTTL,
+)
+
+authHandler := handler.NewAuthHandler(authService)
 
 	listener, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {

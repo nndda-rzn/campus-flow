@@ -1,10 +1,16 @@
 package config
 
-import "os"
+import (
+	"os"
+	"time"
+)
 
 type Config struct {
-	GRPCPort    string
-	DatabaseURL string
+	GRPCPort        string
+	DatabaseURL     string
+	JWTSecret       string
+	AccessTokenTTL  time.Duration
+	RefreshTokenTTL time.Duration
 }
 
 func Load() Config {
@@ -14,6 +20,9 @@ func Load() Config {
 			"DATABASE_URL",
 			"postgres://campusflow:campusflow_password@localhost:5432/auth_db?sslmode=disable",
 		),
+		JWTSecret:       getEnv("JWT_SECRET", "campusflow_dev_secret_change_me"),
+		AccessTokenTTL:  15 * time.Minute,
+		RefreshTokenTTL: 7 * 24 * time.Hour,
 	}
 }
 

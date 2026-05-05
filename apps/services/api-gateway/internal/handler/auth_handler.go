@@ -20,6 +20,18 @@ func NewAuthHandler(authClient *client.AuthClient) *AuthHandler {
 	}
 }
 
+type RefreshTokenHTTPBody struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type ValidateTokenHTTPBody struct {
+	AccessToken string `json:"access_token"`
+}
+
+type LogoutHTTPBody struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
 type LoginHTTPBody struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -142,6 +154,126 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, APIResponse{
 		Success: true,
 		Message: "register success",
+		Data:    res,
+	})
+}
+
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	var body RefreshTokenHTTPBody
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid request body",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.authClient.Client.RefreshToken(ctx, &authv1.RefreshTokenRequest{
+		RefreshToken: body.RefreshToken,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "invalid refresh token",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "refresh token success",
+		Data:    res,
+	})
+}
+
+func (h *AuthHandler) ValidateToken(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	var body ValidateTokenHTTPBody
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid request body",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.authClient.Client.ValidateToken(ctx, &authv1.ValidateTokenRequest{
+		AccessToken: body.AccessToken,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to call auth service",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "validate token success",
+		Data:    res,
+	})
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	var body LogoutHTTPBody
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid request body",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.authClient.Client.Logout(ctx, &authv1.LogoutRequest{
+		RefreshToken: body.RefreshToken,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "invalid refresh token",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "logout success",
 		Data:    res,
 	})
 }

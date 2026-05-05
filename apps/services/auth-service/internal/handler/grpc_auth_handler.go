@@ -77,21 +77,58 @@ func (h *AuthHandler) Login(ctx context.Context, req *authv1.LoginRequest) (*aut
 }
 
 func (h *AuthHandler) RefreshToken(ctx context.Context, req *authv1.RefreshTokenRequest) (*authv1.RefreshTokenResponse, error) {
+	accessToken, refreshToken, err := h.authService.RefreshToken(ctx, req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidToken) {
+			return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+		}
+
+		if errors.Is(err, service.ErrUserInactive) {
+			return nil, status.Error(codes.PermissionDenied, "user inactive")
+		}
+
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
 	return &authv1.RefreshTokenResponse{
-		AccessToken:  "temporary-new-access-token",
-		RefreshToken: "temporary-new-refresh-token",
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
 }
 
 func (h *AuthHandler) ValidateToken(ctx context.Context, req *authv1.ValidateTokenRequest) (*authv1.ValidateTokenResponse, error) {
+	user, err := h.authService.ValidateToken(ctx, req.AccessToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidToken) {
+			return &authv1.ValidateTokenResponse{
+				Valid: false,
+			}, nil
+		}
+
+		if errors.Is(err, service.ErrUserInactive) {
+			return nil, status.Error(codes.PermissionDenied, "user inactive")
+		}
+
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
 	return &authv1.ValidateTokenResponse{
 		Valid:  true,
-		UserId: "temporary-user-id",
-		Role:   "MAHASISWA",
+		UserId: user.ID,
+		Role:   user.Role,
 	}, nil
 }
 
 func (h *AuthHandler) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1.LogoutResponse, error) {
+	err := h.authService.Logout(ctx, req.RefreshToken)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidToken) {
+			return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
+		}
+
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
 	return &authv1.LogoutResponse{
 		Success: true,
 	}, nil

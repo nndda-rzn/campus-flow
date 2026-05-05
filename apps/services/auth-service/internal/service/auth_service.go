@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
+	"time"
 
 	"campus-flow/apps/services/auth-service/internal/model"
 	"campus-flow/apps/services/auth-service/internal/repository"
+	tokenutil "campus-flow/apps/services/auth-service/internal/token"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -16,15 +17,30 @@ var (
 	ErrInvalidCredential = errors.New("invalid credential")
 	ErrInvalidRole       = errors.New("invalid role")
 	ErrUserInactive      = errors.New("user inactive")
+	ErrInvalidToken      = errors.New("invalid token")
 )
 
 type AuthService struct {
-	userRepo *repository.UserRepository
+	userRepo        *repository.UserRepository
+	tokenRepo       *repository.TokenRepository
+	jwtSecret       string
+	accessTokenTTL  time.Duration
+	refreshTokenTTL time.Duration
 }
 
-func NewAuthService(userRepo *repository.UserRepository) *AuthService {
+func NewAuthService(
+	userRepo *repository.UserRepository,
+	tokenRepo *repository.TokenRepository,
+	jwtSecret string,
+	accessTokenTTL time.Duration,
+	refreshTokenTTL time.Duration,
+) *AuthService {
 	return &AuthService{
-		userRepo: userRepo,
+		userRepo:        userRepo,
+		tokenRepo:       tokenRepo,
+		jwtSecret:       jwtSecret,
+		accessTokenTTL:  accessTokenTTL,
+		refreshTokenTTL: refreshTokenTTL,
 	}
 }
 
@@ -95,12 +111,117 @@ func (s *AuthService) Login(
 		return nil, "", "", ErrInvalidCredential
 	}
 
-	// Sementara masih dummy token.
-	// JWT asli akan dibuat di tahap berikutnya.
-	accessToken := fmt.Sprintf("temporary-access-token-%s", user.ID)
-	refreshToken := fmt.Sprintf("temporary-refresh-token-%s", user.ID)
+	accessToken, err := tokenutil.GenerateAccessToken(user, s.jwtSecret, s.accessTokenTTL)
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	refreshToken, err := tokenutil.GenerateRefreshToken()
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	refreshTokenHash := tokenutil.HashRefreshToken(refreshToken)
+	refreshTokenExpiresAt := time.Now().Add(s.refreshTokenTTL).Format("2006-01-02 15:04:05")
+
+	if err := s.tokenRepo.CreateRefreshToken(ctx, user.ID, refreshTokenHash, refreshTokenExpiresAt); err != nil {
+		return nil, "", "", err
+	}
 
 	return user, accessToken, refreshToken, nil
+}
+
+func (s *AuthService) RefreshToken(
+	ctx context.Context,
+	refreshToken string,
+) (string, string, error) {
+	refreshToken = strings.TrimSpace(refreshToken)
+	if refreshToken == "" {
+		return "", "", ErrInvalidToken
+	}
+
+	refreshTokenHash := tokenutil.HashRefreshToken(refreshToken)
+
+	storedToken, err := s.tokenRepo.FindValidRefreshToken(ctx, refreshTokenHash)
+	if err != nil {
+		if errors.Is(err, repository.ErrRefreshTokenNotFound) {
+			return "", "", ErrInvalidToken
+		}
+
+		return "", "", err
+	}
+
+	user, err := s.userRepo.FindByID(ctx, storedToken.UserID)
+	if err != nil {
+		return "", "", err
+	}
+
+	if user.Status != "ACTIVE" {
+		return "", "", ErrUserInactive
+	}
+
+	if err := s.tokenRepo.RevokeRefreshTokenByHash(ctx, refreshTokenHash); err != nil {
+		return "", "", err
+	}
+
+	newAccessToken, err := tokenutil.GenerateAccessToken(user, s.jwtSecret, s.accessTokenTTL)
+	if err != nil {
+		return "", "", err
+	}
+
+	newRefreshToken, err := tokenutil.GenerateRefreshToken()
+	if err != nil {
+		return "", "", err
+	}
+
+	newRefreshTokenHash := tokenutil.HashRefreshToken(newRefreshToken)
+	newRefreshTokenExpiresAt := time.Now().Add(s.refreshTokenTTL).Format("2006-01-02 15:04:05")
+
+	if err := s.tokenRepo.CreateRefreshToken(ctx, user.ID, newRefreshTokenHash, newRefreshTokenExpiresAt); err != nil {
+		return "", "", err
+	}
+
+	return newAccessToken, newRefreshToken, nil
+}
+
+func (s *AuthService) ValidateToken(
+	ctx context.Context,
+	accessToken string,
+) (*model.User, error) {
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return nil, ErrInvalidToken
+	}
+
+	claims, err := tokenutil.ValidateAccessToken(accessToken, s.jwtSecret)
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+
+	user, err := s.userRepo.FindByID(ctx, claims.Subject)
+	if err != nil {
+		return nil, err
+	}
+
+	if user.Status != "ACTIVE" {
+		return nil, ErrUserInactive
+	}
+
+	return user, nil
+}
+
+func (s *AuthService) Logout(
+	ctx context.Context,
+	refreshToken string,
+) error {
+	refreshToken = strings.TrimSpace(refreshToken)
+	if refreshToken == "" {
+		return ErrInvalidToken
+	}
+
+	refreshTokenHash := tokenutil.HashRefreshToken(refreshToken)
+
+	return s.tokenRepo.RevokeRefreshTokenByHash(ctx, refreshTokenHash)
 }
 
 func normalizeRole(role string) string {
