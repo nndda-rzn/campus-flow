@@ -13,9 +13,13 @@ func main() {
 	authClient := client.NewAuthClient("localhost:50051")
 	defer authClient.Close()
 
+	academicClient := client.NewAcademicClient("localhost:50052")
+	defer academicClient.Close()
+
 	authHandler := handler.NewAuthHandler(authClient)
 	meHandler := handler.NewMeHandler()
 	roleTestHandler := handler.NewRoleTestHandler()
+	academicHandler := handler.NewAcademicHandler(academicClient)
 
 	authMiddleware := middleware.NewAuthMiddleware(authClient)
 
@@ -63,6 +67,22 @@ func main() {
 		authMiddleware.RequireAuth(
 			authMiddleware.RequireRole("KAPRODI")(
 				http.HandlerFunc(roleTestHandler.HeadOnly),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/academic-services",
+		authMiddleware.RequireAuth(
+			http.HandlerFunc(academicHandler.ListAcademicServices),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/student/academic-requests",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("MAHASISWA")(
+				http.HandlerFunc(academicHandler.StudentAcademicRequests),
 			),
 		),
 	)

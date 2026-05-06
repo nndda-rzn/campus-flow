@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package campusflow.academic.v1;
+
+option go_package = "campus-flow/proto/gen/academic/v1;academicv1";
+
+service AcademicService {
+  rpc ListAcademicServices(ListAcademicServicesRequest) returns (ListAcademicServicesResponse);
+  rpc CreateAcademicRequest(CreateAcademicRequestRequest) returns (AcademicRequestResponse);
+  rpc GetAcademicRequest(GetAcademicRequestRequest) returns (AcademicRequestResponse);
+  rpc ListMyAcademicRequests(ListMyAcademicRequestsRequest) returns (ListAcademicRequestsResponse);
+}
+
+message ListAcademicServicesRequest {}
+
+message AcademicServiceItem {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  bool is_active = 5;
+}
+
+message ListAcademicServicesResponse {
+  repeated AcademicServiceItem services = 1;
+}
+
+message CreateAcademicRequestRequest {
+  string student_user_id = 1;
+  string service_code = 2;
+  string title = 3;
+  string description = 4;
+}
+
+message GetAcademicRequestRequest {
+  string request_id = 1;
+}
+
+message ListMyAcademicRequestsRequest {
+  string student_user_id = 1;
+}
+
+message AcademicRequest {
+  string id = 1;
+  string request_number = 2;
+  string student_user_id = 3;
+  string academic_service_id = 4;
+  string service_code = 5;
+  string service_name = 6;
+  string title = 7;
+  string description = 8;
+  string status = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message AcademicRequestResponse {
+  AcademicRequest request = 1;
+}
+
+message ListAcademicRequestsResponse {
+  repeated AcademicRequest requests = 1;
+}
