@@ -6,6 +6,7 @@ import (
 
 	"campus-flow/apps/services/api-gateway/internal/client"
 	"campus-flow/apps/services/api-gateway/internal/handler"
+	"campus-flow/apps/services/api-gateway/internal/middleware"
 )
 
 func main() {
@@ -13,6 +14,10 @@ func main() {
 	defer authClient.Close()
 
 	authHandler := handler.NewAuthHandler(authClient)
+	meHandler := handler.NewMeHandler()
+	roleTestHandler := handler.NewRoleTestHandler()
+
+	authMiddleware := middleware.NewAuthMiddleware(authClient)
 
 	mux := http.NewServeMux()
 
@@ -21,11 +26,46 @@ func main() {
 		_, _ = w.Write([]byte("api-gateway healthy"))
 	})
 
-	mux.HandleFunc("/api/v1/auth/login", authHandler.Login)
+	// Public auth routes
 	mux.HandleFunc("/api/v1/auth/register", authHandler.Register)
+	mux.HandleFunc("/api/v1/auth/login", authHandler.Login)
 	mux.HandleFunc("/api/v1/auth/refresh", authHandler.RefreshToken)
 	mux.HandleFunc("/api/v1/auth/validate", authHandler.ValidateToken)
 	mux.HandleFunc("/api/v1/auth/logout", authHandler.Logout)
+
+	// Protected route
+	mux.Handle(
+		"/api/v1/me",
+		authMiddleware.RequireAuth(http.HandlerFunc(meHandler.GetMe)),
+	)
+
+	// Protected role-based test routes
+	mux.Handle(
+		"/api/v1/student/test",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("MAHASISWA")(
+				http.HandlerFunc(roleTestHandler.StudentOnly),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/admin/test",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI")(
+				http.HandlerFunc(roleTestHandler.AdminOnly),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/head/test",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("KAPRODI")(
+				http.HandlerFunc(roleTestHandler.HeadOnly),
+			),
+		),
+	)
 
 	fmt.Println("API Gateway running on port 8080")
 	fmt.Println("Auth Service target: localhost:50051")
