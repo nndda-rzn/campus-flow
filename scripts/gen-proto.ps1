@@ -11,6 +11,7 @@ protoc `
   proto/common/v1/common.proto `
   proto/auth/v1/auth.proto `
   proto/academic/v1/academic.proto `
-  proto/file/v1/file.proto
+  proto/file/v1/file.proto `
+  proto/notification/v1/notification.proto
 
 Write-Host "Proto generation completed."

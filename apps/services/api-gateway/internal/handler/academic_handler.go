@@ -9,15 +9,21 @@ import (
 	"campus-flow/apps/services/api-gateway/internal/client"
 	"campus-flow/apps/services/api-gateway/internal/middleware"
 	academicv1 "campus-flow/proto/gen/academic/v1"
+	notificationv1 "campus-flow/proto/gen/notification/v1"
 )
 
 type AcademicHandler struct {
-	academicClient *client.AcademicClient
+	academicClient     *client.AcademicClient
+	notificationClient *client.NotificationClient
 }
 
-func NewAcademicHandler(academicClient *client.AcademicClient) *AcademicHandler {
+func NewAcademicHandler(
+	academicClient *client.AcademicClient,
+	notificationClient *client.NotificationClient,
+) *AcademicHandler {
 	return &AcademicHandler{
-		academicClient: academicClient,
+		academicClient:     academicClient,
+		notificationClient: notificationClient,
 	}
 }
 
@@ -111,12 +117,25 @@ func (h *AcademicHandler) CreateAcademicRequest(w http.ResponseWriter, r *http.R
 		Title:         body.Title,
 		Description:   body.Description,
 	})
+
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, APIResponse{
 			Success: false,
 			Message: "failed to create academic request",
 		})
 		return
+	}
+
+	if res != nil && res.Request != nil {
+		h.createNotificationSilently(
+			r.Context(),
+			userID,
+			"Pengajuan berhasil dibuat",
+			"Pengajuan layanan akademik Anda berhasil dibuat dengan status SUBMITTED.",
+			"SUCCESS",
+			"ACADEMIC_REQUEST",
+			res.Request.Id,
+		)
 	}
 
 	writeJSON(w, http.StatusCreated, APIResponse{
@@ -248,9 +267,74 @@ func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	if res != nil && res.Request != nil {
+		title, message, notificationType := buildAcademicWorkflowNotification(action, res.Request.Status)
+
+		h.createNotificationSilently(
+			r.Context(),
+			res.Request.StudentUserId,
+			title,
+			message,
+			notificationType,
+			"ACADEMIC_REQUEST",
+			res.Request.Id,
+		)
+	}
+
 	writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "workflow action success",
 		Data:    res,
 	})
+}
+
+func (h *AcademicHandler) createNotificationSilently(
+	ctx context.Context,
+	userID string,
+	title string,
+	message string,
+	notificationType string,
+	entityType string,
+	entityID string,
+) {
+	if h.notificationClient == nil {
+		return
+	}
+
+	notifyCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	_, _ = h.notificationClient.Client.CreateNotification(notifyCtx, &notificationv1.CreateNotificationRequest{
+		UserId:     userID,
+		Title:      title,
+		Message:    message,
+		Type:       notificationType,
+		EntityType: entityType,
+		EntityId:   entityID,
+	})
+}
+
+func buildAcademicWorkflowNotification(action string, status string) (string, string, string) {
+	switch action {
+	case "verify":
+		return "Pengajuan sudah diverifikasi",
+			"Pengajuan layanan akademik Anda sudah diverifikasi oleh Admin Prodi.",
+			"INFO"
+	case "approve":
+		return "Pengajuan disetujui",
+			"Pengajuan layanan akademik Anda sudah disetujui oleh Kaprodi.",
+			"SUCCESS"
+	case "reject":
+		return "Pengajuan ditolak",
+			"Pengajuan layanan akademik Anda ditolak. Silakan periksa catatan pengajuan.",
+			"WARNING"
+	case "complete":
+		return "Pengajuan selesai",
+			"Pengajuan layanan akademik Anda sudah selesai diproses.",
+			"SUCCESS"
+	default:
+		return "Status pengajuan diperbarui",
+			"Status pengajuan layanan akademik Anda berubah menjadi " + status + ".",
+			"INFO"
+	}
 }

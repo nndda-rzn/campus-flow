@@ -1,7 +1,50 @@
 package main
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"log"
+	"net"
+
+	"campus-flow/apps/services/notification-service/internal/config"
+	"campus-flow/apps/services/notification-service/internal/handler"
+	"campus-flow/apps/services/notification-service/internal/repository"
+	"campus-flow/apps/services/notification-service/internal/service"
+	notificationv1 "campus-flow/proto/gen/notification/v1"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
+)
 
 func main() {
-	fmt.Println("Notification Service running")
+	cfg := config.Load()
+
+	dbpool, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("failed to connect database: %v", err)
+	}
+	defer dbpool.Close()
+
+	if err := dbpool.Ping(context.Background()); err != nil {
+		log.Fatalf("failed to ping database: %v", err)
+	}
+
+	notificationRepo := repository.NewNotificationRepository(dbpool)
+	notificationService := service.NewNotificationService(notificationRepo)
+	notificationHandler := handler.NewNotificationHandler(notificationService)
+
+	listener, err := net.Listen("tcp", cfg.GRPCPort)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
+	}
+
+	grpcServer := grpc.NewServer()
+	notificationv1.RegisterNotificationServiceServer(grpcServer, notificationHandler)
+
+	fmt.Println("Notification Service gRPC running on port", cfg.GRPCPort)
+	fmt.Println("Notification Service connected to notification_db")
+
+	if err := grpcServer.Serve(listener); err != nil {
+		log.Fatalf("failed to serve grpc: %v", err)
+	}
 }

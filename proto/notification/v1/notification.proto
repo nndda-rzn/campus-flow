@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package campusflow.notification.v1;
+
+option go_package = "campus-flow/proto/gen/notification/v1;notificationv1";
+
+service NotificationService {
+  rpc CreateNotification(CreateNotificationRequest) returns (NotificationResponse);
+  rpc ListMyNotifications(ListMyNotificationsRequest) returns (ListNotificationsResponse);
+  rpc MarkNotificationAsRead(MarkNotificationAsReadRequest) returns (NotificationResponse);
+}
+
+message CreateNotificationRequest {
+  string user_id = 1;
+  string title = 2;
+  string message = 3;
+  string type = 4;
+  string entity_type = 5;
+  string entity_id = 6;
+}
+
+message ListMyNotificationsRequest {
+  string user_id = 1;
+}
+
+message MarkNotificationAsReadRequest {
+  string notification_id = 1;
+  string user_id = 2;
+}
+
+message NotificationItem {
+  string id = 1;
+  string user_id = 2;
+  string title = 3;
+  string message = 4;
+  string type = 5;
+  string entity_type = 6;
+  string entity_id = 7;
+  bool is_read = 8;
+  string created_at = 9;
+  string read_at = 10;
+}
+
+message NotificationResponse {
+  NotificationItem notification = 1;
+}
+
+message ListNotificationsResponse {
+  repeated NotificationItem notifications = 1;
+}

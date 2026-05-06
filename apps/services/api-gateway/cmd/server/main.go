@@ -18,13 +18,17 @@ func main() {
 
 	fileClient := client.NewFileClient("localhost:50053")
 	defer fileClient.Close()
+	
+	notificationClient := client.NewNotificationClient("localhost:50054")
+	defer notificationClient.Close()
 
 	authHandler := handler.NewAuthHandler(authClient)
 	meHandler := handler.NewMeHandler()
 	roleTestHandler := handler.NewRoleTestHandler()
-	academicHandler := handler.NewAcademicHandler(academicClient)
+	academicHandler := handler.NewAcademicHandler(academicClient, notificationClient )
 	fileHandler := handler.NewFileHandler(fileClient, academicClient)
 	authMiddleware := middleware.NewAuthMiddleware(authClient)
+	notificationHandler := handler.NewNotificationHandler(notificationClient)
 
 	mux := http.NewServeMux()
 
@@ -155,6 +159,20 @@ mux.Handle(
 	"/api/v1/files/download",
 	authMiddleware.RequireAuth(
 		http.HandlerFunc(fileHandler.DownloadFile),
+	),
+)
+
+mux.Handle(
+	"/api/v1/notifications",
+	authMiddleware.RequireAuth(
+		http.HandlerFunc(notificationHandler.ListMyNotifications),
+	),
+)
+
+mux.Handle(
+	"/api/v1/notifications/read",
+	authMiddleware.RequireAuth(
+		http.HandlerFunc(notificationHandler.MarkNotificationAsRead),
 	),
 )
 
