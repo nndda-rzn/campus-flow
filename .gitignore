@@ -34,3 +34,6 @@ vendor/
 # Generated protobuf
 *.pb.go
 *_grpc.pb.go
+
+# Local uploads
+storage/uploads/

@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package campusflow.file.v1;
+
+option go_package = "campus-flow/proto/gen/file/v1;filev1";
+
+service FileService {
+  rpc RegisterUploadedFile(RegisterUploadedFileRequest) returns (FileResponse);
+  rpc GetFileMetadata(GetFileMetadataRequest) returns (FileResponse);
+  rpc ListFilesByOwner(ListFilesByOwnerRequest) returns (ListFilesResponse);
+}
+
+message RegisterUploadedFileRequest {
+  string original_name = 1;
+  string stored_name = 2;
+  string storage_path = 3;
+  string mime_type = 4;
+  int64 size_bytes = 5;
+  string uploaded_by_user_id = 6;
+  string owner_type = 7;
+  string owner_id = 8;
+  string purpose = 9;
+}
+
+message GetFileMetadataRequest {
+  string file_id = 1;
+}
+
+message ListFilesByOwnerRequest {
+  string owner_type = 1;
+  string owner_id = 2;
+}
+
+message FileItem {
+  string id = 1;
+  string original_name = 2;
+  string stored_name = 3;
+  string storage_path = 4;
+  string mime_type = 5;
+  int64 size_bytes = 6;
+  string uploaded_by_user_id = 7;
+  string owner_type = 8;
+  string owner_id = 9;
+  string purpose = 10;
+  string status = 11;
+  string created_at = 12;
+}
+
+message FileResponse {
+  FileItem file = 1;
+}
+
+message ListFilesResponse {
+  repeated FileItem files = 1;
+}

@@ -10,6 +10,7 @@ protoc `
   --go-grpc_opt=paths=source_relative `
   proto/common/v1/common.proto `
   proto/auth/v1/auth.proto `
-  proto/academic/v1/academic.proto
+  proto/academic/v1/academic.proto `
+  proto/file/v1/file.proto
 
 Write-Host "Proto generation completed."

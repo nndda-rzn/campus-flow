@@ -16,11 +16,14 @@ func main() {
 	academicClient := client.NewAcademicClient("localhost:50052")
 	defer academicClient.Close()
 
+	fileClient := client.NewFileClient("localhost:50053")
+	defer fileClient.Close()
+
 	authHandler := handler.NewAuthHandler(authClient)
 	meHandler := handler.NewMeHandler()
 	roleTestHandler := handler.NewRoleTestHandler()
 	academicHandler := handler.NewAcademicHandler(academicClient)
-
+	fileHandler := handler.NewFileHandler(fileClient)
 	authMiddleware := middleware.NewAuthMiddleware(authClient)
 
 	mux := http.NewServeMux()
@@ -120,6 +123,31 @@ mux.Handle(
 		authMiddleware.RequireRole("TATA_USAHA", "SUPER_ADMIN")(
 			http.HandlerFunc(academicHandler.CompleteAcademicRequest),
 		),
+	),
+)
+
+mux.Handle(
+	"/api/v1/student/academic-requests/upload-supporting-document",
+	authMiddleware.RequireAuth(
+		authMiddleware.RequireRole("MAHASISWA")(
+			http.HandlerFunc(fileHandler.UploadAcademicSupportingDocument),
+		),
+	),
+)
+
+mux.Handle(
+	"/api/v1/staff/academic-requests/upload-final-document",
+	authMiddleware.RequireAuth(
+		authMiddleware.RequireRole("TATA_USAHA", "SUPER_ADMIN")(
+			http.HandlerFunc(fileHandler.UploadAcademicFinalDocument),
+		),
+	),
+)
+
+mux.Handle(
+	"/api/v1/academic-requests/files",
+	authMiddleware.RequireAuth(
+		http.HandlerFunc(fileHandler.ListAcademicRequestFiles),
 	),
 )
 
