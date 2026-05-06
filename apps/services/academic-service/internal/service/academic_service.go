@@ -13,6 +13,7 @@ var (
 	ErrInvalidInput             = errors.New("invalid input")
 	ErrAcademicServiceNotFound = errors.New("academic service not found")
 	ErrAcademicRequestNotFound = errors.New("academic request not found")
+	ErrInvalidStatusTransition = errors.New("invalid status transition")
 )
 
 type AcademicService struct {
@@ -94,4 +95,119 @@ func (s *AcademicService) ListMyAcademicRequests(
 	}
 
 	return s.repo.ListByStudentUserID(ctx, studentUserID)
+}
+
+func (s *AcademicService) VerifyAcademicRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.AcademicRequest, error) {
+	return s.workflowAction(
+		ctx,
+		requestID,
+		actorUserID,
+		"ADMIN_PRODI",
+		"ACADEMIC_REQUEST_VERIFIED",
+		"VERIFIED",
+		[]string{"SUBMITTED"},
+		note,
+	)
+}
+
+func (s *AcademicService) ApproveAcademicRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.AcademicRequest, error) {
+	return s.workflowAction(
+		ctx,
+		requestID,
+		actorUserID,
+		"KAPRODI",
+		"ACADEMIC_REQUEST_APPROVED",
+		"APPROVED",
+		[]string{"VERIFIED"},
+		note,
+	)
+}
+
+func (s *AcademicService) RejectAcademicRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.AcademicRequest, error) {
+	return s.workflowAction(
+		ctx,
+		requestID,
+		actorUserID,
+		"KAPRODI",
+		"ACADEMIC_REQUEST_REJECTED",
+		"REJECTED",
+		[]string{"VERIFIED"},
+		note,
+	)
+}
+
+func (s *AcademicService) CompleteAcademicRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.AcademicRequest, error) {
+	return s.workflowAction(
+		ctx,
+		requestID,
+		actorUserID,
+		"TATA_USAHA",
+		"ACADEMIC_REQUEST_COMPLETED",
+		"COMPLETED",
+		[]string{"APPROVED"},
+		note,
+	)
+}
+
+func (s *AcademicService) workflowAction(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	actorRole string,
+	action string,
+	targetStatus string,
+	allowedCurrentStatuses []string,
+	note string,
+) (*model.AcademicRequest, error) {
+	requestID = strings.TrimSpace(requestID)
+	actorUserID = strings.TrimSpace(actorUserID)
+	note = strings.TrimSpace(note)
+
+	if requestID == "" || actorUserID == "" {
+		return nil, ErrInvalidInput
+	}
+
+	req, err := s.repo.UpdateAcademicRequestStatus(
+		ctx,
+		requestID,
+		actorUserID,
+		actorRole,
+		action,
+		targetStatus,
+		allowedCurrentStatuses,
+		note,
+	)
+	if err != nil {
+		if errors.Is(err, repository.ErrAcademicRequestNotFound) {
+			return nil, ErrAcademicRequestNotFound
+		}
+
+		if errors.Is(err, repository.ErrInvalidStatusTransition) {
+			return nil, ErrInvalidStatusTransition
+		}
+
+		return nil, err
+	}
+
+	return req, nil
 }

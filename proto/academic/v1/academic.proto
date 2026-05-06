@@ -9,6 +9,11 @@ service AcademicService {
   rpc CreateAcademicRequest(CreateAcademicRequestRequest) returns (AcademicRequestResponse);
   rpc GetAcademicRequest(GetAcademicRequestRequest) returns (AcademicRequestResponse);
   rpc ListMyAcademicRequests(ListMyAcademicRequestsRequest) returns (ListAcademicRequestsResponse);
+
+  rpc VerifyAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+  rpc ApproveAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+  rpc RejectAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+  rpc CompleteAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -38,6 +43,12 @@ message GetAcademicRequestRequest {
 
 message ListMyAcademicRequestsRequest {
   string student_user_id = 1;
+}
+
+message WorkflowActionRequest {
+  string request_id = 1;
+  string actor_user_id = 2;
+  string note = 3;
 }
 
 message AcademicRequest {

@@ -27,6 +27,11 @@ type CreateAcademicRequestHTTPBody struct {
 	Description string `json:"description"`
 }
 
+type WorkflowActionHTTPBody struct {
+	RequestID string `json:"request_id"`
+	Note      string `json:"note"`
+}
+
 func (h *AcademicHandler) ListAcademicServices(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
@@ -148,6 +153,104 @@ func (h *AcademicHandler) ListMyAcademicRequests(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "list my academic requests success",
+		Data:    res,
+	})
+}
+
+func (h *AcademicHandler) VerifyAcademicRequest(w http.ResponseWriter, r *http.Request) {
+	h.workflowAction(w, r, "verify")
+}
+
+func (h *AcademicHandler) ApproveAcademicRequest(w http.ResponseWriter, r *http.Request) {
+	h.workflowAction(w, r, "approve")
+}
+
+func (h *AcademicHandler) RejectAcademicRequest(w http.ResponseWriter, r *http.Request) {
+	h.workflowAction(w, r, "reject")
+}
+
+func (h *AcademicHandler) CompleteAcademicRequest(w http.ResponseWriter, r *http.Request) {
+	h.workflowAction(w, r, "complete")
+}
+
+func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request, action string) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "missing user id",
+		})
+		return
+	}
+
+	var body WorkflowActionHTTPBody
+
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid request body",
+		})
+		return
+	}
+
+	if body.RequestID == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "request_id is required",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	grpcReq := &academicv1.WorkflowActionRequest{
+		RequestId:    body.RequestID,
+		ActorUserId: userID,
+		Note:        body.Note,
+	}
+
+	var (
+		res *academicv1.AcademicRequestResponse
+		err error
+	)
+
+	switch action {
+	case "verify":
+		res, err = h.academicClient.Client.VerifyAcademicRequest(ctx, grpcReq)
+	case "approve":
+		res, err = h.academicClient.Client.ApproveAcademicRequest(ctx, grpcReq)
+	case "reject":
+		res, err = h.academicClient.Client.RejectAcademicRequest(ctx, grpcReq)
+	case "complete":
+		res, err = h.academicClient.Client.CompleteAcademicRequest(ctx, grpcReq)
+	default:
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid workflow action",
+		})
+		return
+	}
+
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to process workflow action",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "workflow action success",
 		Data:    res,
 	})
 }

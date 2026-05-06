@@ -137,3 +137,95 @@ func toProtoAcademicRequest(req *model.AcademicRequest) *academicv1.AcademicRequ
 		UpdatedAt:         req.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
+
+func (h *AcademicHandler) VerifyAcademicRequest(
+	ctx context.Context,
+	req *academicv1.WorkflowActionRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.VerifyAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
+func (h *AcademicHandler) ApproveAcademicRequest(
+	ctx context.Context,
+	req *academicv1.WorkflowActionRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.ApproveAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
+func (h *AcademicHandler) RejectAcademicRequest(
+	ctx context.Context,
+	req *academicv1.WorkflowActionRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.RejectAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
+func (h *AcademicHandler) CompleteAcademicRequest(
+	ctx context.Context,
+	req *academicv1.WorkflowActionRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.CompleteAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
+func mapWorkflowError(err error) error {
+	if errors.Is(err, service.ErrInvalidInput) {
+		return status.Error(codes.InvalidArgument, "request_id and actor_user_id are required")
+	}
+
+	if errors.Is(err, service.ErrAcademicRequestNotFound) {
+		return status.Error(codes.NotFound, "academic request not found")
+	}
+
+	if errors.Is(err, service.ErrInvalidStatusTransition) {
+		return status.Error(codes.FailedPrecondition, "invalid status transition")
+	}
+
+	return status.Error(codes.Internal, err.Error())
+}

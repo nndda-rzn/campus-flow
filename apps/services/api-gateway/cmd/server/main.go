@@ -87,6 +87,42 @@ func main() {
 		),
 	)
 
+	mux.Handle(
+	"/api/v1/admin/academic-requests/verify",
+	authMiddleware.RequireAuth(
+		authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
+			http.HandlerFunc(academicHandler.VerifyAcademicRequest),
+		),
+	),
+)
+
+mux.Handle(
+	"/api/v1/head/academic-requests/approve",
+	authMiddleware.RequireAuth(
+		authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+			http.HandlerFunc(academicHandler.ApproveAcademicRequest),
+		),
+	),
+)
+
+mux.Handle(
+	"/api/v1/head/academic-requests/reject",
+	authMiddleware.RequireAuth(
+		authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+			http.HandlerFunc(academicHandler.RejectAcademicRequest),
+		),
+	),
+)
+
+mux.Handle(
+	"/api/v1/staff/academic-requests/complete",
+	authMiddleware.RequireAuth(
+		authMiddleware.RequireRole("TATA_USAHA", "SUPER_ADMIN")(
+			http.HandlerFunc(academicHandler.CompleteAcademicRequest),
+		),
+	),
+)
+
 	fmt.Println("API Gateway running on port 8080")
 	fmt.Println("Auth Service target: localhost:50051")
 
@@ -94,3 +130,4 @@ func main() {
 		panic(err)
 	}
 }
+

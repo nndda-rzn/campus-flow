@@ -15,6 +15,7 @@ import (
 var (
 	ErrAcademicServiceNotFound = errors.New("academic service not found")
 	ErrAcademicRequestNotFound = errors.New("academic request not found")
+	ErrInvalidStatusTransition = errors.New("invalid status transition")
 )
 
 type AcademicRepository struct {
@@ -294,4 +295,122 @@ func (r *AcademicRepository) ListByStudentUserID(
 func generateRequestNumber() string {
 	now := time.Now()
 	return fmt.Sprintf("CF-REQ-%s-%04d", now.Format("20060102150405"), now.UnixNano()%10000)
+}
+
+func (r *AcademicRepository) UpdateAcademicRequestStatus(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	actorRole string,
+	action string,
+	targetStatus string,
+	allowedCurrentStatuses []string,
+	note string,
+) (*model.AcademicRequest, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var currentStatus string
+
+	err = tx.QueryRow(ctx, `
+		SELECT status
+		FROM service_requests
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, requestID).Scan(&currentStatus)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrAcademicRequestNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !isStatusAllowed(currentStatus, allowedCurrentStatuses) {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	_, err = tx.Exec(ctx, `
+		UPDATE service_requests
+		SET 
+			status = $1,
+			updated_at = NOW(),
+			completed_at = CASE WHEN $1 = 'COMPLETED' THEN NOW() ELSE completed_at END
+		WHERE id = $2::uuid
+	`, targetStatus, requestID)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO request_status_histories (
+			request_id,
+			old_status,
+			new_status,
+			actor_user_id,
+			note
+		)
+		VALUES ($1::uuid, $2, $3, $4::uuid, $5)
+	`, requestID, currentStatus, targetStatus, actorUserID, note)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO request_approvals (
+			request_id,
+			approver_user_id,
+			approver_role,
+			action,
+			note
+		)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+	`, requestID, actorUserID, actorRole, action, note)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO audit_logs (
+			actor_user_id,
+			action,
+			entity_type,
+			entity_id,
+			metadata
+		)
+		VALUES (
+			$1::uuid,
+			$2,
+			'service_requests',
+			$3::uuid,
+			jsonb_build_object(
+				'old_status', $4,
+				'new_status', $5,
+				'actor_role', $6
+			)
+		)
+	`, actorUserID, action, requestID, currentStatus, targetStatus, actorRole)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return r.GetAcademicRequestByID(ctx, requestID)
+}
+
+func isStatusAllowed(currentStatus string, allowedStatuses []string) bool {
+	for _, status := range allowedStatuses {
+		if currentStatus == status {
+			return true
+		}
+	}
+
+	return false
 }
