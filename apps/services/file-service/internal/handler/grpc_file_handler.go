@@ -113,3 +113,28 @@ func toProtoFile(file *model.File) *filev1.FileItem {
 		CreatedAt:        file.CreatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
+
+func (h *FileHandler) LogFileAccess(
+	ctx context.Context,
+	req *filev1.LogFileAccessRequest,
+) (*filev1.LogFileAccessResponse, error) {
+	err := h.fileService.LogFileAccess(
+		ctx,
+		req.FileId,
+		req.ActorUserId,
+		req.Action,
+		req.IpAddress,
+		req.UserAgent,
+	)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidInput) {
+			return nil, status.Error(codes.InvalidArgument, "file_id, actor_user_id, and action are required")
+		}
+
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &filev1.LogFileAccessResponse{
+		Success: true,
+	}, nil
+}

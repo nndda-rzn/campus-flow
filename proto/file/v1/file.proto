@@ -8,6 +8,7 @@ service FileService {
   rpc RegisterUploadedFile(RegisterUploadedFileRequest) returns (FileResponse);
   rpc GetFileMetadata(GetFileMetadataRequest) returns (FileResponse);
   rpc ListFilesByOwner(ListFilesByOwnerRequest) returns (ListFilesResponse);
+  rpc LogFileAccess(LogFileAccessRequest) returns (LogFileAccessResponse);
 }
 
 message RegisterUploadedFileRequest {
@@ -29,6 +30,18 @@ message GetFileMetadataRequest {
 message ListFilesByOwnerRequest {
   string owner_type = 1;
   string owner_id = 2;
+}
+
+message LogFileAccessRequest {
+  string file_id = 1;
+  string actor_user_id = 2;
+  string action = 3;
+  string ip_address = 4;
+  string user_agent = 5;
+}
+
+message LogFileAccessResponse {
+  bool success = 1;
 }
 
 message FileItem {

@@ -23,7 +23,7 @@ func main() {
 	meHandler := handler.NewMeHandler()
 	roleTestHandler := handler.NewRoleTestHandler()
 	academicHandler := handler.NewAcademicHandler(academicClient)
-	fileHandler := handler.NewFileHandler(fileClient)
+	fileHandler := handler.NewFileHandler(fileClient, academicClient)
 	authMiddleware := middleware.NewAuthMiddleware(authClient)
 
 	mux := http.NewServeMux()
@@ -148,6 +148,13 @@ mux.Handle(
 	"/api/v1/academic-requests/files",
 	authMiddleware.RequireAuth(
 		http.HandlerFunc(fileHandler.ListAcademicRequestFiles),
+	),
+)
+
+mux.Handle(
+	"/api/v1/files/download",
+	authMiddleware.RequireAuth(
+		http.HandlerFunc(fileHandler.DownloadFile),
 	),
 )
 

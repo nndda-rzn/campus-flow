@@ -84,3 +84,24 @@ func (s *FileService) ListFilesByOwner(
 
 	return s.repo.ListFilesByOwner(ctx, ownerType, ownerID)
 }
+
+func (s *FileService) LogFileAccess(
+	ctx context.Context,
+	fileID string,
+	actorUserID string,
+	action string,
+	ipAddress string,
+	userAgent string,
+) error {
+	fileID = strings.TrimSpace(fileID)
+	actorUserID = strings.TrimSpace(actorUserID)
+	action = strings.ToUpper(strings.TrimSpace(action))
+	ipAddress = strings.TrimSpace(ipAddress)
+	userAgent = strings.TrimSpace(userAgent)
+
+	if fileID == "" || actorUserID == "" || action == "" {
+		return ErrInvalidInput
+	}
+
+	return s.repo.LogFileAccess(ctx, fileID, actorUserID, action, ipAddress, userAgent)
+}

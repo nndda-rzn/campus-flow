@@ -240,3 +240,26 @@ func (r *FileRepository) ListFilesByOwner(
 
 	return files, nil
 }
+
+
+func (r *FileRepository) LogFileAccess(
+	ctx context.Context,
+	fileID string,
+	actorUserID string,
+	action string,
+	ipAddress string,
+	userAgent string,
+) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO file_access_logs (
+			file_id,
+			actor_user_id,
+			action,
+			ip_address,
+			user_agent
+		)
+		VALUES ($1::uuid, $2::uuid, $3, $4, $5)
+	`, fileID, actorUserID, action, ipAddress, userAgent)
+
+	return err
+}
