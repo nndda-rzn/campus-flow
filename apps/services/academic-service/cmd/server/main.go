@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"campus-flow/apps/services/academic-service/internal/config"
 	"campus-flow/apps/services/academic-service/internal/handler"
+	"campus-flow/apps/services/academic-service/internal/messaging"
 	"campus-flow/apps/services/academic-service/internal/repository"
 	"campus-flow/apps/services/academic-service/internal/service"
+	"campus-flow/apps/services/academic-service/internal/worker"
 	academicv1 "campus-flow/proto/gen/academic/v1"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,6 +36,24 @@ func main() {
 	academicService := service.NewAcademicService(academicRepo)
 	academicHandler := handler.NewAcademicHandler(academicService)
 
+	outboxRepo := repository.NewOutboxRepository(dbpool)
+
+	rabbitPublisher, err := messaging.NewRabbitMQPublisher(cfg.RabbitMQURL, "campusflow.events")
+	if err != nil {
+		log.Fatalf("failed to connect rabbitmq: %v", err)
+	}
+	defer rabbitPublisher.Close()
+
+	workerCtx, cancelWorker := context.WithCancel(context.Background())
+	defer cancelWorker()
+
+	go worker.StartOutboxPublisher(
+		workerCtx,
+		outboxRepo,
+		rabbitPublisher,
+		3*time.Second,
+	)
+
 	listener, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -43,6 +64,7 @@ func main() {
 
 	fmt.Println("Academic Service gRPC running on port", cfg.GRPCPort)
 	fmt.Println("Academic Service connected to academic_db")
+	fmt.Println("Academic Service outbox publisher started")
 
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("failed to serve grpc: %v", err)

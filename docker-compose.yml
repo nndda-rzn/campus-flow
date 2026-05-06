@@ -14,9 +14,24 @@ services:
     networks:
       - campusflow-network
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: campusflow-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: campusflow
+      RABBITMQ_DEFAULT_PASS: campusflow_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - campusflow_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - campusflow-network
+
 networks:
   campusflow-network:
     driver: bridge
 
 volumes:
   campusflow_postgres_data:
+  campusflow_rabbitmq_data:

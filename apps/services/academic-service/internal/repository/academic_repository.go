@@ -179,6 +179,32 @@ func (r *AcademicRepository) CreateAcademicRequest(
 		return nil, err
 	}
 
+	_, err = tx.Exec(ctx, `
+	INSERT INTO outbox_events (
+		aggregate_id,
+		aggregate_type,
+		event_type,
+		payload
+	)
+	VALUES (
+		$1::uuid,
+		'service_requests',
+		'academic_request.created',
+		jsonb_build_object(
+			'request_id', $1::text,
+			'request_number', $2,
+			'student_user_id', $3,
+			'status', $4,
+			'service_code', $5,
+			'service_name', $6,
+			'title', $7
+		)
+	)
+`, req.ID, req.RequestNumber, req.StudentUserID, req.Status, req.ServiceCode, req.ServiceName, req.Title)
+if err != nil {
+	return nil, err
+}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -314,13 +340,18 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	defer tx.Rollback(ctx)
 
 	var currentStatus string
+var studentUserID string
+var requestNumber string
 
-	err = tx.QueryRow(ctx, `
-		SELECT status
-		FROM service_requests
-		WHERE id = $1::uuid
-		FOR UPDATE
-	`, requestID).Scan(&currentStatus)
+err = tx.QueryRow(ctx, `
+	SELECT 
+		status,
+		student_user_id::text,
+		request_number
+	FROM service_requests
+	WHERE id = $1::uuid
+	FOR UPDATE
+`, requestID).Scan(&currentStatus, &studentUserID, &requestNumber)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAcademicRequestNotFound
@@ -398,6 +429,35 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 		return nil, err
 	}
 
+		eventType := academicRequestEventType(targetStatus)
+
+_, err = tx.Exec(ctx, `
+	INSERT INTO outbox_events (
+		aggregate_id,
+		aggregate_type,
+		event_type,
+		payload
+	)
+	VALUES (
+		$1::uuid,
+		'service_requests',
+		$2,
+		jsonb_build_object(
+			'request_id', $1::text,
+			'request_number', $3,
+			'student_user_id', $4,
+			'old_status', $5,
+			'status', $6,
+			'actor_user_id', $7,
+			'actor_role', $8,
+			'note', $9
+		)
+	)
+`, requestID, eventType, requestNumber, studentUserID, currentStatus, targetStatus, actorUserID, actorRole, note)
+if err != nil {
+	return nil, err
+}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
@@ -413,4 +473,19 @@ func isStatusAllowed(currentStatus string, allowedStatuses []string) bool {
 	}
 
 	return false
+}
+
+func academicRequestEventType(status string) string {
+	switch status {
+	case "VERIFIED":
+		return "academic_request.verified"
+	case "APPROVED":
+		return "academic_request.approved"
+	case "REJECTED":
+		return "academic_request.rejected"
+	case "COMPLETED":
+		return "academic_request.completed"
+	default:
+		return "academic_request.updated"
+	}
 }

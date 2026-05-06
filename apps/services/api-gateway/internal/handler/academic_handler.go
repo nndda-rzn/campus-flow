@@ -126,18 +126,6 @@ func (h *AcademicHandler) CreateAcademicRequest(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if res != nil && res.Request != nil {
-		h.createNotificationSilently(
-			r.Context(),
-			userID,
-			"Pengajuan berhasil dibuat",
-			"Pengajuan layanan akademik Anda berhasil dibuat dengan status SUBMITTED.",
-			"SUCCESS",
-			"ACADEMIC_REQUEST",
-			res.Request.Id,
-		)
-	}
-
 	writeJSON(w, http.StatusCreated, APIResponse{
 		Success: true,
 		Message: "create academic request success",
@@ -265,20 +253,6 @@ func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request,
 			Message: "failed to process workflow action",
 		})
 		return
-	}
-
-	if res != nil && res.Request != nil {
-		title, message, notificationType := buildAcademicWorkflowNotification(action, res.Request.Status)
-
-		h.createNotificationSilently(
-			r.Context(),
-			res.Request.StudentUserId,
-			title,
-			message,
-			notificationType,
-			"ACADEMIC_REQUEST",
-			res.Request.Id,
-		)
 	}
 
 	writeJSON(w, http.StatusOK, APIResponse{
