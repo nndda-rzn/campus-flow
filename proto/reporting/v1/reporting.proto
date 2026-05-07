@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package campusflow.reporting.v1;
+
+option go_package = "campus-flow/proto/gen/reporting/v1;reportingv1";
+
+service ReportingService {
+  rpc GetAcademicDashboard(GetAcademicDashboardRequest) returns (AcademicDashboardResponse);
+}
+
+message GetAcademicDashboardRequest {}
+
+message StatusCount {
+  string status = 1;
+  int64 total = 2;
+}
+
+message AcademicDashboardResponse {
+  int64 total_requests = 1;
+  int64 submitted_requests = 2;
+  int64 verified_requests = 3;
+  int64 approved_requests = 4;
+  int64 rejected_requests = 5;
+  int64 completed_requests = 6;
+  repeated StatusCount status_counts = 7;
+}

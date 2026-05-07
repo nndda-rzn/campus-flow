@@ -22,6 +22,9 @@ func main() {
 	notificationClient := client.NewNotificationClient("localhost:50054")
 	defer notificationClient.Close()
 
+	reportingClient := client.NewReportingClient("localhost:50055")
+	defer reportingClient.Close()
+
 	authHandler := handler.NewAuthHandler(authClient)
 	meHandler := handler.NewMeHandler()
 	roleTestHandler := handler.NewRoleTestHandler()
@@ -29,6 +32,7 @@ func main() {
 	fileHandler := handler.NewFileHandler(fileClient, academicClient)
 	authMiddleware := middleware.NewAuthMiddleware(authClient)
 	notificationHandler := handler.NewNotificationHandler(notificationClient)
+	reportingHandler := handler.NewReportingHandler(reportingClient)
 
 	mux := http.NewServeMux()
 
@@ -173,6 +177,15 @@ mux.Handle(
 	"/api/v1/notifications/read",
 	authMiddleware.RequireAuth(
 		http.HandlerFunc(notificationHandler.MarkNotificationAsRead),
+	),
+)
+
+mux.Handle(
+	"/api/v1/reports/academic-requests",
+	authMiddleware.RequireAuth(
+		authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "TATA_USAHA")(
+			http.HandlerFunc(reportingHandler.GetAcademicDashboard),
+		),
 	),
 )
 
