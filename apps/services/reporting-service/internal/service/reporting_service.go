@@ -22,3 +22,9 @@ func (s *ReportingService) GetAcademicDashboard(
 ) (*model.AcademicDashboard, error) {
 	return s.repo.GetAcademicDashboard(ctx)
 }
+
+func (s *ReportingService) GetSupervisorDashboard(
+	ctx context.Context,
+) (*model.SupervisorDashboard, error) {
+	return s.repo.GetSupervisorDashboard(ctx)
+}

@@ -12,6 +12,16 @@ type AcademicRequestSnapshot struct {
 	SourceEventType string
 }
 
+type SupervisorRequestSnapshot struct {
+	RequestID       string
+	RequestNumber   string
+	StudentUserID   string
+	TopicTitle      string
+	Status          string
+	SourceEventID   string
+	SourceEventType string
+}
+
 type StatusCount struct {
 	Status string
 	Total  int64
@@ -22,6 +32,17 @@ type AcademicDashboard struct {
 	SubmittedRequests int64
 	VerifiedRequests  int64
 	ApprovedRequests  int64
+	RejectedRequests  int64
+	CompletedRequests int64
+	StatusCounts      []StatusCount
+}
+
+type SupervisorDashboard struct {
+	TotalRequests     int64
+	SubmittedRequests int64
+	VerifiedRequests  int64
+	AssignedRequests  int64
+	AcceptedRequests  int64
 	RejectedRequests  int64
 	CompletedRequests int64
 	StatusCounts      []StatusCount

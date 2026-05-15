@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 
 	"campus-flow/apps/services/reporting-service/internal/model"
@@ -12,7 +13,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type AcademicRequestEventPayload struct {
+type RequestEventPayload struct {
 	RequestID     string `json:"request_id"`
 	RequestNumber string `json:"request_number"`
 	StudentUserID string `json:"student_user_id"`
@@ -21,6 +22,7 @@ type AcademicRequestEventPayload struct {
 	ServiceCode   string `json:"service_code"`
 	ServiceName   string `json:"service_name"`
 	Title         string `json:"title"`
+	TopicTitle    string `json:"topic_title"`
 	ActorUserID   string `json:"actor_user_id"`
 	ActorRole     string `json:"actor_role"`
 	Note          string `json:"note"`
@@ -85,7 +87,7 @@ func handleDelivery(
 		return
 	}
 
-	if err := projectAcademicRequestEvent(processCtx, repo, eventID, eventType, delivery.Body); err != nil {
+	if err := projectRequestEvent(processCtx, repo, eventID, eventType, delivery.Body); err != nil {
 		log.Printf("failed to project reporting event %s: %v", eventID, err)
 		_ = delivery.Nack(false, false)
 		return
@@ -101,6 +103,25 @@ func handleDelivery(
 	log.Printf("reporting event projected: %s", eventType)
 }
 
+func projectRequestEvent(
+	ctx context.Context,
+	repo *repository.ReportingRepository,
+	eventID string,
+	eventType string,
+	body []byte,
+) error {
+	if strings.HasPrefix(eventType, "academic_request.") {
+		return projectAcademicRequestEvent(ctx, repo, eventID, eventType, body)
+	}
+
+	if strings.HasPrefix(eventType, "supervisor_request.") {
+		return projectSupervisorRequestEvent(ctx, repo, eventID, eventType, body)
+	}
+
+	log.Printf("reporting event ignored because event type is unsupported: %s", eventType)
+	return nil
+}
+
 func projectAcademicRequestEvent(
 	ctx context.Context,
 	repo *repository.ReportingRepository,
@@ -108,14 +129,14 @@ func projectAcademicRequestEvent(
 	eventType string,
 	body []byte,
 ) error {
-	var payload AcademicRequestEventPayload
+	var payload RequestEventPayload
 
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return err
 	}
 
 	if payload.RequestID == "" || payload.StudentUserID == "" {
-		log.Printf("reporting event ignored because payload is incomplete: %s", eventType)
+		log.Printf("academic reporting event ignored because payload is incomplete: %s", eventType)
 		return nil
 	}
 
@@ -139,6 +160,42 @@ func projectAcademicRequestEvent(
 	return repo.UpsertAcademicRequestSnapshot(ctx, snapshot)
 }
 
+func projectSupervisorRequestEvent(
+	ctx context.Context,
+	repo *repository.ReportingRepository,
+	eventID string,
+	eventType string,
+	body []byte,
+) error {
+	var payload RequestEventPayload
+
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return err
+	}
+
+	if payload.RequestID == "" || payload.StudentUserID == "" {
+		log.Printf("supervisor reporting event ignored because payload is incomplete: %s", eventType)
+		return nil
+	}
+
+	status := payload.Status
+	if status == "" {
+		status = supervisorStatusFromEventType(eventType)
+	}
+
+	snapshot := model.SupervisorRequestSnapshot{
+		RequestID:       payload.RequestID,
+		RequestNumber:   payload.RequestNumber,
+		StudentUserID:   payload.StudentUserID,
+		TopicTitle:      payload.TopicTitle,
+		Status:          status,
+		SourceEventID:   eventID,
+		SourceEventType: eventType,
+	}
+
+	return repo.UpsertSupervisorRequestSnapshot(ctx, snapshot)
+}
+
 func statusFromEventType(eventType string) string {
 	switch eventType {
 	case "academic_request.created":
@@ -150,6 +207,25 @@ func statusFromEventType(eventType string) string {
 	case "academic_request.rejected":
 		return "REJECTED"
 	case "academic_request.completed":
+		return "COMPLETED"
+	default:
+		return "UNKNOWN"
+	}
+}
+
+func supervisorStatusFromEventType(eventType string) string {
+	switch eventType {
+	case "supervisor_request.created":
+		return "SUBMITTED"
+	case "supervisor_request.verified":
+		return "VERIFIED"
+	case "supervisor_request.assigned":
+		return "ASSIGNED"
+	case "supervisor_request.accepted":
+		return "ACCEPTED"
+	case "supervisor_request.rejected":
+		return "REJECTED"
+	case "supervisor_request.completed":
 		return "COMPLETED"
 	default:
 		return "UNKNOWN"

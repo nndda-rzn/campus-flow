@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 	"time"
 
 	"campus-flow/apps/services/notification-service/internal/repository"
@@ -12,7 +13,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-type AcademicRequestEventPayload struct {
+type RequestEventPayload struct {
 	RequestID     string `json:"request_id"`
 	RequestNumber string `json:"request_number"`
 	StudentUserID string `json:"student_user_id"`
@@ -21,6 +22,7 @@ type AcademicRequestEventPayload struct {
 	ServiceCode   string `json:"service_code"`
 	ServiceName   string `json:"service_name"`
 	Title         string `json:"title"`
+	TopicTitle    string `json:"topic_title"`
 	ActorUserID   string `json:"actor_user_id"`
 	ActorRole     string `json:"actor_role"`
 	Note          string `json:"note"`
@@ -109,7 +111,7 @@ func createNotificationFromEvent(
 	eventType string,
 	body []byte,
 ) error {
-	var payload AcademicRequestEventPayload
+	var payload RequestEventPayload
 
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return err
@@ -117,13 +119,18 @@ func createNotificationFromEvent(
 
 	title, message, notificationType := buildNotificationContent(eventType, payload)
 
+	entityType := "ACADEMIC_REQUEST"
+	if strings.HasPrefix(eventType, "supervisor_request.") {
+		entityType = "SUPERVISOR_REQUEST"
+	}
+
 	_, err := notificationService.CreateNotification(
 		ctx,
 		payload.StudentUserID,
 		title,
 		message,
 		notificationType,
-		"ACADEMIC_REQUEST",
+		entityType,
 		payload.RequestID,
 	)
 
@@ -132,7 +139,7 @@ func createNotificationFromEvent(
 
 func buildNotificationContent(
 	eventType string,
-	payload AcademicRequestEventPayload,
+	payload RequestEventPayload,
 ) (string, string, string) {
 	switch eventType {
 	case "academic_request.created":
@@ -160,9 +167,34 @@ func buildNotificationContent(
 			"Pengajuan layanan akademik Anda sudah selesai diproses.",
 			"SUCCESS"
 
+	case "supervisor_request.created":
+		return "Pengajuan pembimbing berhasil dibuat",
+			"Pengajuan dosen pembimbing Anda berhasil dibuat dengan nomor " + payload.RequestNumber + ".",
+			"SUCCESS"
+
+	case "supervisor_request.verified":
+		return "Pengajuan pembimbing diverifikasi",
+			"Pengajuan dosen pembimbing Anda sudah diverifikasi oleh Admin Prodi.",
+			"INFO"
+
+	case "supervisor_request.assigned":
+		return "Dosen pembimbing ditetapkan",
+			"Kaprodi sudah menetapkan dosen pembimbing untuk pengajuan Anda.",
+			"SUCCESS"
+
+	case "supervisor_request.accepted":
+		return "Dosen menerima penetapan",
+			"Dosen yang ditetapkan telah menerima pengajuan pembimbing Anda.",
+			"SUCCESS"
+
+	case "supervisor_request.rejected":
+		return "Dosen menolak penetapan",
+			"Dosen yang ditetapkan menolak pengajuan pembimbing Anda.",
+			"WARNING"
+
 	default:
 		return "Status pengajuan diperbarui",
-			"Status pengajuan layanan akademik Anda berubah menjadi " + payload.Status + ".",
+			"Status pengajuan Anda berubah menjadi " + payload.Status + ".",
 			"INFO"
 	}
 }

@@ -48,3 +48,32 @@ func (h *ReportingHandler) GetAcademicDashboard(
 		StatusCounts:      statusCounts,
 	}, nil
 }
+
+func (h *ReportingHandler) GetSupervisorDashboard(
+	ctx context.Context,
+	req *reportingv1.GetSupervisorDashboardRequest,
+) (*reportingv1.SupervisorDashboardResponse, error) {
+	dashboard, err := h.reportingService.GetSupervisorDashboard(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	statusCounts := make([]*reportingv1.StatusCount, 0, len(dashboard.StatusCounts))
+	for _, item := range dashboard.StatusCounts {
+		statusCounts = append(statusCounts, &reportingv1.StatusCount{
+			Status: item.Status,
+			Total:  item.Total,
+		})
+	}
+
+	return &reportingv1.SupervisorDashboardResponse{
+		TotalRequests:     dashboard.TotalRequests,
+		SubmittedRequests: dashboard.SubmittedRequests,
+		VerifiedRequests:  dashboard.VerifiedRequests,
+		AssignedRequests:  dashboard.AssignedRequests,
+		AcceptedRequests:  dashboard.AcceptedRequests,
+		RejectedRequests:  dashboard.RejectedRequests,
+		CompletedRequests: dashboard.CompletedRequests,
+		StatusCounts:      statusCounts,
+	}, nil
+}

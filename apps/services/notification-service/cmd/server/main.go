@@ -43,6 +43,7 @@ func main() {
 		"q.notification",
 		[]string{
 			"academic_request.*",
+			"supervisor_request.*",
 		},
 	)
 	if err != nil {

@@ -46,3 +46,31 @@ func (h *ReportingHandler) GetAcademicDashboard(w http.ResponseWriter, r *http.R
 		Data:    res,
 	})
 }
+
+func (h *ReportingHandler) GetSupervisorDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.reportingClient.Client.GetSupervisorDashboard(ctx, &reportingv1.GetSupervisorDashboardRequest{})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to get supervisor dashboard",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "get supervisor dashboard success",
+		Data:    res,
+	})
+}
