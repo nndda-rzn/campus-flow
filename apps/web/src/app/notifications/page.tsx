@@ -1,34 +1,65 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  Bell,
+  CheckCheck,
+  CheckCircle2,
+  Inbox,
+  Info,
+  XCircle,
+} from "lucide-react";
+import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
-  NotificationItem,
   listMyNotifications,
   markNotificationAsRead,
+  type NotificationItem,
 } from "@/lib/notification-api";
+import { cn } from "@/lib/cn";
+
+type FilterValue = "ALL" | "UNREAD" | "READ";
 
 export default function NotificationsPage() {
+  return (
+    <ProtectedPage
+      title="Notifikasi"
+      description="Pemberitahuan dari workflow akademik dan pengajuan dosen pembimbing."
+    >
+      <NotificationsContent />
+    </ProtectedPage>
+  );
+}
+
+function NotificationsContent() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [filter, setFilter] = useState<"ALL" | "UNREAD" | "READ">("ALL");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  const [filter, setFilter] = useState<FilterValue>("ALL");
   const [isLoading, setIsLoading] = useState(true);
+  const [isMarkingAll, setIsMarkingAll] = useState(false);
 
   async function loadNotifications() {
     const token = getAccessToken();
     if (!token) return;
 
     setIsLoading(true);
-    setError("");
-
     try {
       const response = await listMyNotifications(token);
       setNotifications(response.data.notifications);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat notifikasi");
+      toast.error("Gagal memuat notifikasi", {
+        description:
+          err instanceof Error ? err.message : "Terjadi kesalahan jaringan",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -39,33 +70,39 @@ export default function NotificationsPage() {
   }, []);
 
   const unreadCount = useMemo(
-    () => notifications.filter((item) => !item.isRead).length,
+    () => notifications.filter((n) => !n.isRead).length,
     [notifications],
   );
 
   const filteredNotifications = useMemo(() => {
-    if (filter === "UNREAD")
-      return notifications.filter((item) => !item.isRead);
-    if (filter === "READ") return notifications.filter((item) => item.isRead);
+    if (filter === "UNREAD") return notifications.filter((n) => !n.isRead);
+    if (filter === "READ") return notifications.filter((n) => n.isRead);
     return notifications;
   }, [filter, notifications]);
 
-  async function handleMarkAsRead(notificationId: string) {
+  async function handleMarkAsRead(notification: NotificationItem) {
     const token = getAccessToken();
     if (!token) return;
 
-    setMessage("");
-    setError("");
+    // Optimistic update
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n)),
+    );
 
     try {
-      await markNotificationAsRead(token, { notification_id: notificationId });
-      await loadNotifications();
+      await markNotificationAsRead(token, {
+        notification_id: notification.id,
+      });
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Gagal menandai notifikasi sebagai dibaca",
+      // Rollback
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notification.id ? { ...n, isRead: false } : n,
+        ),
       );
+      toast.error("Gagal menandai notifikasi", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
     }
   }
 
@@ -73,249 +110,263 @@ export default function NotificationsPage() {
     const token = getAccessToken();
     if (!token) return;
 
-    const unread = notifications.filter((item) => !item.isRead);
-    setMessage("");
-    setError("");
+    const unread = notifications.filter((n) => !n.isRead);
+    if (unread.length === 0) return;
+
+    setIsMarkingAll(true);
 
     try {
       await Promise.all(
-        unread.map((item) =>
-          markNotificationAsRead(token, { notification_id: item.id }),
+        unread.map((n) =>
+          markNotificationAsRead(token, { notification_id: n.id }),
         ),
       );
-      setMessage("Semua notifikasi berhasil ditandai sebagai dibaca.");
-      await loadNotifications();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      toast.success(`${unread.length} notifikasi ditandai dibaca`);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Gagal menandai semua notifikasi",
-      );
+      toast.error("Gagal menandai semua", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
+      await loadNotifications();
+    } finally {
+      setIsMarkingAll(false);
     }
   }
 
   return (
-    <ProtectedPage
-      title="Notifikasi"
-      description="Pemberitahuan dari workflow akademik dan pengajuan dosen pembimbing."
-    >
-      {/* Summary cards */}
-      <div className="mb-6 grid gap-3 md:grid-cols-3">
-        <Metric label="Total" value={notifications.length} accent="primary" />
-        <Metric label="Belum Dibaca" value={unreadCount} accent="accent" />
-        <Metric
-          label="Sudah Dibaca"
-          value={notifications.length - unreadCount}
-          accent="success"
-        />
+    <div className="space-y-4">
+      {/* ── Toolbar ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs
+          value={filter}
+          onValueChange={(value) => setFilter(value as FilterValue)}
+        >
+          <TabsList>
+            <TabsTrigger value="ALL">
+              Semua
+              <span className="ml-1 rounded-full bg-background-alt px-1.5 py-0 text-[10.5px] font-semibold tabular-nums leading-tight text-text-secondary">
+                {notifications.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="UNREAD">
+              Belum Dibaca
+              {unreadCount > 0 ? (
+                <span className="ml-1 rounded-full bg-info-soft px-1.5 py-0 text-[10.5px] font-semibold tabular-nums leading-tight text-info-text">
+                  {unreadCount}
+                </span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="READ">Sudah Dibaca</TabsTrigger>
+          </TabsList>
+        </Tabs>
+
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={handleMarkAllAsRead}
+          disabled={unreadCount === 0 || isMarkingAll}
+          loading={isMarkingAll}
+        >
+          {!isMarkingAll && <CheckCheck className="size-3.5" />}
+          Tandai Semua Dibaca
+        </Button>
       </div>
 
-      <div className="card">
-        {/* Header with tabs */}
-        <div className="flex flex-col justify-between gap-3 border-b border-border px-6 py-4 md:flex-row md:items-center">
-          <div className="flex flex-wrap gap-1 rounded-lg bg-background-alt p-1">
-            <FilterTab
-              active={filter === "ALL"}
-              onClick={() => setFilter("ALL")}
-            >
-              Semua
-            </FilterTab>
-            <FilterTab
-              active={filter === "UNREAD"}
-              onClick={() => setFilter("UNREAD")}
-            >
-              Belum Dibaca {unreadCount > 0 ? `(${unreadCount})` : ""}
-            </FilterTab>
-            <FilterTab
-              active={filter === "READ"}
-              onClick={() => setFilter("READ")}
-            >
-              Sudah Dibaca
-            </FilterTab>
-          </div>
-
-          <button
-            onClick={handleMarkAllAsRead}
-            disabled={unreadCount === 0}
-            className="btn btn-secondary btn-sm"
-          >
-            Tandai Semua Dibaca
-          </button>
-        </div>
-
-        {/* Messages */}
-        {message ? (
-          <div className="px-6 pt-4">
-            <div className="alert alert-success">{message}</div>
-          </div>
-        ) : null}
-        {error ? (
-          <div className="px-6 pt-4">
-            <div className="alert alert-danger">{error}</div>
-          </div>
-        ) : null}
-
-        {/* List */}
+      {/* ── List ── */}
+      <Card className="overflow-hidden">
         {isLoading ? (
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm text-text-muted">Memuat notifikasi...</p>
-          </div>
+          <NotificationListSkeleton />
         ) : filteredNotifications.length === 0 ? (
-          <div className="px-6 py-12 text-center">
-            <p className="text-sm text-text-muted">
-              Tidak ada notifikasi untuk filter ini.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Inbox className="size-4" />}
+            title={
+              filter === "UNREAD"
+                ? "Tidak ada notifikasi baru"
+                : "Belum ada notifikasi"
+            }
+            description={
+              filter === "UNREAD"
+                ? "Semua notifikasi sudah dibaca. Akan muncul di sini saat ada update workflow baru."
+                : "Notifikasi dari workflow akan muncul di sini secara otomatis."
+            }
+          />
         ) : (
-          <ul className="divide-y divide-border">
-            {filteredNotifications.map((n) => (
-              <li
-                key={n.id}
-                className={`flex items-start gap-4 px-6 py-4 ${
-                  !n.isRead ? "bg-primary-soft/30" : ""
-                }`}
-              >
-                {/* Type icon */}
-                <div
-                  className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${typeIconClass(n.type)}`}
-                >
-                  <NotifIcon type={n.type} />
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-medium text-text-primary">{n.title}</h3>
-                    {!n.isRead ? (
-                      <span className="inline-block h-2 w-2 rounded-full bg-accent" />
-                    ) : null}
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-text-secondary">
-                    {n.message}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-text-muted">
-                    {n.entityType ? <span>{n.entityType}</span> : null}
-                    {n.createdAt ? <span>{n.createdAt}</span> : null}
-                  </div>
-                </div>
-
-                {!n.isRead ? (
-                  <button
-                    onClick={() => handleMarkAsRead(n.id)}
-                    className="btn btn-secondary btn-sm shrink-0"
-                  >
-                    Tandai Dibaca
-                  </button>
-                ) : null}
-              </li>
+          <ul>
+            {filteredNotifications.map((notification, idx) => (
+              <NotificationRow
+                key={notification.id}
+                notification={notification}
+                isLast={idx === filteredNotifications.length - 1}
+                onMarkAsRead={() => handleMarkAsRead(notification)}
+              />
             ))}
           </ul>
         )}
-      </div>
-    </ProtectedPage>
-  );
-}
-
-// ─── Components ──────────────────────────────────────────────────────────────
-
-function Metric({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: number;
-  accent: "primary" | "accent" | "success";
-}) {
-  const accentColor: Record<typeof accent, string> = {
-    primary: "bg-primary",
-    accent: "bg-accent",
-    success: "bg-success",
-  };
-
-  return (
-    <div className="card relative overflow-hidden">
-      <div
-        className={`absolute left-0 top-0 h-full w-1 ${accentColor[accent]}`}
-      />
-      <div className="px-5 py-4 pl-6">
-        <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-          {label}
-        </p>
-        <p className="mt-1 text-2xl font-bold text-text-primary tabular-nums">
-          {value.toLocaleString()}
-        </p>
-      </div>
+      </Card>
     </div>
   );
 }
 
-function FilterTab({
-  active,
-  onClick,
-  children,
+// ─── Row ─────────────────────────────────────────────────────────────────────
+
+function NotificationRow({
+  notification,
+  isLast,
+  onMarkAsRead,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  notification: NotificationItem;
+  isLast: boolean;
+  onMarkAsRead: () => void;
 }) {
+  const cfg = typeConfig(notification.type);
+  const Icon = cfg.icon;
+
   return (
-    <button
-      onClick={onClick}
-      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-        active
-          ? "bg-surface text-text-primary shadow-sm"
-          : "text-text-muted hover:text-text-primary"
-      }`}
+    <li
+      className={cn(
+        "group relative flex items-start gap-3 px-5 py-4 transition-colors",
+        !isLast && "border-b border-border",
+        !notification.isRead && "bg-info-soft/20",
+      )}
     >
-      {children}
-    </button>
+      {/* Unread indicator (left rail) */}
+      {!notification.isRead ? (
+        <span
+          aria-hidden
+          className="absolute left-0 top-0 h-full w-0.5 bg-info"
+        />
+      ) : null}
+
+      {/* Type icon */}
+      <span
+        className={cn(
+          "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md border",
+          cfg.iconBg,
+        )}
+      >
+        <Icon className="size-3.5" />
+      </span>
+
+      {/* Content */}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <p
+            className={cn(
+              "flex-1 text-[13.5px] leading-tight",
+              !notification.isRead
+                ? "font-semibold text-text-primary"
+                : "font-medium text-text-secondary",
+            )}
+          >
+            {notification.title}
+          </p>
+          {!notification.isRead ? (
+            <span className="mt-1 size-1.5 shrink-0 rounded-full bg-info" />
+          ) : null}
+        </div>
+        <p className="mt-1 text-[13px] leading-relaxed text-text-secondary">
+          {notification.message}
+        </p>
+
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11.5px] text-text-muted">
+          {notification.entityType ? (
+            <Badge variant="outline" withDot={false} className="!py-0">
+              {notification.entityType.replace(/_/g, " ").toLowerCase()}
+            </Badge>
+          ) : null}
+          {notification.createdAt ? (
+            <span>{formatRelative(notification.createdAt)}</span>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Action */}
+      {!notification.isRead ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onMarkAsRead}
+          className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
+        >
+          <CheckCircle2 className="size-3.5" />
+          Tandai dibaca
+        </Button>
+      ) : null}
+    </li>
   );
 }
 
-function typeIconClass(type: string) {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function NotificationListSkeleton() {
+  return (
+    <ul>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <li
+          key={i}
+          className="flex items-start gap-3 border-b border-border px-5 py-4 last:border-b-0"
+        >
+          <Skeleton className="size-8 shrink-0 rounded-md" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-1/3" />
+            <Skeleton className="h-3 w-2/3" />
+            <Skeleton className="h-2.5 w-24" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function typeConfig(type: string) {
   switch (type) {
     case "SUCCESS":
-      return "bg-success-soft text-success";
+      return {
+        icon: CheckCircle2,
+        iconBg: "bg-success-soft text-success border-success-soft",
+      };
     case "WARNING":
-      return "bg-warning-soft text-warning";
+      return {
+        icon: AlertTriangle,
+        iconBg: "bg-warning-soft text-warning border-warning-soft",
+      };
     case "ERROR":
-      return "bg-danger-soft text-danger";
+      return {
+        icon: XCircle,
+        iconBg: "bg-danger-soft text-danger border-danger-soft",
+      };
+    case "INFO":
+      return {
+        icon: Info,
+        iconBg: "bg-info-soft text-info border-info-soft",
+      };
     default:
-      return "bg-info-soft text-info";
+      return {
+        icon: Bell,
+        iconBg: "bg-background-alt text-text-secondary border-border",
+      };
   }
 }
 
-function NotifIcon({ type }: { type: string }) {
-  // Simple bell icon, could be customized per type
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {type === "SUCCESS" ? (
-        <polyline points="20 6 9 17 4 12" />
-      ) : type === "ERROR" ? (
-        <>
-          <circle cx="12" cy="12" r="10" />
-          <line x1="15" y1="9" x2="9" y2="15" />
-          <line x1="9" y1="9" x2="15" y2="15" />
-        </>
-      ) : type === "WARNING" ? (
-        <>
-          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-          <line x1="12" y1="9" x2="12" y2="13" />
-          <line x1="12" y1="17" x2="12.01" y2="17" />
-        </>
-      ) : (
-        <>
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-        </>
-      )}
-    </svg>
-  );
+function formatRelative(dateStr: string | undefined | null): string {
+  if (!dateStr) return "—";
+  const isoLike = dateStr.replace(" ", "T");
+  const date = new Date(isoLike);
+  if (isNaN(date.getTime())) return dateStr;
+
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "Baru saja";
+  if (minutes < 60) return `${minutes} menit lalu`;
+  if (hours < 24) return `${hours} jam lalu`;
+  if (days < 7) return `${days} hari lalu`;
+
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }

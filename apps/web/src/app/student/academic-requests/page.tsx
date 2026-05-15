@@ -1,10 +1,33 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { FormEvent, useEffect, useState } from "react";
+import {
+  ChevronDown,
+  Clock,
+  FileText,
+  PlusCircle,
+  Sparkles,
+} from "lucide-react";
+import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { FileSection } from "@/components/academic/file-section";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   AcademicRequest,
@@ -13,42 +36,56 @@ import {
   listAcademicServices,
   listMyAcademicRequests,
 } from "@/lib/academic-api";
+import { cn } from "@/lib/cn";
 
 export default function StudentAcademicRequestsPage() {
+  return (
+    <ProtectedPage
+      title="Pengajuan Layanan Akademik"
+      description="Buat pengajuan baru dan pantau status pengajuan yang sedang diproses."
+      allowedRoles={["MAHASISWA"]}
+    >
+      <PageContent />
+    </ProtectedPage>
+  );
+}
+
+function PageContent() {
   const [services, setServices] = useState<AcademicServiceItem[]>([]);
   const [requests, setRequests] = useState<AcademicRequest[]>([]);
   const [serviceCode, setServiceCode] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(
-    null,
-  );
+  const [isLoadingList, setIsLoadingList] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   async function loadData() {
     const token = getAccessToken();
     if (!token) return;
 
-    const [servicesResponse, requestsResponse] = await Promise.all([
-      listAcademicServices(token),
-      listMyAcademicRequests(token),
-    ]);
+    try {
+      const [servicesResponse, requestsResponse] = await Promise.all([
+        listAcademicServices(token),
+        listMyAcademicRequests(token),
+      ]);
 
-    setServices(servicesResponse.data?.services ?? []);
-    setRequests(requestsResponse.data?.requests ?? []);
+      const svc = servicesResponse.data?.services ?? [];
+      setServices(svc);
+      setRequests(requestsResponse.data?.requests ?? []);
 
-    const firstService = servicesResponse.data?.services?.[0];
-    if (firstService && !serviceCode) {
-      setServiceCode(firstService.code);
+      if (svc[0] && !serviceCode) setServiceCode(svc[0].code);
+    } catch (err) {
+      toast.error("Gagal memuat data", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
+    } finally {
+      setIsLoadingList(false);
     }
   }
 
   useEffect(() => {
-    loadData().catch((err) => {
-      setError(err instanceof Error ? err.message : "Gagal memuat data");
-    });
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -56,14 +93,11 @@ export default function StudentAcademicRequestsPage() {
     event.preventDefault();
     const token = getAccessToken();
     if (!token) {
-      setError("Token tidak ditemukan. Silakan login ulang.");
+      toast.error("Sesi berakhir", { description: "Silakan login ulang" });
       return;
     }
 
-    setIsLoading(true);
-    setError("");
-    setMessage("");
-
+    setIsCreating(true);
     try {
       await createAcademicRequest(token, {
         service_code: serviceCode,
@@ -71,192 +105,240 @@ export default function StudentAcademicRequestsPage() {
         description,
       });
 
+      toast.success("Pengajuan dibuat", {
+        description: `${title} berhasil diajukan dan menunggu verifikasi.`,
+      });
       setTitle("");
       setDescription("");
-      setMessage("Pengajuan berhasil dibuat.");
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal membuat pengajuan");
+      toast.error("Gagal membuat pengajuan", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
     } finally {
-      setIsLoading(false);
+      setIsCreating(false);
     }
   }
 
   function toggleExpand(id: string) {
-    setExpandedRequestId((prev) => (prev === id ? null : id));
+    setExpandedId((prev) => (prev === id ? null : id));
   }
 
   return (
-    <ProtectedPage
-      title="Pengajuan Layanan Akademik"
-      description="Buat dan pantau status pengajuan layanan akademik."
-      allowedRoles={["MAHASISWA"]}
-    >
-      <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
-        {/* ── Form ── */}
-        <section className="card card-padded h-fit">
-          <div className="border-b border-border pb-4">
-            <h2 className="text-lg font-semibold text-text-primary">
-              Buat Pengajuan
-            </h2>
-            <p className="mt-1 text-sm text-text-muted">
-              Isi formulir berikut untuk mengajukan layanan baru.
-            </p>
-          </div>
+    <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
+      {/* ── Form ── */}
+      <Card className="h-fit lg:sticky lg:top-20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PlusCircle className="size-4 text-primary" />
+            Buat Pengajuan
+          </CardTitle>
+          <p className="text-[12.5px] text-text-muted">
+            Pengajuan akan diverifikasi Admin Prodi dalam 1–2 hari kerja.
+          </p>
+        </CardHeader>
 
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <div>
-              <label className="form-label">Jenis Layanan</label>
-              <select
-                className="form-select"
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="service-code">Jenis Layanan</Label>
+              <Select
                 value={serviceCode}
-                onChange={(e) => setServiceCode(e.target.value)}
+                onValueChange={setServiceCode}
                 required
               >
-                {services.map((service) => (
-                  <option key={service.id} value={service.code}>
-                    {service.name}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="service-code">
+                  <SelectValue placeholder="Pilih jenis layanan..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((service) => (
+                    <SelectItem key={service.id} value={service.code}>
+                      {service.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label className="form-label">Judul Pengajuan</label>
-              <input
-                className="form-input"
+            <div className="space-y-1.5">
+              <Label htmlFor="title">Judul Pengajuan</Label>
+              <Input
+                id="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Contoh: Pengajuan Surat Aktif Kuliah"
+                placeholder="Contoh: Surat Aktif Kuliah Semester Genap"
                 required
               />
             </div>
 
-            <div>
-              <label className="form-label">Deskripsi</label>
-              <textarea
-                className="form-textarea min-h-24"
+            <div className="space-y-1.5">
+              <Label htmlFor="description">
+                Deskripsi{" "}
+                <span className="font-normal text-text-muted">(opsional)</span>
+              </Label>
+              <Textarea
+                id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Tuliskan kebutuhan pengajuan..."
+                placeholder="Tuliskan kebutuhan pengajuan, tujuan, dan informasi pendukung lainnya..."
               />
             </div>
 
-            {message ? (
-              <div className="alert alert-success">{message}</div>
-            ) : null}
-            {error ? <div className="alert alert-danger">{error}</div> : null}
-
-            <button
+            <Button
               type="submit"
-              disabled={isLoading}
-              className="btn btn-primary w-full"
+              loading={isCreating}
+              size="lg"
+              className="w-full"
             >
-              {isLoading ? "Menyimpan..." : "Buat Pengajuan"}
-            </button>
-          </form>
-        </section>
+              {!isCreating && <Sparkles className="size-4" />}
+              {isCreating ? "Mengirim..." : "Buat Pengajuan"}
+            </Button>
+          </CardContent>
+        </form>
+      </Card>
 
-        {/* ── List ── */}
-        <section className="card">
-          <div className="flex items-center justify-between border-b border-border px-6 py-4">
-            <div>
-              <h2 className="text-lg font-semibold text-text-primary">
-                Riwayat Pengajuan
-              </h2>
-              <p className="mt-0.5 text-xs text-text-muted">
-                Total {requests.length} pengajuan
-              </p>
-            </div>
+      {/* ── List ── */}
+      <Card className="overflow-hidden">
+        <CardHeader className="flex-row items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="size-4 text-text-muted" />
+              Riwayat Pengajuan
+            </CardTitle>
+            <p className="mt-0.5 text-[12.5px] text-text-muted">
+              {isLoadingList
+                ? "Memuat..."
+                : `${requests.length} pengajuan tercatat`}
+            </p>
           </div>
+        </CardHeader>
 
-          <div className="divide-y divide-border">
-            {requests.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <p className="text-sm text-text-muted">
-                  Belum ada pengajuan layanan akademik.
-                </p>
-              </div>
-            ) : (
-              requests.map((request) => {
-                const token = getAccessToken() ?? "";
-                const isExpanded = expandedRequestId === request.id;
-
-                return (
-                  <article key={request.id}>
-                    <button
-                      type="button"
-                      onClick={() => toggleExpand(request.id)}
-                      className="flex w-full items-start justify-between gap-4 px-6 py-4 text-left hover:bg-surface-muted transition-colors"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-medium text-text-primary">
-                          {request.title}
-                        </h3>
-                        <p className="mt-1 text-xs text-text-muted">
-                          <span className="font-medium">
-                            {request.requestNumber}
-                          </span>{" "}
-                          · {request.serviceName}
-                        </p>
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-3">
-                        <StatusBadge status={request.status} />
-                        <ChevronIcon expanded={isExpanded} />
-                      </div>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="border-t border-border bg-surface-muted px-6 py-5">
-                        {request.description ? (
-                          <div className="mb-5">
-                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                              Deskripsi
-                            </p>
-                            <p className="text-sm leading-6 text-text-secondary">
-                              {request.description}
-                            </p>
-                          </div>
-                        ) : null}
-
-                        <div>
-                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-                            Dokumen
-                          </p>
-                          <FileSection
-                            token={token}
-                            requestId={request.id}
-                            canUploadSupporting={true}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </article>
-                );
-              })
-            )}
+        {isLoadingList ? (
+          <div className="space-y-2 p-4">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-16 w-full" />
+            ))}
           </div>
-        </section>
-      </div>
-    </ProtectedPage>
+        ) : requests.length === 0 ? (
+          <EmptyState
+            icon={<FileText className="size-4" />}
+            title="Belum ada pengajuan"
+            description="Pengajuan yang Anda buat di formulir kiri akan muncul di sini."
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {requests.map((request) => (
+              <RequestRow
+                key={request.id}
+                request={request}
+                isExpanded={expandedId === request.id}
+                onToggle={() => toggleExpand(request.id)}
+              />
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
   );
 }
 
-function ChevronIcon({ expanded }: { expanded: boolean }) {
+// ─── Request Row ─────────────────────────────────────────────────────────────
+
+function RequestRow({
+  request,
+  isExpanded,
+  onToggle,
+}: {
+  request: AcademicRequest;
+  isExpanded: boolean;
+  onToggle: () => void;
+}) {
+  const token = getAccessToken() ?? "";
+
   return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`text-text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
+    <li>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={isExpanded}
+        aria-controls={`request-detail-${request.id}`}
+        className="flex w-full items-start gap-3 px-5 py-4 text-left transition-colors hover:bg-background-alt"
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
+              {request.title}
+            </p>
+            <StatusBadge status={request.status} />
+          </div>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11.5px] text-text-muted">
+            <span className="font-mono">{request.requestNumber}</span>
+            <span className="text-text-disabled">·</span>
+            <span>{request.serviceName}</span>
+            <span className="text-text-disabled">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3" />
+              {formatRelative(request.createdAt)}
+            </span>
+          </p>
+        </div>
+        <ChevronDown
+          className={cn(
+            "mt-1 size-4 shrink-0 text-text-muted transition-transform",
+            isExpanded && "rotate-180",
+          )}
+        />
+      </button>
+
+      {isExpanded ? (
+        <div
+          id={`request-detail-${request.id}`}
+          role="region"
+          className="border-t border-border bg-background-alt px-5 py-4"
+        >
+          {request.description ? (
+            <div className="mb-4">
+              <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                Deskripsi
+              </p>
+              <p className="text-[13px] leading-relaxed text-text-secondary">
+                {request.description}
+              </p>
+            </div>
+          ) : null}
+
+          <div>
+            <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+              Dokumen
+            </p>
+            <FileSection
+              token={token}
+              requestId={request.id}
+              canUploadSupporting
+            />
+          </div>
+        </div>
+      ) : null}
+    </li>
   );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatRelative(dateStr: string | undefined | null): string {
+  if (!dateStr) return "—";
+  const isoLike = dateStr.replace(" ", "T");
+  const date = new Date(isoLike);
+  if (isNaN(date.getTime())) return dateStr;
+
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "baru saja";
+  if (minutes < 60) return `${minutes}m lalu`;
+  if (hours < 24) return `${hours}j lalu`;
+  if (days < 7) return `${days}h lalu`;
+  return date.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
 }

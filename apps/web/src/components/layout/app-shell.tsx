@@ -48,6 +48,7 @@ function getNavigation(role: UserRole): NavGroup[] {
     case "ADMIN_PRODI":
       return [
         {
+          title: "Workspace",
           items: [
             { label: "Dashboard", href: "/admin", icon: <IconHome /> },
             {
@@ -65,11 +66,7 @@ function getNavigation(role: UserRole): NavGroup[] {
         {
           title: "Lainnya",
           items: [
-            {
-              label: "Reporting",
-              href: "/reports",
-              icon: <IconChart />,
-            },
+            { label: "Reporting", href: "/reports", icon: <IconChart /> },
             {
               label: "Notifikasi",
               href: "/notifications",
@@ -82,6 +79,7 @@ function getNavigation(role: UserRole): NavGroup[] {
     case "KAPRODI":
       return [
         {
+          title: "Workspace",
           items: [
             { label: "Dashboard", href: "/head", icon: <IconHome /> },
             {
@@ -131,6 +129,7 @@ function getNavigation(role: UserRole): NavGroup[] {
     case "TATA_USAHA":
       return [
         {
+          title: "Workspace",
           items: [
             { label: "Dashboard", href: "/staff", icon: <IconHome /> },
             {
@@ -156,6 +155,7 @@ function getNavigation(role: UserRole): NavGroup[] {
     case "SUPER_ADMIN":
       return [
         {
+          title: "Workspace",
           items: [
             { label: "Dashboard", href: "/admin", icon: <IconHome /> },
             {
@@ -226,28 +226,32 @@ export function AppShell({
   return (
     <div className="flex min-h-screen bg-background">
       {/* ─── Sidebar ─── */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-secondary text-text-inverse lg:flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface lg:flex">
         {/* Brand */}
-        <div className="flex h-16 items-center gap-3 border-b border-secondary-hover px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-text-inverse font-bold">
+        <div className="flex h-14 items-center gap-2.5 border-b border-border px-5">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-text-inverse text-[11px] font-bold tracking-tight">
             CF
           </div>
-          <div>
-            <p className="text-base font-bold leading-none">CampusFlow</p>
-            <p className="mt-1 text-xs text-text-disabled">Academic System</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold leading-none text-text-primary tracking-tight">
+              CampusFlow
+            </p>
+            <p className="mt-1 text-[11px] leading-none text-text-muted">
+              Academic System
+            </p>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className="flex-1 overflow-y-auto px-2 py-3">
           {navigation.map((group, idx) => (
-            <div key={idx} className={idx > 0 ? "mt-6" : ""}>
+            <div key={idx} className={idx > 0 ? "mt-5" : ""}>
               {group.title ? (
-                <p className="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-text-disabled">
+                <p className="px-3 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-text-disabled">
                   {group.title}
                 </p>
               ) : null}
-              <ul className="space-y-1">
+              <ul className="space-y-0.5">
                 {group.items.map((item) => {
                   const isActive =
                     pathname === item.href ||
@@ -257,19 +261,25 @@ export function AppShell({
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
+                        className={`group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] transition-colors ${
                           isActive
-                            ? "bg-primary text-text-inverse font-medium"
-                            : "text-secondary-soft hover:bg-secondary-hover hover:text-text-inverse"
+                            ? "bg-primary-soft text-primary font-medium"
+                            : "text-text-secondary hover:bg-background-alt hover:text-text-primary"
                         }`}
                       >
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                        <span
+                          className={`flex h-4 w-4 shrink-0 items-center justify-center transition-colors ${
+                            isActive
+                              ? "text-primary"
+                              : "text-text-muted group-hover:text-text-secondary"
+                          }`}
+                        >
                           {item.icon}
                         </span>
-                        <span className="flex-1">{item.label}</span>
+                        <span className="flex-1 truncate">{item.label}</span>
                         {item.href === "/notifications" && unreadCount > 0 ? (
-                          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-semibold text-text-inverse">
-                            {unreadCount}
+                          <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-danger px-1.5 text-[10px] font-semibold leading-none text-text-inverse">
+                            {unreadCount > 9 ? "9+" : unreadCount}
                           </span>
                         ) : null}
                       </Link>
@@ -282,16 +292,16 @@ export function AppShell({
         </nav>
 
         {/* User card */}
-        <div className="border-t border-secondary-hover p-4">
-          <div className="flex items-center gap-3 rounded-lg bg-secondary-hover px-3 py-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-semibold text-text-inverse">
+        <div className="border-t border-border p-2.5">
+          <div className="group flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors hover:bg-background-alt">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11.5px] font-semibold text-primary">
               {getInitials(user.fullName)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-text-inverse">
+              <p className="truncate text-[13px] font-medium leading-tight text-text-primary">
                 {user.fullName}
               </p>
-              <p className="truncate text-xs text-text-disabled">
+              <p className="mt-0.5 truncate text-[11.5px] leading-tight text-text-muted">
                 {ROLE_LABELS[user.role]}
               </p>
             </div>
@@ -299,7 +309,8 @@ export function AppShell({
               type="button"
               onClick={handleLogout}
               title="Logout"
-              className="shrink-0 rounded-md p-1.5 text-text-disabled hover:bg-secondary hover:text-text-inverse transition-colors"
+              aria-label="Logout"
+              className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-danger"
             >
               <IconLogout />
             </button>
@@ -310,45 +321,48 @@ export function AppShell({
       {/* ─── Main ─── */}
       <div className="flex flex-1 flex-col lg:ml-64">
         {/* Topbar */}
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-border bg-surface px-6 lg:px-8">
-          <div className="lg:hidden flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-text-inverse text-sm font-bold">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface/95 px-5 backdrop-blur-sm lg:px-7">
+          <div className="lg:hidden flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-text-inverse text-[11px] font-bold">
               CF
             </div>
-            <span className="font-semibold text-text-primary">CampusFlow</span>
-          </div>
-          <div className="hidden lg:block">
-            <h1 className="text-xl font-bold text-text-primary">{title}</h1>
-            {description ? (
-              <p className="mt-0.5 text-sm text-text-muted">{description}</p>
-            ) : null}
+            <span className="text-[14px] font-semibold tracking-tight text-text-primary">
+              CampusFlow
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="hidden lg:flex lg:items-center lg:gap-2 text-[13px]">
+            <span className="text-text-muted">{ROLE_LABELS[user.role]}</span>
+            <span className="text-text-disabled">/</span>
+            <span className="font-medium text-text-primary">{title}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
             <Link
               href="/notifications"
-              className="relative flex h-9 w-9 items-center justify-center rounded-md border border-border text-text-secondary hover:bg-background-alt hover:text-text-primary transition-colors"
+              aria-label="Notifikasi"
+              className="relative flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-background-alt hover:text-text-primary"
             >
               <IconBell />
               {unreadCount > 0 ? (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-text-inverse">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
+                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-danger ring-2 ring-surface" />
               ) : null}
             </Link>
           </div>
         </header>
 
-        {/* Mobile title */}
-        <div className="border-b border-border bg-surface px-6 py-4 lg:hidden">
-          <h1 className="text-xl font-bold text-text-primary">{title}</h1>
+        {/* Page header (desktop + mobile) */}
+        <div className="border-b border-border bg-surface px-5 py-5 lg:px-8 lg:py-6">
+          <h1 className="heading-page">{title}</h1>
           {description ? (
-            <p className="mt-0.5 text-sm text-text-muted">{description}</p>
+            <p className="mt-1 text-[13.5px] text-text-muted leading-relaxed max-w-3xl">
+              {description}
+            </p>
           ) : null}
         </div>
 
         {/* Page content */}
-        <main className="flex-1 px-6 py-8 lg:px-8">{children}</main>
+        <main className="flex-1 px-5 py-6 lg:px-8 lg:py-8">{children}</main>
       </div>
     </div>
   );
@@ -363,13 +377,13 @@ function getInitials(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// ─── Icons (inline SVG, 18px) ────────────────────────────────────────────────
+// ─── Icons (inline SVG, 16px) ────────────────────────────────────────────────
 
 function IconHome() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -386,8 +400,8 @@ function IconHome() {
 function IconDocument() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -406,8 +420,8 @@ function IconDocument() {
 function IconUsers() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -426,8 +440,8 @@ function IconUsers() {
 function IconBell() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -444,8 +458,8 @@ function IconBell() {
 function IconChart() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -463,8 +477,8 @@ function IconChart() {
 function IconLogout() {
   return (
     <svg
-      width="16"
-      height="16"
+      width="14"
+      height="14"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

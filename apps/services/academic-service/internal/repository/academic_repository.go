@@ -519,9 +519,9 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 			'service_requests',
 			$3::uuid,
 			jsonb_build_object(
-				'old_status', $4,
-				'new_status', $5,
-				'actor_role', $6
+				'old_status', $4::text,
+				'new_status', $5::text,
+				'actor_role', $6::text
 			)
 		)
 	`, actorUserID, action, requestID, currentStatus, targetStatus, actorRole,
@@ -543,16 +543,16 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	VALUES (
 		$1::uuid,
 		'service_requests',
-		$2,
+		$2::text,
 		jsonb_build_object(
 			'request_id', $1::text,
-			'request_number', $3,
-			'student_user_id', $4,
-			'old_status', $5,
-			'status', $6,
-			'actor_user_id', $7,
-			'actor_role', $8,
-			'note', $9
+			'request_number', $3::text,
+			'student_user_id', $4::text,
+			'old_status', $5::text,
+			'status', $6::text,
+			'actor_user_id', $7::text,
+			'actor_role', $8::text,
+			'note', $9::text
 		)
 	)
 `, requestID, eventType, requestNumber, studentUserID, currentStatus, targetStatus, actorUserID, actorRole, note,

@@ -2,9 +2,23 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Activity,
+  ArrowRight,
+  BellRing,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
+import { toast } from "sonner";
 import { login } from "@/lib/auth-api";
 import { saveAuthSession } from "@/lib/auth-storage";
 import { getDashboardPathByRole } from "@/lib/role-redirect";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const DEMO_ACCOUNTS = [
   { role: "Mahasiswa", email: "mahasiswa@campusflow.test" },
@@ -14,17 +28,39 @@ const DEMO_ACCOUNTS = [
   { role: "Dosen", email: "dosen1@campusflow.test" },
 ];
 
+const FEATURES = [
+  {
+    icon: ShieldCheck,
+    title: "Workflow Approval",
+    description: "Verifikasi berlapis Admin Prodi → Kaprodi → Tata Usaha.",
+  },
+  {
+    icon: BellRing,
+    title: "Notifikasi Real-time",
+    description: "Update status pengajuan langsung tanpa refresh.",
+  },
+  {
+    icon: Activity,
+    title: "Audit Trail Lengkap",
+    description: "Setiap aksi tercatat untuk kepatuhan internal.",
+  },
+  {
+    icon: Sparkles,
+    title: "Reporting Insight",
+    description: "Dashboard distribusi pengajuan dan SLA.",
+  },
+];
+
 export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("mahasiswa@campusflow.test");
   const [password, setPassword] = useState("password123");
-  const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
     setIsLoading(true);
 
     try {
@@ -35,110 +71,186 @@ export default function LoginPage() {
       }
 
       saveAuthSession(response.data);
+      toast.success("Login berhasil", {
+        description: `Selamat datang, ${response.data.user.fullName}`,
+      });
       router.push(getDashboardPathByRole(response.data.user.role));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login gagal");
+      const message = err instanceof Error ? err.message : "Login gagal";
+      toast.error("Login gagal", { description: message });
     } finally {
       setIsLoading(false);
     }
   }
 
   return (
-    <main className="flex min-h-screen bg-background">
+    <main className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       {/* ── Left panel — brand showcase ── */}
-      <aside className="hidden flex-col justify-between bg-secondary p-12 text-text-inverse lg:flex lg:w-1/2 xl:w-2/5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-base font-bold">
+      <aside className="relative hidden overflow-hidden bg-secondary-hover p-10 text-text-inverse lg:flex lg:flex-col lg:justify-between xl:p-12">
+        {/* Decorative gradient */}
+        <div
+          className="pointer-events-none absolute -top-32 -right-32 size-96 rounded-full opacity-30 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(14,165,233,0.6) 0%, transparent 70%)",
+          }}
+        />
+        <div
+          className="pointer-events-none absolute -bottom-32 -left-32 size-96 rounded-full opacity-25 blur-3xl"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(30,58,138,0.7) 0%, transparent 70%)",
+          }}
+        />
+
+        {/* Brand */}
+        <div className="relative flex items-center gap-2.5">
+          <div className="flex size-9 items-center justify-center rounded-md bg-primary text-[12px] font-bold tracking-tight">
             CF
           </div>
-          <span className="text-lg font-bold">CampusFlow</span>
-        </div>
-
-        <div>
-          <h2 className="text-3xl font-bold leading-tight">
-            Layanan Akademik Terintegrasi
-          </h2>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-secondary-soft">
-            Kelola pengajuan layanan akademik dan dosen pembimbing dalam satu
-            sistem terpadu yang dirancang untuk efisiensi internal kampus.
-          </p>
-
-          <div className="mt-10 grid grid-cols-2 gap-4">
-            <FeatureItem icon="✓" title="Workflow Approval" />
-            <FeatureItem icon="✓" title="Notifikasi Real-time" />
-            <FeatureItem icon="✓" title="Audit Log Lengkap" />
-            <FeatureItem icon="✓" title="Reporting Dashboard" />
+          <div>
+            <p className="text-[15px] font-semibold tracking-tight leading-none">
+              CampusFlow
+            </p>
+            <p className="mt-1 text-[11.5px] leading-none text-text-disabled">
+              Academic Service System
+            </p>
           </div>
         </div>
 
-        <p className="text-xs text-text-disabled">
+        {/* Headline */}
+        <div className="relative">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[11.5px] font-medium text-text-disabled backdrop-blur-sm">
+            <span className="size-1.5 rounded-full bg-accent" />
+            v1.0 · Production Ready
+          </span>
+          <h2 className="mt-5 text-[28px] font-semibold leading-[1.15] tracking-tight xl:text-[32px]">
+            Layanan akademik
+            <br />
+            <span className="text-accent">tanpa antrian dokumen.</span>
+          </h2>
+          <p className="mt-4 max-w-md text-[14px] leading-relaxed text-text-disabled">
+            Kelola pengajuan surat akademik dan penugasan dosen pembimbing dalam
+            satu sistem terpadu untuk efisiensi internal kampus.
+          </p>
+
+          <ul className="mt-8 space-y-3.5">
+            {FEATURES.map((feature) => (
+              <li key={feature.title} className="flex items-start gap-3">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-accent backdrop-blur-sm">
+                  <feature.icon className="size-3.5" />
+                </span>
+                <div>
+                  <p className="text-[13.5px] font-medium leading-tight">
+                    {feature.title}
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-text-disabled">
+                    {feature.description}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Footer */}
+        <p className="relative text-[11.5px] text-text-disabled">
           © 2026 CampusFlow · Academic Service System
         </p>
       </aside>
 
       {/* ── Right panel — login form ── */}
-      <section className="flex flex-1 items-center justify-center px-6 py-12 lg:px-12">
-        <div className="w-full max-w-md">
+      <section className="flex items-center justify-center bg-background px-6 py-10 lg:px-10">
+        <div className="w-full max-w-[400px]">
           <div className="mb-8 lg:hidden">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-text-inverse text-base font-bold">
+            <div className="flex items-center gap-2.5">
+              <div className="flex size-9 items-center justify-center rounded-md bg-primary text-text-inverse text-[12px] font-bold">
                 CF
               </div>
-              <span className="text-lg font-bold text-text-primary">
+              <span className="text-[15px] font-semibold tracking-tight text-text-primary">
                 CampusFlow
               </span>
             </div>
           </div>
 
-          <h1 className="text-2xl font-bold text-text-primary">
-            Selamat Datang
-          </h1>
-          <p className="mt-2 text-sm text-text-secondary">
-            Masuk untuk mengakses sistem layanan akademik.
-          </p>
+          <div>
+            <h1 className="text-[24px] font-semibold leading-tight tracking-tight text-text-primary">
+              Selamat datang kembali
+            </h1>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-text-secondary">
+              Masuk untuk mengakses sistem layanan akademik CampusFlow.
+            </p>
+          </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            <div>
-              <label className="form-label">Email</label>
-              <input
+          <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
                 type="email"
-                className="form-input"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nama@campusflow.test"
+                autoComplete="email"
                 required
               />
             </div>
 
-            <div>
-              <label className="form-label">Password</label>
-              <input
-                type="password"
-                className="form-input"
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="inline-flex items-center gap-1 text-[12px] text-text-muted hover:text-text-primary transition-colors"
+                >
+                  {showPassword ? (
+                    <>
+                      <EyeOff className="size-3.5" />
+                      Sembunyikan
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="size-3.5" />
+                      Lihat
+                    </>
+                  )}
+                </button>
+              </div>
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
+                autoComplete="current-password"
                 required
               />
             </div>
 
-            {error ? <div className="alert alert-danger">{error}</div> : null}
-
-            <button
+            <Button
               type="submit"
-              disabled={isLoading}
-              className="btn btn-primary w-full"
+              loading={isLoading}
+              size="lg"
+              className="w-full"
             >
-              {isLoading ? "Memproses..." : "Masuk"}
-            </button>
+              {isLoading ? "Memproses..." : "Masuk ke CampusFlow"}
+              {!isLoading ? <ArrowRight className="size-4" /> : null}
+            </Button>
           </form>
 
           {/* Demo accounts */}
-          <div className="mt-8 rounded-lg border border-border bg-surface-muted p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
-              Akun Demo (password: password123)
-            </p>
-            <div className="space-y-1">
+          <div className="mt-6 rounded-md border border-border bg-surface">
+            <div className="flex items-center gap-2 border-b border-border px-3.5 py-2.5">
+              <CheckCircle2 className="size-3.5 text-accent" />
+              <p className="text-[11.5px] font-semibold uppercase tracking-[0.04em] text-text-muted">
+                Akun Demo
+              </p>
+              <span className="ml-auto rounded-sm border border-border bg-background-alt px-1.5 py-0.5 font-mono text-[10.5px] text-text-secondary">
+                password123
+              </span>
+            </div>
+            <div className="p-1.5">
               {DEMO_ACCOUNTS.map((acc) => (
                 <button
                   key={acc.email}
@@ -147,12 +259,14 @@ export default function LoginPage() {
                     setEmail(acc.email);
                     setPassword("password123");
                   }}
-                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-background-alt transition-colors"
+                  className="group flex w-full items-center gap-3 rounded-sm px-2 py-1.5 text-left transition-colors hover:bg-background-alt"
                 >
-                  <span className="font-medium text-text-secondary">
+                  <span className="text-[12.5px] font-medium text-text-primary">
                     {acc.role}
                   </span>
-                  <span className="text-text-muted">{acc.email}</span>
+                  <span className="ml-auto font-mono text-[11px] text-text-muted group-hover:text-text-secondary">
+                    {acc.email}
+                  </span>
                 </button>
               ))}
             </div>
@@ -160,16 +274,5 @@ export default function LoginPage() {
         </div>
       </section>
     </main>
-  );
-}
-
-function FeatureItem({ icon, title }: { icon: string; title: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-text-inverse">
-        {icon}
-      </span>
-      <span className="text-sm text-secondary-soft">{title}</span>
-    </div>
   );
 }

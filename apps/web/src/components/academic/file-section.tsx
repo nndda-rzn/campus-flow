@@ -1,6 +1,10 @@
 "use client";
 
 import { ChangeEvent, useEffect, useRef, useState } from "react";
+import { Download, FileText, Loader2, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   FileItem,
   downloadFile,
@@ -28,20 +32,19 @@ export function FileSection({
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
 
   const supportingInputRef = useRef<HTMLInputElement>(null);
   const finalInputRef = useRef<HTMLInputElement>(null);
 
   async function loadFiles() {
     setIsLoading(true);
-    setError("");
     try {
       const res = await listAcademicRequestFiles(token, requestId);
       setFiles(res.data?.files ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat daftar file");
+      toast.error("Gagal memuat daftar file", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -61,20 +64,22 @@ export function FileSection({
     event.target.value = "";
 
     setIsUploading(true);
-    setError("");
-    setSuccessMsg("");
 
     try {
       if (type === "supporting") {
         await uploadSupportingDocument(token, requestId, file);
-        setSuccessMsg("Dokumen pendukung berhasil diupload.");
+        toast.success("Dokumen pendukung diupload", {
+          description: file.name,
+        });
       } else {
         await uploadFinalDocument(token, requestId, file);
-        setSuccessMsg("Dokumen final berhasil diupload.");
+        toast.success("Dokumen final diupload", { description: file.name });
       }
       await loadFiles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mengupload file");
+      toast.error("Upload gagal", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
     } finally {
       setIsUploading(false);
     }
@@ -82,11 +87,12 @@ export function FileSection({
 
   async function handleDownload(file: FileItem) {
     setDownloadingId(file.id);
-    setError("");
     try {
       await downloadFile(token, file.id, file.originalName);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal mendownload file");
+      toast.error("Download gagal", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
     } finally {
       setDownloadingId(null);
     }
@@ -98,12 +104,7 @@ export function FileSection({
   const finalFiles = files.filter((f) => f.purpose === "FINAL_DOCUMENT");
 
   return (
-    <div className="space-y-4">
-      {successMsg ? (
-        <div className="alert alert-success">{successMsg}</div>
-      ) : null}
-      {error ? <div className="alert alert-danger">{error}</div> : null}
-
+    <div className="space-y-3">
       {/* Upload buttons */}
       {(canUploadSupporting || canUploadFinal) && (
         <div className="flex flex-wrap gap-2">
@@ -116,15 +117,20 @@ export function FileSection({
                 className="hidden"
                 onChange={(e) => handleUpload(e, "supporting")}
               />
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 disabled={isUploading}
                 onClick={() => supportingInputRef.current?.click()}
-                className="btn btn-secondary btn-sm"
               >
-                <IconUpload />
-                {isUploading ? "Mengupload..." : "Dokumen Pendukung"}
-              </button>
+                {isUploading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Upload className="size-3.5" />
+                )}
+                Dokumen Pendukung
+              </Button>
             </>
           )}
 
@@ -137,15 +143,19 @@ export function FileSection({
                 className="hidden"
                 onChange={(e) => handleUpload(e, "final")}
               />
-              <button
+              <Button
                 type="button"
+                size="sm"
                 disabled={isUploading}
                 onClick={() => finalInputRef.current?.click()}
-                className="btn btn-primary btn-sm"
               >
-                <IconUpload />
-                {isUploading ? "Mengupload..." : "Dokumen Final"}
-              </button>
+                {isUploading ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Upload className="size-3.5" />
+                )}
+                Dokumen Final
+              </Button>
             </>
           )}
         </div>
@@ -153,13 +163,13 @@ export function FileSection({
 
       {/* File lists */}
       {isLoading ? (
-        <p className="text-sm text-text-muted">Memuat file...</p>
+        <p className="text-[12.5px] text-text-muted">Memuat file...</p>
       ) : files.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-surface-muted px-4 py-8 text-center">
-          <p className="text-sm text-text-muted">Belum ada file.</p>
+        <div className="rounded-md border border-dashed border-border bg-surface-muted px-4 py-6 text-center">
+          <p className="text-[12.5px] text-text-muted">Belum ada file.</p>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-3">
           {supportingFiles.length > 0 && (
             <FileGroup
               title="Dokumen Pendukung"
@@ -184,53 +194,61 @@ export function FileSection({
 
 // ─── FileGroup ───────────────────────────────────────────────────────────────
 
-type FileGroupProps = {
-  title: string;
-  files: FileItem[];
-  downloadingId: string | null;
-  onDownload: (file: FileItem) => void;
-};
-
 function FileGroup({
   title,
   files,
   downloadingId,
   onDownload,
-}: FileGroupProps) {
+}: {
+  title: string;
+  files: FileItem[];
+  downloadingId: string | null;
+  onDownload: (file: FileItem) => void;
+}) {
   return (
     <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+      <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
         {title}
       </p>
-      <ul className="space-y-2">
+      <ul className="space-y-1.5">
         {files.map((file) => (
           <li
             key={file.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3"
+            className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-2.5"
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
-                <IconFile />
-              </div>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+                <FileText className="size-3.5" />
+              </span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-text-primary">
+                <p className="truncate text-[13px] font-medium text-text-primary">
                   {file.originalName}
                 </p>
-                <p className="mt-0.5 text-xs text-text-muted">
-                  {filePurposeLabel(file.purpose)} ·{" "}
-                  {formatFileSize(file.sizeBytes)}
+                <p className="mt-0.5 text-[11.5px] text-text-muted">
+                  {filePurposeLabel(file.purpose)}{" "}
+                  <span className="text-text-disabled">·</span>{" "}
+                  <span className="font-mono">
+                    {formatFileSize(file.sizeBytes)}
+                  </span>
                 </p>
               </div>
             </div>
 
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               disabled={downloadingId === file.id}
               onClick={() => onDownload(file)}
-              className="btn btn-secondary btn-sm shrink-0"
+              className="shrink-0"
             >
-              {downloadingId === file.id ? "..." : "Unduh"}
-            </button>
+              {downloadingId === file.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Download className="size-3.5" />
+              )}
+              Unduh
+            </Button>
           </li>
         ))}
       </ul>
@@ -238,41 +256,5 @@ function FileGroup({
   );
 }
 
-// ─── Icons ───────────────────────────────────────────────────────────────────
-
-function IconUpload() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  );
-}
-
-function IconFile() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-    </svg>
-  );
-}
+// Re-export EmptyState for tree-shaking compatibility (so we can use it here if needed later)
+export { EmptyState };

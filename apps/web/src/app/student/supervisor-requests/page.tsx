@@ -1,9 +1,27 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
+/* eslint-disable react-hooks/set-state-in-effect */
+
 import { FormEvent, useEffect, useState } from "react";
+import { GraduationCap, PlusCircle, Sparkles, Users } from "lucide-react";
+import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   Lecturer,
@@ -14,52 +32,61 @@ import {
 } from "@/lib/supervisor-api";
 
 export default function StudentSupervisorRequestsPage() {
+  return (
+    <ProtectedPage
+      title="Pengajuan Dosen Pembimbing"
+      description="Ajukan topik tugas akhir dan pilih calon dosen pembimbing."
+      allowedRoles={["MAHASISWA"]}
+    >
+      <PageContent />
+    </ProtectedPage>
+  );
+}
+
+function PageContent() {
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
   const [requests, setRequests] = useState<SupervisorRequest[]>([]);
   const [topicTitle, setTopicTitle] = useState("");
   const [topicDescription, setTopicDescription] = useState("");
   const [lecturerId, setLecturerId] = useState("");
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingList, setIsLoadingList] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
 
   async function loadData() {
     const token = getAccessToken();
     if (!token) return;
 
-    const [lecturerResponse, requestResponse] = await Promise.all([
-      listLecturers(token),
-      listMySupervisorRequests(token),
-    ]);
+    try {
+      const [lecturerResponse, requestResponse] = await Promise.all([
+        listLecturers(token),
+        listMySupervisorRequests(token),
+      ]);
 
-    const lecturerList = lecturerResponse.data.lecturers;
-    setLecturers(lecturerList);
-    setRequests(requestResponse.data.requests);
+      const lecs = lecturerResponse.data.lecturers;
+      setLecturers(lecs);
+      setRequests(requestResponse.data.requests);
 
-    if (lecturerList.length > 0 && !lecturerId) {
-      setLecturerId(lecturerList[0].id);
+      if (lecs[0] && !lecturerId) setLecturerId(lecs[0].id);
+    } catch (err) {
+      toast.error("Gagal memuat data", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
+    } finally {
+      setIsLoadingList(false);
     }
   }
 
   useEffect(() => {
-    loadData().catch((err) => {
-      setError(err instanceof Error ? err.message : "Gagal memuat data");
-    });
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const token = getAccessToken();
-    if (!token) {
-      setError("Token tidak ditemukan. Silakan login ulang.");
-      return;
-    }
+    if (!token) return;
 
-    setIsLoading(true);
-    setError("");
-    setMessage("");
-
+    setIsCreating(true);
     try {
       await createSupervisorRequest(token, {
         topic_title: topicTitle,
@@ -67,158 +94,173 @@ export default function StudentSupervisorRequestsPage() {
         lecturer_ids: [lecturerId],
       });
 
+      toast.success("Pengajuan dibuat", {
+        description:
+          "Topik dan calon pembimbing menunggu verifikasi Admin Prodi.",
+      });
       setTopicTitle("");
       setTopicDescription("");
-      setMessage("Pengajuan dosen pembimbing berhasil dibuat.");
       await loadData();
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Gagal membuat pengajuan dosen pembimbing",
-      );
+      toast.error("Gagal membuat pengajuan", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
     } finally {
-      setIsLoading(false);
+      setIsCreating(false);
     }
   }
 
   return (
-    <ProtectedPage
-      title="Pengajuan Dosen Pembimbing"
-      description="Ajukan topik tugas akhir dan pilih calon dosen pembimbing."
-      allowedRoles={["MAHASISWA"]}
-    >
-      <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
-        {/* ── Form ── */}
-        <section className="card card-padded h-fit">
-          <div className="border-b border-border pb-4">
-            <h2 className="text-lg font-semibold text-text-primary">
-              Buat Pengajuan
-            </h2>
-            <p className="mt-1 text-sm text-text-muted">
-              Isi formulir untuk mengajukan dosen pembimbing.
-            </p>
-          </div>
+    <div className="grid gap-5 lg:grid-cols-[380px_1fr]">
+      {/* ── Form ── */}
+      <Card className="h-fit lg:sticky lg:top-20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <PlusCircle className="size-4 text-primary" />
+            Buat Pengajuan
+          </CardTitle>
+          <p className="text-[12.5px] text-text-muted">
+            Pengajuan akan diverifikasi oleh Admin Prodi sebelum Kaprodi
+            menetapkan dosen.
+          </p>
+        </CardHeader>
 
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-            <div>
-              <label className="form-label">Judul Topik</label>
-              <input
-                className="form-input"
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="topic-title">Judul Topik</Label>
+              <Input
+                id="topic-title"
                 value={topicTitle}
                 onChange={(e) => setTopicTitle(e.target.value)}
-                placeholder="Contoh: Sistem Informasi Akademik Berbasis Microservices"
+                placeholder="Sistem Informasi Akademik Berbasis Microservices"
                 required
               />
             </div>
 
-            <div>
-              <label className="form-label">Deskripsi Topik</label>
-              <textarea
-                className="form-textarea min-h-24"
+            <div className="space-y-1.5">
+              <Label htmlFor="topic-description">
+                Deskripsi Topik{" "}
+                <span className="font-normal text-text-muted">(opsional)</span>
+              </Label>
+              <Textarea
+                id="topic-description"
                 value={topicDescription}
                 onChange={(e) => setTopicDescription(e.target.value)}
-                placeholder="Jelaskan ringkasan topik tugas akhir..."
+                placeholder="Jelaskan ringkasan topik tugas akhir, scope, dan teknologi yang akan digunakan..."
+                className="min-h-24"
               />
             </div>
 
-            <div>
-              <label className="form-label">Calon Dosen Pembimbing</label>
-              <select
-                className="form-select"
-                value={lecturerId}
-                onChange={(e) => setLecturerId(e.target.value)}
-                required
-              >
-                {lecturers.map((lecturer) => (
-                  <option key={lecturer.id} value={lecturer.id}>
-                    {lecturer.fullName}
-                    {lecturer.nidn ? ` · ${lecturer.nidn}` : ""}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-1.5">
+              <Label htmlFor="lecturer-id">Calon Dosen Pembimbing</Label>
+              <Select value={lecturerId} onValueChange={setLecturerId} required>
+                <SelectTrigger id="lecturer-id">
+                  <SelectValue placeholder="Pilih dosen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {lecturers.map((lecturer) => (
+                    <SelectItem key={lecturer.id} value={lecturer.id}>
+                      <div className="flex flex-col">
+                        <span>{lecturer.fullName}</span>
+                        {lecturer.nidn ? (
+                          <span className="font-mono text-[10.5px] text-text-muted">
+                            NIDN {lecturer.nidn}
+                          </span>
+                        ) : null}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {message ? (
-              <div className="alert alert-success">{message}</div>
-            ) : null}
-            {error ? <div className="alert alert-danger">{error}</div> : null}
-
-            <button
+            <Button
               type="submit"
-              disabled={isLoading || lecturers.length === 0}
-              className="btn btn-primary w-full"
+              loading={isCreating}
+              size="lg"
+              className="w-full"
+              disabled={lecturers.length === 0}
             >
-              {isLoading ? "Menyimpan..." : "Buat Pengajuan"}
-            </button>
-          </form>
-        </section>
+              {!isCreating && <Sparkles className="size-4" />}
+              {isCreating ? "Mengirim..." : "Buat Pengajuan"}
+            </Button>
+          </CardContent>
+        </form>
+      </Card>
 
-        {/* ── List ── */}
-        <section className="card">
-          <div className="border-b border-border px-6 py-4">
-            <h2 className="text-lg font-semibold text-text-primary">
-              Riwayat Pengajuan
-            </h2>
-            <p className="mt-0.5 text-xs text-text-muted">
-              Total {requests.length} pengajuan
-            </p>
+      {/* ── List ── */}
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="size-4 text-text-muted" />
+            Riwayat Pengajuan
+          </CardTitle>
+          <p className="mt-0.5 text-[12.5px] text-text-muted">
+            {isLoadingList
+              ? "Memuat..."
+              : `${requests.length} pengajuan tercatat`}
+          </p>
+        </CardHeader>
+
+        {isLoadingList ? (
+          <div className="space-y-2 p-4">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-20 w-full" />
+            ))}
           </div>
-
-          <div className="divide-y divide-border">
-            {requests.length === 0 ? (
-              <div className="px-6 py-12 text-center">
-                <p className="text-sm text-text-muted">
-                  Belum ada pengajuan dosen pembimbing.
-                </p>
-              </div>
-            ) : (
-              requests.map((request) => (
-                <article key={request.id} className="px-6 py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-medium text-text-primary">
-                        {request.topicTitle}
-                      </h3>
-                      <p className="mt-1 text-xs text-text-muted">
-                        {request.requestNumber}
-                      </p>
-                    </div>
-                    <StatusBadge status={request.status} />
-                  </div>
-
-                  {request.topicDescription ? (
-                    <p className="mt-3 text-sm leading-6 text-text-secondary">
-                      {request.topicDescription}
+        ) : requests.length === 0 ? (
+          <EmptyState
+            icon={<GraduationCap className="size-4" />}
+            title="Belum ada pengajuan"
+            description="Ajukan topik dan calon pembimbing dari formulir di sebelah kiri."
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {requests.map((request) => (
+              <li key={request.id} className="px-5 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] font-medium leading-tight text-text-primary">
+                      {request.topicTitle}
                     </p>
-                  ) : null}
-
-                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-                    {request.assignedLecturerName ? (
-                      <span>
-                        Pembimbing:{" "}
-                        <span className="font-medium text-text-secondary">
-                          {request.assignedLecturerName}
-                        </span>
-                      </span>
-                    ) : (
-                      <span>Belum ada pembimbing ditetapkan</span>
-                    )}
+                    <p className="mt-1 font-mono text-[11.5px] text-text-muted">
+                      {request.requestNumber}
+                    </p>
                   </div>
+                  <StatusBadge status={request.status} />
+                </div>
 
-                  {request.choices.length > 0 &&
-                  !request.assignedLecturerName ? (
-                    <div className="mt-2 text-xs text-text-muted">
+                {request.topicDescription ? (
+                  <p className="mt-3 text-[13px] leading-relaxed text-text-secondary">
+                    {request.topicDescription}
+                  </p>
+                ) : null}
+
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px]">
+                  {request.assignedLecturerName ? (
+                    <Badge variant="success" withDot={false}>
+                      <GraduationCap className="size-3" />
+                      Pembimbing: {request.assignedLecturerName}
+                    </Badge>
+                  ) : request.choices.length > 0 ? (
+                    <span className="text-text-muted">
                       Pilihan:{" "}
-                      {request.choices.map((c) => c.lecturerName).join(", ")}
-                    </div>
-                  ) : null}
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-      </div>
-    </ProtectedPage>
+                      <span className="text-text-secondary">
+                        {request.choices.map((c) => c.lecturerName).join(", ")}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-text-muted">
+                      Belum ada pembimbing ditetapkan
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
   );
 }

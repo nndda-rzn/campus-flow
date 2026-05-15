@@ -9,7 +9,7 @@ type Props = {
   accent?: "primary" | "accent" | "success" | "warning" | "info";
 };
 
-const ACCENT_BG: Record<NonNullable<Props["accent"]>, string> = {
+const ACCENT_STYLES: Record<NonNullable<Props["accent"]>, string> = {
   primary: "bg-primary-soft text-primary",
   accent: "bg-accent-soft text-accent",
   success: "bg-success-soft text-success",
@@ -27,22 +27,25 @@ export function DashboardCard({
   return (
     <Link
       href={href}
-      className="card card-padded group flex items-start gap-4 transition-all hover:border-border-strong hover:shadow-dropdown"
+      className="card card-padded card-interactive group relative flex flex-col gap-4 overflow-hidden"
     >
-      <div
-        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${ACCENT_BG[accent]}`}
-      >
-        {icon}
+      <div className="flex items-start justify-between gap-3">
+        <div
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${ACCENT_STYLES[accent]}`}
+        >
+          {icon}
+        </div>
+        <ArrowIcon />
       </div>
-      <div className="flex-1">
-        <h2 className="font-semibold text-text-primary group-hover:text-primary transition-colors">
+
+      <div>
+        <h2 className="text-[14.5px] font-semibold leading-tight tracking-tight text-text-primary group-hover:text-primary transition-colors">
           {title}
         </h2>
-        <p className="mt-1 text-sm leading-6 text-text-secondary">
+        <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary line-clamp-2">
           {description}
         </p>
       </div>
-      <ArrowIcon />
     </Link>
   );
 }
@@ -50,18 +53,18 @@ export function DashboardCard({
 function ArrowIcon() {
   return (
     <svg
-      width="18"
-      height="18"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="mt-1 shrink-0 text-text-disabled transition-all group-hover:translate-x-1 group-hover:text-primary"
+      className="shrink-0 text-text-disabled transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary"
     >
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
+      <line x1="7" y1="17" x2="17" y2="7" />
+      <polyline points="7 7 17 7 17 17" />
     </svg>
   );
 }

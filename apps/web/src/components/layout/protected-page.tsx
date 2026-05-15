@@ -70,9 +70,9 @@ export function ProtectedPage({
   if (status === "checking") {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary"></div>
-          <p className="mt-3 text-sm text-text-muted">Memeriksa sesi...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-primary" />
+          <p className="text-[12.5px] text-text-muted">Memeriksa sesi...</p>
         </div>
       </main>
     );
@@ -81,36 +81,35 @@ export function ProtectedPage({
   // ─── Forbidden state ───
   if (status === "forbidden") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background px-6">
-        <section className="card card-padded max-w-md text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-danger">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <line x1="15" y1="9" x2="9" y2="15" />
-              <line x1="9" y1="9" x2="15" y2="15" />
-            </svg>
+      <main className="flex min-h-screen items-center justify-center bg-background px-5">
+        <section className="card max-w-md w-full overflow-hidden">
+          <div className="card-padded-lg text-center">
+            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-md bg-danger-soft text-danger">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
+            <h1 className="heading-section">Akses Ditolak</h1>
+            <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">
+              Role akun Anda tidak memiliki akses ke halaman ini. Silakan login
+              dengan akun yang sesuai.
+            </p>
           </div>
-          <h1 className="mt-4 text-xl font-bold text-text-primary">
-            Akses Ditolak
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-text-secondary">
-            Role Anda tidak memiliki akses ke halaman ini.
-          </p>
-          <button
-            onClick={handleLogout}
-            className="btn btn-primary mt-6 w-full"
-          >
-            Logout
-          </button>
+          <div className="border-t border-border bg-background-alt px-6 py-3.5 flex items-center justify-end">
+            <button onClick={handleLogout} className="btn btn-primary btn-sm">
+              Logout
+            </button>
+          </div>
         </section>
       </main>
     );

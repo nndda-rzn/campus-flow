@@ -1,7 +1,4 @@
-/**
- * Workflow status badge — uses the `.status-{STATUS}` classes from globals.css
- * which map to the design tokens for each workflow state.
- */
+import { Badge, type BadgeProps } from "@/components/ui/badge";
 
 const LABELS: Record<string, string> = {
   DRAFT: "Draf",
@@ -16,19 +13,32 @@ const LABELS: Record<string, string> = {
   ACCEPTED: "Diterima",
 };
 
+const VARIANTS: Record<string, BadgeProps["variant"]> = {
+  DRAFT: "neutral",
+  SUBMITTED: "info",
+  VERIFIED: "accent",
+  APPROVED: "success",
+  REJECTED: "danger",
+  REVISION_REQUIRED: "warning",
+  COMPLETED: "completed",
+  CANCELLED: "neutral",
+  ASSIGNED: "assigned",
+  ACCEPTED: "success",
+};
+
 type Props = {
   status: string;
   className?: string;
 };
 
-export function StatusBadge({ status, className = "" }: Props) {
+export function StatusBadge({ status, className }: Props) {
   const upper = status.toUpperCase();
   const label = LABELS[upper] ?? status;
-  const statusClass = `status-${upper}`;
+  const variant = VARIANTS[upper] ?? "neutral";
 
   return (
-    <span className={`status-badge ${statusClass} ${className}`.trim()}>
+    <Badge variant={variant} className={className}>
       {label}
-    </span>
+    </Badge>
   );
 }
