@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { FileSection } from "@/components/academic/file-section";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   AcademicRequest,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/academic-api";
 
 const STATUS_OPTIONS = [
-  { value: "", label: "Semua Status" },
+  { value: "", label: "Semua" },
   { value: "SUBMITTED", label: "Diajukan" },
   { value: "VERIFIED", label: "Diverifikasi" },
   { value: "APPROVED", label: "Disetujui" },
@@ -84,101 +85,114 @@ export default function StaffAcademicRequestsPage() {
     setExpandedId((prev) => (prev === id ? null : id));
   }
 
+  // Counts per status untuk header summary
+  const statusCounts = STATUS_OPTIONS.reduce<Record<string, number>>(
+    (acc, opt) => {
+      if (opt.value === "") {
+        acc[opt.value] = requests.length;
+      } else {
+        acc[opt.value] = requests.filter((r) => r.status === opt.value).length;
+      }
+      return acc;
+    },
+    {},
+  );
+
   return (
     <ProtectedPage
-      title="Pengajuan Akademik — Tata Usaha"
+      title="Pengajuan Akademik"
       description="Upload dokumen final dan selesaikan pengajuan yang sudah disetujui."
       allowedRoles={["TATA_USAHA", "SUPER_ADMIN"]}
     >
-      <div className="space-y-6">
-        {/* Filter status */}
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-slate-700">Filter:</span>
-          {STATUS_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setStatusFilter(opt.value)}
-              className={`rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-                statusFilter === opt.value
-                  ? "bg-slate-900 text-white"
-                  : "border border-slate-300 text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+      <div className="space-y-5">
+        {/* Filter tabs */}
+        <div className="card overflow-hidden">
+          <div className="flex flex-wrap items-center gap-1 px-2 py-2">
+            {STATUS_OPTIONS.map((opt) => {
+              const isActive = statusFilter === opt.value;
+              return (
+                <button
+                  key={opt.value || "all"}
+                  type="button"
+                  onClick={() => setStatusFilter(opt.value)}
+                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-primary text-text-inverse"
+                      : "text-text-secondary hover:bg-background-alt"
+                  }`}
+                >
+                  {opt.label}
+                  {opt.value === statusFilter && (
+                    <span className="rounded-full bg-primary-hover px-1.5 py-0.5 text-xs">
+                      {statusCounts[opt.value] ?? 0}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Pesan */}
+        {/* Messages */}
         {successMsg ? (
-          <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {successMsg}
-          </div>
+          <div className="alert alert-success">{successMsg}</div>
         ) : null}
-        {error ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
+        {error ? <div className="alert alert-danger">{error}</div> : null}
 
-        {/* Daftar pengajuan */}
+        {/* List */}
         {isLoading ? (
-          <p className="text-sm text-slate-500">Memuat pengajuan...</p>
+          <div className="card card-padded">
+            <p className="text-sm text-text-muted">Memuat pengajuan...</p>
+          </div>
         ) : requests.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-            <p className="text-sm text-slate-500">
+          <div className="card card-padded text-center">
+            <p className="text-sm text-text-muted">
               Tidak ada pengajuan dengan status ini.
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="card divide-y divide-border">
             {requests.map((request) => {
               const token = getAccessToken() ?? "";
               const isExpanded = expandedId === request.id;
               const isCompleting = completingId === request.id;
 
               return (
-                <article
-                  key={request.id}
-                  className="rounded-2xl border border-slate-200 bg-white shadow-sm"
-                >
-                  {/* Header */}
+                <article key={request.id}>
                   <button
                     type="button"
                     onClick={() => toggleExpand(request.id)}
-                    className="flex w-full items-start justify-between gap-4 p-5 text-left"
+                    className="flex w-full items-start justify-between gap-4 px-6 py-4 text-left hover:bg-surface-muted transition-colors"
                   >
-                    <div>
-                      <h3 className="font-medium text-slate-900">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-text-primary">
                         {request.title}
                       </h3>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {request.requestNumber} · {request.serviceName}
+                      <p className="mt-1 text-xs text-text-muted">
+                        <span className="font-medium">
+                          {request.requestNumber}
+                        </span>{" "}
+                        · {request.serviceName}
                       </p>
                       {request.description ? (
-                        <p className="mt-1 line-clamp-1 text-xs text-slate-400">
+                        <p className="mt-1 line-clamp-1 text-xs text-text-disabled">
                           {request.description}
                         </p>
                       ) : null}
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-3">
                       <StatusBadge status={request.status} />
-                      <span className="text-xs text-slate-400">
-                        {isExpanded ? "▲" : "▼"}
-                      </span>
+                      <ChevronIcon expanded={isExpanded} />
                     </div>
                   </button>
 
-                  {/* Expanded */}
                   {isExpanded && (
-                    <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-5">
-                      {/* File section */}
+                    <div className="border-t border-border bg-surface-muted px-6 py-5 space-y-5">
                       <div>
-                        <h4 className="mb-3 text-sm font-semibold text-slate-700">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
                           Dokumen
-                        </h4>
+                        </p>
                         <FileSection
                           token={token}
                           requestId={request.id}
@@ -186,15 +200,13 @@ export default function StaffAcademicRequestsPage() {
                         />
                       </div>
 
-                      {/* Tombol complete — hanya untuk status APPROVED */}
                       {request.status === "APPROVED" && (
-                        <div className="space-y-3 border-t border-slate-100 pt-4">
-                          <h4 className="text-sm font-semibold text-slate-700">
+                        <div className="space-y-3 border-t border-border pt-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
                             Selesaikan Pengajuan
-                          </h4>
+                          </p>
                           <textarea
-                            className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
-                            rows={2}
+                            className="form-textarea min-h-20"
                             placeholder="Catatan (opsional)..."
                             value={noteMap[request.id] ?? ""}
                             onChange={(e) =>
@@ -208,7 +220,7 @@ export default function StaffAcademicRequestsPage() {
                             type="button"
                             disabled={isCompleting}
                             onClick={() => handleComplete(request)}
-                            className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+                            className="btn btn-success"
                           >
                             {isCompleting ? "Memproses..." : "Tandai Selesai"}
                           </button>
@@ -226,35 +238,20 @@ export default function StaffAcademicRequestsPage() {
   );
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    SUBMITTED: "bg-blue-100 text-blue-700",
-    VERIFIED: "bg-yellow-100 text-yellow-700",
-    APPROVED: "bg-green-100 text-green-700",
-    REJECTED: "bg-red-100 text-red-700",
-    COMPLETED: "bg-slate-100 text-slate-700",
-    CANCELLED: "bg-slate-100 text-slate-500",
-    REVISION_REQUIRED: "bg-orange-100 text-orange-700",
-  };
-
-  const labelMap: Record<string, string> = {
-    SUBMITTED: "Diajukan",
-    VERIFIED: "Diverifikasi",
-    APPROVED: "Disetujui",
-    REJECTED: "Ditolak",
-    COMPLETED: "Selesai",
-    CANCELLED: "Dibatalkan",
-    REVISION_REQUIRED: "Perlu Revisi",
-  };
-
-  const color = colorMap[status] ?? "bg-slate-100 text-slate-700";
-  const label = labelMap[status] ?? status;
-
+function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-medium ${color}`}>
-      {label}
-    </span>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`text-text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
   );
 }

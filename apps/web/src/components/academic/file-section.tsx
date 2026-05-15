@@ -14,9 +14,7 @@ import {
 type Props = {
   token: string;
   requestId: string;
-  /** Apakah user boleh upload dokumen pendukung (MAHASISWA) */
   canUploadSupporting?: boolean;
-  /** Apakah user boleh upload dokumen final (TATA_USAHA / SUPER_ADMIN) */
   canUploadFinal?: boolean;
 };
 
@@ -60,8 +58,6 @@ export function FileSection({
   ) {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    // Reset input agar file yang sama bisa dipilih ulang
     event.target.value = "";
 
     setIsUploading(true);
@@ -102,22 +98,15 @@ export function FileSection({
   const finalFiles = files.filter((f) => f.purpose === "FINAL_DOCUMENT");
 
   return (
-    <div className="space-y-5">
-      {/* Pesan sukses / error */}
+    <div className="space-y-4">
       {successMsg ? (
-        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successMsg}
-        </div>
+        <div className="alert alert-success">{successMsg}</div>
       ) : null}
-      {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <div className="alert alert-danger">{error}</div> : null}
 
-      {/* Tombol upload */}
+      {/* Upload buttons */}
       {(canUploadSupporting || canUploadFinal) && (
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-2">
           {canUploadSupporting && (
             <>
               <input
@@ -131,9 +120,10 @@ export function FileSection({
                 type="button"
                 disabled={isUploading}
                 onClick={() => supportingInputRef.current?.click()}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                className="btn btn-secondary btn-sm"
               >
-                {isUploading ? "Mengupload..." : "Upload Dokumen Pendukung"}
+                <IconUpload />
+                {isUploading ? "Mengupload..." : "Dokumen Pendukung"}
               </button>
             </>
           )}
@@ -151,58 +141,40 @@ export function FileSection({
                 type="button"
                 disabled={isUploading}
                 onClick={() => finalInputRef.current?.click()}
-                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+                className="btn btn-primary btn-sm"
               >
-                {isUploading ? "Mengupload..." : "Upload Dokumen Final"}
+                <IconUpload />
+                {isUploading ? "Mengupload..." : "Dokumen Final"}
               </button>
             </>
           )}
         </div>
       )}
 
-      {/* Daftar file */}
+      {/* File lists */}
       {isLoading ? (
-        <p className="text-sm text-slate-500">Memuat file...</p>
+        <p className="text-sm text-text-muted">Memuat file...</p>
       ) : files.length === 0 ? (
-        <p className="text-sm text-slate-500">Belum ada file yang diupload.</p>
+        <div className="rounded-lg border border-dashed border-border bg-surface-muted px-4 py-8 text-center">
+          <p className="text-sm text-text-muted">Belum ada file.</p>
+        </div>
       ) : (
         <div className="space-y-4">
-          {/* Dokumen Pendukung */}
           {supportingFiles.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Dokumen Pendukung
-              </p>
-              <ul className="space-y-2">
-                {supportingFiles.map((file) => (
-                  <FileRow
-                    key={file.id}
-                    file={file}
-                    isDownloading={downloadingId === file.id}
-                    onDownload={() => handleDownload(file)}
-                  />
-                ))}
-              </ul>
-            </div>
+            <FileGroup
+              title="Dokumen Pendukung"
+              files={supportingFiles}
+              downloadingId={downloadingId}
+              onDownload={handleDownload}
+            />
           )}
-
-          {/* Dokumen Final */}
           {finalFiles.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Dokumen Final
-              </p>
-              <ul className="space-y-2">
-                {finalFiles.map((file) => (
-                  <FileRow
-                    key={file.id}
-                    file={file}
-                    isDownloading={downloadingId === file.id}
-                    onDownload={() => handleDownload(file)}
-                  />
-                ))}
-              </ul>
-            </div>
+            <FileGroup
+              title="Dokumen Final"
+              files={finalFiles}
+              downloadingId={downloadingId}
+              onDownload={handleDownload}
+            />
           )}
         </div>
       )}
@@ -210,34 +182,97 @@ export function FileSection({
   );
 }
 
-// ─── FileRow ──────────────────────────────────────────────────────────────────
+// ─── FileGroup ───────────────────────────────────────────────────────────────
 
-type FileRowProps = {
-  file: FileItem;
-  isDownloading: boolean;
-  onDownload: () => void;
+type FileGroupProps = {
+  title: string;
+  files: FileItem[];
+  downloadingId: string | null;
+  onDownload: (file: FileItem) => void;
 };
 
-function FileRow({ file, isDownloading, onDownload }: FileRowProps) {
+function FileGroup({
+  title,
+  files,
+  downloadingId,
+  onDownload,
+}: FileGroupProps) {
   return (
-    <li className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-slate-900">
-          {file.originalName}
-        </p>
-        <p className="mt-0.5 text-xs text-slate-500">
-          {filePurposeLabel(file.purpose)} · {formatFileSize(file.sizeBytes)}
-        </p>
-      </div>
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+        {title}
+      </p>
+      <ul className="space-y-2">
+        {files.map((file) => (
+          <li
+            key={file.id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+                <IconFile />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-text-primary">
+                  {file.originalName}
+                </p>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  {filePurposeLabel(file.purpose)} ·{" "}
+                  {formatFileSize(file.sizeBytes)}
+                </p>
+              </div>
+            </div>
 
-      <button
-        type="button"
-        disabled={isDownloading}
-        onClick={onDownload}
-        className="shrink-0 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-      >
-        {isDownloading ? "Mengunduh..." : "Unduh"}
-      </button>
-    </li>
+            <button
+              type="button"
+              disabled={downloadingId === file.id}
+              onClick={() => onDownload(file)}
+              className="btn btn-secondary btn-sm shrink-0"
+            >
+              {downloadingId === file.id ? "..." : "Unduh"}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── Icons ───────────────────────────────────────────────────────────────────
+
+function IconUpload() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function IconFile() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
   );
 }

@@ -1,11 +1,346 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+/* ─────────────────────────────────────────────────────────────────────────
+ * CampusFlow Design Tokens
+ * Style: Clean Academic Dashboard · Enterprise Admin Panel · SaaS Mgmt
+ * Theme: Navy Blue · Slate · White · Cyan Accent
+ * ───────────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Brand Color ── */
+  --color-primary: #1e3a8a;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: #dbeafe;
+
+  --color-secondary: #334155;
+  --color-secondary-hover: #1e293b;
+  --color-secondary-soft: #e2e8f0;
+
+  --color-accent: #0ea5e9;
+  --color-accent-hover: #0284c7;
+  --color-accent-soft: #e0f2fe;
+
+  /* ── Surface ── */
+  --color-background: #f8fafc;
+  --color-background-alt: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fafc;
+
+  /* ── Border ── */
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+
+  /* ── Typography ── */
+  --color-text-primary: #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted: #64748b;
+  --color-text-disabled: #94a3b8;
+  --color-text-inverse: #ffffff;
+
+  /* ── Status ── */
+  --color-success: #16a34a;
+  --color-success-soft: #dcfce7;
+  --color-success-text: #166534;
+
+  --color-warning: #d97706;
+  --color-warning-soft: #fef3c7;
+  --color-warning-text: #92400e;
+
+  --color-danger: #dc2626;
+  --color-danger-soft: #fee2e2;
+  --color-danger-text: #991b1b;
+
+  --color-info: #0891b2;
+  --color-info-soft: #cffafe;
+  --color-info-text: #155e75;
+
+  --color-neutral: #64748b;
+  --color-neutral-soft: #f1f5f9;
+  --color-neutral-text: #334155;
+
+  /* ── Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+
+  /* ── Shadow ── */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-dropdown: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-modal: 0 20px 40px rgba(15, 23, 42, 0.18);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+ * Base
+ * ───────────────────────────────────────────────────────────────────────── */
+
+html,
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Workflow Status Badges
+ * Reusable classes for status pills across the system
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.status-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background-color: currentColor;
+  opacity: 0.7;
+}
+
+.status-DRAFT {
+  background-color: #f1f5f9;
+  color: #334155;
+}
+.status-SUBMITTED {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+.status-VERIFIED {
+  background-color: #cffafe;
+  color: #155e75;
+}
+.status-APPROVED {
+  background-color: #dcfce7;
+  color: #166534;
+}
+.status-REJECTED {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+.status-REVISION_REQUIRED {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+.status-COMPLETED {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+.status-CANCELLED {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+.status-ASSIGNED {
+  background-color: #e0e7ff;
+  color: #3730a3;
+}
+.status-ACCEPTED {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Form elements — base styling for consistency
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.form-input::placeholder,
+.form-textarea::placeholder {
+  color: var(--color-text-disabled);
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.12);
+}
+
+.form-input:disabled,
+.form-select:disabled,
+.form-textarea:disabled {
+  background-color: var(--color-background-alt);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Buttons — semantic variants
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-secondary {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-background-alt);
+  border-color: var(--color-secondary);
+}
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: var(--color-text-inverse);
+}
+.btn-danger:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.btn-success {
+  background-color: var(--color-success);
+  color: var(--color-text-inverse);
+}
+.btn-success:hover:not(:disabled) {
+  background-color: #15803d;
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--color-text-secondary);
+}
+.btn-ghost:hover:not(:disabled) {
+  background-color: var(--color-background-alt);
+  color: var(--color-text-primary);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Cards
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+
+.card-padded {
+  padding: 24px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Alert / inline messages
+ * ───────────────────────────────────────────────────────────────────────── */
+
+.alert {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  border: 1px solid transparent;
+}
+
+.alert-success {
+  background-color: var(--color-success-soft);
+  color: var(--color-success-text);
+  border-color: #bbf7d0;
+}
+
+.alert-warning {
+  background-color: var(--color-warning-soft);
+  color: var(--color-warning-text);
+  border-color: #fde68a;
+}
+
+.alert-danger {
+  background-color: var(--color-danger-soft);
+  color: var(--color-danger-text);
+  border-color: #fecaca;
+}
+
+.alert-info {
+  background-color: var(--color-info-soft);
+  color: var(--color-info-text);
+  border-color: #a5f3fc;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+ * Scrollbar polish (WebKit only — graceful fallback elsewhere)
+ * ───────────────────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-strong);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-muted);
+}
+::-webkit-scrollbar-track {
+  background-color: transparent;
 }

@@ -3,6 +3,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   Lecturer,
@@ -49,7 +50,6 @@ export default function StudentSupervisorRequestsPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const token = getAccessToken();
     if (!token) {
       setError("Token tidak ditemukan. Silakan login ulang.");
@@ -70,7 +70,6 @@ export default function StudentSupervisorRequestsPage() {
       setTopicTitle("");
       setTopicDescription("");
       setMessage("Pengajuan dosen pembimbing berhasil dibuat.");
-
       await loadData();
     } catch (err) {
       setError(
@@ -89,128 +88,129 @@ export default function StudentSupervisorRequestsPage() {
       description="Ajukan topik tugas akhir dan pilih calon dosen pembimbing."
       allowedRoles={["MAHASISWA"]}
     >
-      <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-900">
-            Buat Pengajuan Pembimbing
-          </h2>
+      <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
+        {/* ── Form ── */}
+        <section className="card card-padded h-fit">
+          <div className="border-b border-border pb-4">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Buat Pengajuan
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Isi formulir untuk mengajukan dosen pembimbing.
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Judul Topik
-              </label>
+              <label className="form-label">Judul Topik</label>
               <input
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                className="form-input"
                 value={topicTitle}
-                onChange={(event) => setTopicTitle(event.target.value)}
+                onChange={(e) => setTopicTitle(e.target.value)}
                 placeholder="Contoh: Sistem Informasi Akademik Berbasis Microservices"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Deskripsi Topik
-              </label>
+              <label className="form-label">Deskripsi Topik</label>
               <textarea
-                className="mt-2 min-h-28 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                className="form-textarea min-h-24"
                 value={topicDescription}
-                onChange={(event) => setTopicDescription(event.target.value)}
+                onChange={(e) => setTopicDescription(e.target.value)}
                 placeholder="Jelaskan ringkasan topik tugas akhir..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Calon Dosen Pembimbing
-              </label>
+              <label className="form-label">Calon Dosen Pembimbing</label>
               <select
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                className="form-select"
                 value={lecturerId}
-                onChange={(event) => setLecturerId(event.target.value)}
+                onChange={(e) => setLecturerId(e.target.value)}
                 required
               >
                 {lecturers.map((lecturer) => (
                   <option key={lecturer.id} value={lecturer.id}>
-                    {lecturer.fullName}{" "}
-                    {lecturer.nidn ? `· ${lecturer.nidn}` : ""}
+                    {lecturer.fullName}
+                    {lecturer.nidn ? ` · ${lecturer.nidn}` : ""}
                   </option>
                 ))}
               </select>
             </div>
 
             {message ? (
-              <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                {message}
-              </div>
+              <div className="alert alert-success">{message}</div>
             ) : null}
-
-            {error ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            ) : null}
+            {error ? <div className="alert alert-danger">{error}</div> : null}
 
             <button
               type="submit"
               disabled={isLoading || lecturers.length === 0}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+              className="btn btn-primary w-full"
             >
               {isLoading ? "Menyimpan..." : "Buat Pengajuan"}
             </button>
           </form>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-900">
-            Riwayat Pengajuan Pembimbing
-          </h2>
+        {/* ── List ── */}
+        <section className="card">
+          <div className="border-b border-border px-6 py-4">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Riwayat Pengajuan
+            </h2>
+            <p className="mt-0.5 text-xs text-text-muted">
+              Total {requests.length} pengajuan
+            </p>
+          </div>
 
-          <div className="mt-5 space-y-3">
+          <div className="divide-y divide-border">
             {requests.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                Belum ada pengajuan dosen pembimbing.
-              </p>
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-text-muted">
+                  Belum ada pengajuan dosen pembimbing.
+                </p>
+              </div>
             ) : (
               requests.map((request) => (
-                <article
-                  key={request.id}
-                  className="rounded-xl border border-slate-200 p-4"
-                >
+                <article key={request.id} className="px-6 py-4">
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-medium text-slate-900">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-medium text-text-primary">
                         {request.topicTitle}
                       </h3>
-                      <p className="mt-1 text-xs text-slate-500">
+                      <p className="mt-1 text-xs text-text-muted">
                         {request.requestNumber}
                       </p>
                     </div>
-
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                      {request.status}
-                    </span>
+                    <StatusBadge status={request.status} />
                   </div>
 
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {request.topicDescription || "-"}
-                  </p>
+                  {request.topicDescription ? (
+                    <p className="mt-3 text-sm leading-6 text-text-secondary">
+                      {request.topicDescription}
+                    </p>
+                  ) : null}
 
-                  <div className="mt-3 text-xs text-slate-500">
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
                     {request.assignedLecturerName ? (
-                      <p>Pembimbing: {request.assignedLecturerName}</p>
+                      <span>
+                        Pembimbing:{" "}
+                        <span className="font-medium text-text-secondary">
+                          {request.assignedLecturerName}
+                        </span>
+                      </span>
                     ) : (
-                      <p>Belum ada dosen pembimbing yang ditetapkan.</p>
+                      <span>Belum ada pembimbing ditetapkan</span>
                     )}
                   </div>
 
-                  {request.choices.length > 0 ? (
-                    <div className="mt-3 text-xs text-slate-500">
+                  {request.choices.length > 0 &&
+                  !request.assignedLecturerName ? (
+                    <div className="mt-2 text-xs text-text-muted">
                       Pilihan:{" "}
-                      {request.choices
-                        .map((choice) => choice.lecturerName)
-                        .join(", ")}
+                      {request.choices.map((c) => c.lecturerName).join(", ")}
                     </div>
                   ) : null}
                 </article>

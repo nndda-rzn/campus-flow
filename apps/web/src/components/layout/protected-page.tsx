@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import {
@@ -11,6 +10,7 @@ import {
 } from "@/lib/auth-storage";
 import type { UserProfile, UserRole } from "@/types/auth";
 import { listMyNotifications } from "@/lib/notification-api";
+import { AppShell } from "@/components/layout/app-shell";
 
 type ProtectedPageProps = {
   children: ReactNode;
@@ -56,12 +56,9 @@ export function ProtectedPage({
         const unread = response.data.notifications.filter(
           (item) => !item.isRead,
         ).length;
-
         setUnreadCount(unread);
       })
-      .catch(() => {
-        setUnreadCount(0);
-      });
+      .catch(() => setUnreadCount(0));
   }, [allowedRoles, router]);
 
   function handleLogout() {
@@ -69,31 +66,48 @@ export function ProtectedPage({
     router.replace("/login");
   }
 
-  const canOpenReports =
-    user?.role === "SUPER_ADMIN" ||
-    user?.role === "ADMIN_PRODI" ||
-    user?.role === "KAPRODI" ||
-    user?.role === "TATA_USAHA";
-
-  if (status == "checking") {
+  // ─── Loading state ───
+  if (status === "checking") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-500">Memeriksa sesi...</p>
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary"></div>
+          <p className="mt-3 text-sm text-text-muted">Memeriksa sesi...</p>
+        </div>
       </main>
     );
   }
 
-  if (status == "forbidden") {
+  // ─── Forbidden state ───
+  if (status === "forbidden") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
-        <section className="max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
-          <h1 className="text-xl font-bold text-slate-900">Akses ditolak</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-background px-6">
+        <section className="card card-padded max-w-md text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-danger-soft text-danger">
+            <svg
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          </div>
+          <h1 className="mt-4 text-xl font-bold text-text-primary">
+            Akses Ditolak
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">
             Role Anda tidak memiliki akses ke halaman ini.
           </p>
           <button
             onClick={handleLogout}
-            className="mt-6 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+            className="btn btn-primary mt-6 w-full"
           >
             Logout
           </button>
@@ -102,73 +116,15 @@ export function ProtectedPage({
     );
   }
 
+  // ─── Allowed state ───
   return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div>
-            <Link
-              href="/dashboard"
-              className="text-lg font-bold text-slate-900"
-            >
-              CampusFlow
-            </Link>
-            <p className="text-xs text-slate-500">
-              {user?.fullName} · {user?.role}
-            </p>
-          </div>
-
-          <nav className="flex items-center gap-4 text-sm">
-            <Link
-              href="/dashboard"
-              className="text-slate-600 hover:text-slate-900"
-            >
-              Dashboard
-            </Link>
-
-            <Link
-              href="/notifications"
-              className="relative text-slate-600 hover:text-slate-900"
-            >
-              Notifications
-              {unreadCount > 0 ? (
-                <span className="ml-2 rounded-full bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
-                  {unreadCount}
-                </span>
-              ) : null}
-            </Link>
-
-            {canOpenReports ? (
-              <Link
-                href="/reports"
-                className="text-slate-600 hover:text-slate-900"
-              >
-                Reports
-              </Link>
-            ) : null}
-
-            <button
-              onClick={handleLogout}
-              className="rounded-lg border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50"
-            >
-              Logout
-            </button>
-          </nav>
-        </div>
-      </header>
-
-      <section className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-          {description ? (
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              {description}
-            </p>
-          ) : null}
-        </div>
-
-        {children}
-      </section>
-    </main>
+    <AppShell
+      user={user!}
+      unreadCount={unreadCount}
+      title={title}
+      description={description}
+    >
+      {children}
+    </AppShell>
   );
 }

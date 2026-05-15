@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
@@ -22,10 +23,8 @@ export default function HeadSupervisorRequestsPage() {
     async function loadLecturers() {
       const token = getAccessToken();
       if (!token) return;
-
       const response = await listLecturers(token);
       setLecturers(response.data.lecturers);
-
       if (response.data.lecturers.length > 0) {
         setLecturerId(response.data.lecturers[0].id);
       }
@@ -38,7 +37,6 @@ export default function HeadSupervisorRequestsPage() {
 
   async function handleAssign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const token = getAccessToken();
     if (!token) return;
 
@@ -52,7 +50,6 @@ export default function HeadSupervisorRequestsPage() {
         lecturer_id: lecturerId,
         note,
       });
-
       setResult(
         `Berhasil assign. Status sekarang: ${response.data.request.status}`,
       );
@@ -66,70 +63,64 @@ export default function HeadSupervisorRequestsPage() {
   return (
     <ProtectedPage
       title="Penetapan Dosen Pembimbing"
-      description="Kaprodi menetapkan dosen pembimbing untuk pengajuan yang sudah diverifikasi."
+      description="Tetapkan dosen pembimbing untuk pengajuan yang sudah diverifikasi."
       allowedRoles={["KAPRODI"]}
     >
-      <section className="max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <form onSubmit={handleAssign} className="space-y-4">
+      <section className="card card-padded max-w-2xl">
+        <div className="border-b border-border pb-4">
+          <h2 className="text-lg font-semibold text-text-primary">
+            Form Penetapan
+          </h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Pilih dosen yang akan ditetapkan sebagai pembimbing.
+          </p>
+        </div>
+
+        <form onSubmit={handleAssign} className="mt-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Request ID
-            </label>
+            <label className="form-label">Request ID</label>
             <input
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+              className="form-input font-mono text-xs"
               value={requestId}
-              onChange={(event) => setRequestId(event.target.value)}
+              onChange={(e) => setRequestId(e.target.value)}
               placeholder="UUID supervisor request"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Dosen Pembimbing
-            </label>
+            <label className="form-label">Dosen Pembimbing</label>
             <select
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+              className="form-select"
               value={lecturerId}
-              onChange={(event) => setLecturerId(event.target.value)}
+              onChange={(e) => setLecturerId(e.target.value)}
               required
             >
               {lecturers.map((lecturer) => (
                 <option key={lecturer.id} value={lecturer.id}>
-                  {lecturer.fullName}{" "}
-                  {lecturer.nidn ? `· ${lecturer.nidn}` : ""}
+                  {lecturer.fullName}
+                  {lecturer.nidn ? ` · ${lecturer.nidn}` : ""}
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Catatan
-            </label>
+            <label className="form-label">Catatan</label>
             <textarea
-              className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+              className="form-textarea min-h-24"
               value={note}
-              onChange={(event) => setNote(event.target.value)}
+              onChange={(e) => setNote(e.target.value)}
             />
           </div>
 
-          {result ? (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-              {result}
-            </div>
-          ) : null}
-
-          {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
+          {result ? <div className="alert alert-success">{result}</div> : null}
+          {error ? <div className="alert alert-danger">{error}</div> : null}
 
           <button
             type="submit"
             disabled={isLoading || lecturers.length === 0}
-            className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            className="btn btn-primary"
           >
             {isLoading ? "Memproses..." : "Tetapkan Dosen"}
           </button>

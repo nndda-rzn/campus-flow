@@ -16,6 +16,7 @@ export default function ReportsPage() {
     null,
   );
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadReports() {
@@ -31,9 +32,11 @@ export default function ReportsPage() {
       setSupervisor(supervisorResponse.data ?? null);
     }
 
-    loadReports().catch((err) => {
-      setError(err instanceof Error ? err.message : "Gagal memuat laporan");
-    });
+    loadReports()
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Gagal memuat laporan"),
+      )
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
@@ -42,60 +45,97 @@ export default function ReportsPage() {
       description="Dashboard ringkas dari read model Reporting Service."
       allowedRoles={["SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "TATA_USAHA"]}
     >
-      {error ? (
-        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      {error ? <div className="mb-6 alert alert-danger">{error}</div> : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-900">
-            Laporan Layanan Akademik
-          </h2>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <Metric label="Total" value={academic?.totalRequests ?? 0} />
+      <div className="space-y-6">
+        {/* Section: Academic Requests */}
+        <section>
+          <SectionHeader
+            title="Layanan Akademik"
+            description="Distribusi status pengajuan layanan akademik mahasiswa."
+          />
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
             <Metric
-              label="Submitted"
-              value={academic?.submittedRequests ?? 0}
+              label="Total"
+              value={academic?.totalRequests ?? 0}
+              status="primary"
+              isLoading={isLoading}
             />
-            <Metric label="Verified" value={academic?.verifiedRequests ?? 0} />
-            <Metric label="Approved" value={academic?.approvedRequests ?? 0} />
-            <Metric label="Rejected" value={academic?.rejectedRequests ?? 0} />
             <Metric
-              label="Completed"
+              label="Diajukan"
+              value={academic?.submittedRequests ?? 0}
+              status="SUBMITTED"
+              isLoading={isLoading}
+            />
+            <Metric
+              label="Diverifikasi"
+              value={academic?.verifiedRequests ?? 0}
+              status="VERIFIED"
+              isLoading={isLoading}
+            />
+            <Metric
+              label="Disetujui"
+              value={academic?.approvedRequests ?? 0}
+              status="APPROVED"
+              isLoading={isLoading}
+            />
+            <Metric
+              label="Ditolak"
+              value={academic?.rejectedRequests ?? 0}
+              status="REJECTED"
+              isLoading={isLoading}
+            />
+            <Metric
+              label="Selesai"
               value={academic?.completedRequests ?? 0}
+              status="COMPLETED"
+              isLoading={isLoading}
             />
           </div>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-900">
-            Laporan Dosen Pembimbing
-          </h2>
-
-          <div className="mt-5 grid grid-cols-2 gap-3">
-            <Metric label="Total" value={supervisor?.totalRequests ?? 0} />
+        {/* Section: Supervisor Requests */}
+        <section>
+          <SectionHeader
+            title="Pengajuan Dosen Pembimbing"
+            description="Distribusi status pengajuan pembimbing skripsi/tugas akhir."
+          />
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
             <Metric
-              label="Submitted"
+              label="Total"
+              value={supervisor?.totalRequests ?? 0}
+              status="primary"
+              isLoading={isLoading}
+            />
+            <Metric
+              label="Diajukan"
               value={supervisor?.submittedRequests ?? 0}
+              status="SUBMITTED"
+              isLoading={isLoading}
             />
             <Metric
-              label="Verified"
+              label="Diverifikasi"
               value={supervisor?.verifiedRequests ?? 0}
+              status="VERIFIED"
+              isLoading={isLoading}
             />
             <Metric
-              label="Assigned"
+              label="Ditugaskan"
               value={supervisor?.assignedRequests ?? 0}
+              status="ASSIGNED"
+              isLoading={isLoading}
             />
             <Metric
-              label="Accepted"
+              label="Diterima"
               value={supervisor?.acceptedRequests ?? 0}
+              status="ACCEPTED"
+              isLoading={isLoading}
             />
             <Metric
-              label="Rejected"
+              label="Ditolak"
               value={supervisor?.rejectedRequests ?? 0}
+              status="REJECTED"
+              isLoading={isLoading}
             />
           </div>
         </section>
@@ -104,13 +144,62 @@ export default function ReportsPage() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+// ─── Components ──────────────────────────────────────────────────────────────
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+    <div>
+      <h2 className="text-lg font-semibold text-text-primary">{title}</h2>
+      {description ? (
+        <p className="mt-1 text-sm text-text-muted">{description}</p>
+      ) : null}
+    </div>
+  );
+}
+
+type MetricProps = {
+  label: string;
+  value: number;
+  status: string;
+  isLoading: boolean;
+};
+
+function Metric({ label, value, status, isLoading }: MetricProps) {
+  // Map status to the colored accent strip on the left
+  const accentColor: Record<string, string> = {
+    primary: "bg-primary",
+    SUBMITTED: "bg-[#2563eb]",
+    VERIFIED: "bg-[#0891b2]",
+    APPROVED: "bg-[#16a34a]",
+    REJECTED: "bg-[#dc2626]",
+    COMPLETED: "bg-[#059669]",
+    ASSIGNED: "bg-[#4f46e5]",
+    ACCEPTED: "bg-[#16a34a]",
+  };
+
+  return (
+    <div className="card relative overflow-hidden">
+      <div
+        className={`absolute left-0 top-0 h-full w-1 ${accentColor[status] ?? "bg-secondary"}`}
+      />
+      <div className="px-4 py-4 pl-5">
+        <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+          {label}
+        </p>
+        <p className="mt-2 text-2xl font-bold text-text-primary tabular-nums">
+          {isLoading ? (
+            <span className="inline-block h-6 w-12 animate-pulse rounded bg-background-alt"></span>
+          ) : (
+            value.toLocaleString()
+          )}
+        </p>
+      </div>
     </div>
   );
 }

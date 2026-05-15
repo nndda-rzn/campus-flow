@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { DashboardCard } from "@/components/ui/dashboard-card";
 
 export default function LecturerDashboardPage() {
   return (
@@ -9,17 +9,28 @@ export default function LecturerDashboardPage() {
       allowedRoles={["DOSEN"]}
     >
       <div className="grid gap-4 md:grid-cols-2">
-        <Link
+        <DashboardCard
           href="/lecturer/supervisor-requests"
-          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-slate-400"
-        >
-          <h2 className="font-semibold text-slate-900">
-            Permintaan Pembimbing
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Lihat penetapan pembimbing dan lakukan accept atau reject.
-          </p>
-        </Link>
+          title="Permintaan Pembimbing"
+          description="Lihat penetapan pembimbing dari Kaprodi dan lakukan accept atau reject."
+          accent="primary"
+          icon={
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <polyline points="17 11 19 13 23 9" />
+            </svg>
+          }
+        />
       </div>
     </ProtectedPage>
   );

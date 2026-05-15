@@ -4,6 +4,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { FileSection } from "@/components/academic/file-section";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   AcademicRequest,
@@ -53,7 +54,6 @@ export default function StudentAcademicRequestsPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const token = getAccessToken();
     if (!token) {
       setError("Token tidak ditemukan. Silakan login ulang.");
@@ -74,7 +74,6 @@ export default function StudentAcademicRequestsPage() {
       setTitle("");
       setDescription("");
       setMessage("Pengajuan berhasil dibuat.");
-
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal membuat pengajuan");
@@ -83,8 +82,8 @@ export default function StudentAcademicRequestsPage() {
     }
   }
 
-  function toggleExpand(requestId: string) {
-    setExpandedRequestId((prev) => (prev === requestId ? null : requestId));
+  function toggleExpand(id: string) {
+    setExpandedRequestId((prev) => (prev === id ? null : id));
   }
 
   return (
@@ -93,20 +92,25 @@ export default function StudentAcademicRequestsPage() {
       description="Buat dan pantau status pengajuan layanan akademik."
       allowedRoles={["MAHASISWA"]}
     >
-      <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
-        {/* ── Form Buat Pengajuan ── */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-900">Buat Pengajuan</h2>
+      <div className="grid gap-6 lg:grid-cols-[400px_1fr]">
+        {/* ── Form ── */}
+        <section className="card card-padded h-fit">
+          <div className="border-b border-border pb-4">
+            <h2 className="text-lg font-semibold text-text-primary">
+              Buat Pengajuan
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Isi formulir berikut untuk mengajukan layanan baru.
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit} className="mt-5 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Jenis Layanan
-              </label>
+              <label className="form-label">Jenis Layanan</label>
               <select
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                className="form-select"
                 value={serviceCode}
-                onChange={(event) => setServiceCode(event.target.value)}
+                onChange={(e) => setServiceCode(e.target.value)}
                 required
               >
                 {services.map((service) => (
@@ -118,108 +122,114 @@ export default function StudentAcademicRequestsPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Judul Pengajuan
-              </label>
+              <label className="form-label">Judul Pengajuan</label>
               <input
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                className="form-input"
                 value={title}
-                onChange={(event) => setTitle(event.target.value)}
+                onChange={(e) => setTitle(e.target.value)}
                 placeholder="Contoh: Pengajuan Surat Aktif Kuliah"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700">
-                Deskripsi
-              </label>
+              <label className="form-label">Deskripsi</label>
               <textarea
-                className="mt-2 min-h-28 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                className="form-textarea min-h-24"
                 value={description}
-                onChange={(event) => setDescription(event.target.value)}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="Tuliskan kebutuhan pengajuan..."
               />
             </div>
 
             {message ? (
-              <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-                {message}
-              </div>
+              <div className="alert alert-success">{message}</div>
             ) : null}
-
-            {error ? (
-              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            ) : null}
+            {error ? <div className="alert alert-danger">{error}</div> : null}
 
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-60"
+              className="btn btn-primary w-full"
             >
               {isLoading ? "Menyimpan..." : "Buat Pengajuan"}
             </button>
           </form>
         </section>
 
-        {/* ── Riwayat Pengajuan ── */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="font-semibold text-slate-900">Riwayat Pengajuan</h2>
-
-          <div className="mt-5 space-y-3">
-            {requests.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                Belum ada pengajuan layanan akademik.
+        {/* ── List ── */}
+        <section className="card">
+          <div className="flex items-center justify-between border-b border-border px-6 py-4">
+            <div>
+              <h2 className="text-lg font-semibold text-text-primary">
+                Riwayat Pengajuan
+              </h2>
+              <p className="mt-0.5 text-xs text-text-muted">
+                Total {requests.length} pengajuan
               </p>
+            </div>
+          </div>
+
+          <div className="divide-y divide-border">
+            {requests.length === 0 ? (
+              <div className="px-6 py-12 text-center">
+                <p className="text-sm text-text-muted">
+                  Belum ada pengajuan layanan akademik.
+                </p>
+              </div>
             ) : (
               requests.map((request) => {
                 const token = getAccessToken() ?? "";
                 const isExpanded = expandedRequestId === request.id;
 
                 return (
-                  <article
-                    key={request.id}
-                    className="rounded-xl border border-slate-200"
-                  >
-                    {/* Header card */}
+                  <article key={request.id}>
                     <button
                       type="button"
                       onClick={() => toggleExpand(request.id)}
-                      className="flex w-full items-start justify-between gap-4 p-4 text-left"
+                      className="flex w-full items-start justify-between gap-4 px-6 py-4 text-left hover:bg-surface-muted transition-colors"
                     >
-                      <div>
-                        <h3 className="font-medium text-slate-900">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-medium text-text-primary">
                           {request.title}
                         </h3>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {request.requestNumber} · {request.serviceName}
+                        <p className="mt-1 text-xs text-text-muted">
+                          <span className="font-medium">
+                            {request.requestNumber}
+                          </span>{" "}
+                          · {request.serviceName}
                         </p>
                       </div>
 
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-3">
                         <StatusBadge status={request.status} />
-                        <span className="text-xs text-slate-400">
-                          {isExpanded ? "▲" : "▼"}
-                        </span>
+                        <ChevronIcon expanded={isExpanded} />
                       </div>
                     </button>
 
-                    {/* Expanded: deskripsi + file section */}
                     {isExpanded && (
-                      <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+                      <div className="border-t border-border bg-surface-muted px-6 py-5">
                         {request.description ? (
-                          <p className="mb-4 text-sm leading-6 text-slate-600">
-                            {request.description}
-                          </p>
+                          <div className="mb-5">
+                            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                              Deskripsi
+                            </p>
+                            <p className="text-sm leading-6 text-text-secondary">
+                              {request.description}
+                            </p>
+                          </div>
                         ) : null}
 
-                        <FileSection
-                          token={token}
-                          requestId={request.id}
-                          canUploadSupporting={true}
-                        />
+                        <div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+                            Dokumen
+                          </p>
+                          <FileSection
+                            token={token}
+                            requestId={request.id}
+                            canUploadSupporting={true}
+                          />
+                        </div>
                       </div>
                     )}
                   </article>
@@ -233,35 +243,20 @@ export default function StudentAcademicRequestsPage() {
   );
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    SUBMITTED: "bg-blue-100 text-blue-700",
-    VERIFIED: "bg-yellow-100 text-yellow-700",
-    APPROVED: "bg-green-100 text-green-700",
-    REJECTED: "bg-red-100 text-red-700",
-    COMPLETED: "bg-slate-100 text-slate-700",
-    CANCELLED: "bg-slate-100 text-slate-500",
-    REVISION_REQUIRED: "bg-orange-100 text-orange-700",
-  };
-
-  const labelMap: Record<string, string> = {
-    SUBMITTED: "Diajukan",
-    VERIFIED: "Diverifikasi",
-    APPROVED: "Disetujui",
-    REJECTED: "Ditolak",
-    COMPLETED: "Selesai",
-    CANCELLED: "Dibatalkan",
-    REVISION_REQUIRED: "Perlu Revisi",
-  };
-
-  const color = colorMap[status] ?? "bg-slate-100 text-slate-700";
-  const label = labelMap[status] ?? status;
-
+function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-medium ${color}`}>
-      {label}
-    </span>
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`text-text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
   );
 }

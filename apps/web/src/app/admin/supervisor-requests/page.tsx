@@ -16,7 +16,6 @@ export default function AdminSupervisorRequestsPage() {
 
   async function handleVerify(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const token = getAccessToken();
     if (!token) return;
 
@@ -29,7 +28,6 @@ export default function AdminSupervisorRequestsPage() {
         request_id: requestId,
         note,
       });
-
       setResult(
         `Berhasil verifikasi. Status sekarang: ${response.data.request.status}`,
       );
@@ -43,51 +41,47 @@ export default function AdminSupervisorRequestsPage() {
   return (
     <ProtectedPage
       title="Verifikasi Pengajuan Pembimbing"
-      description="Admin Prodi memverifikasi pengajuan dosen pembimbing sebelum Kaprodi menetapkan dosen."
+      description="Verifikasi pengajuan dosen pembimbing sebelum Kaprodi menetapkan dosen."
       allowedRoles={["SUPER_ADMIN", "ADMIN_PRODI"]}
     >
-      <section className="max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <form onSubmit={handleVerify} className="space-y-4">
+      <section className="card card-padded max-w-2xl">
+        <div className="border-b border-border pb-4">
+          <h2 className="text-lg font-semibold text-text-primary">
+            Form Verifikasi
+          </h2>
+          <p className="mt-1 text-sm text-text-muted">
+            Masukkan ID pengajuan dan catatan untuk memverifikasi.
+          </p>
+        </div>
+
+        <form onSubmit={handleVerify} className="mt-5 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Request ID
-            </label>
+            <label className="form-label">Request ID</label>
             <input
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+              className="form-input font-mono text-xs"
               value={requestId}
-              onChange={(event) => setRequestId(event.target.value)}
+              onChange={(e) => setRequestId(e.target.value)}
               placeholder="UUID supervisor request"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700">
-              Catatan
-            </label>
+            <label className="form-label">Catatan</label>
             <textarea
-              className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+              className="form-textarea min-h-24"
               value={note}
-              onChange={(event) => setNote(event.target.value)}
+              onChange={(e) => setNote(e.target.value)}
             />
           </div>
 
-          {result ? (
-            <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-              {result}
-            </div>
-          ) : null}
-
-          {error ? (
-            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {error}
-            </div>
-          ) : null}
+          {result ? <div className="alert alert-success">{result}</div> : null}
+          {error ? <div className="alert alert-danger">{error}</div> : null}
 
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"
+            className="btn btn-primary"
           >
             {isLoading ? "Memproses..." : "Verifikasi Pengajuan"}
           </button>

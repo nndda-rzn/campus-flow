@@ -44,14 +44,9 @@ export default function NotificationsPage() {
   );
 
   const filteredNotifications = useMemo(() => {
-    if (filter === "UNREAD") {
+    if (filter === "UNREAD")
       return notifications.filter((item) => !item.isRead);
-    }
-
-    if (filter === "READ") {
-      return notifications.filter((item) => item.isRead);
-    }
-
+    if (filter === "READ") return notifications.filter((item) => item.isRead);
     return notifications;
   }, [filter, notifications]);
 
@@ -63,11 +58,7 @@ export default function NotificationsPage() {
     setError("");
 
     try {
-      await markNotificationAsRead(token, {
-        notification_id: notificationId,
-      });
-
-      setMessage("Notifikasi berhasil ditandai sebagai dibaca.");
+      await markNotificationAsRead(token, { notification_id: notificationId });
       await loadNotifications();
     } catch (err) {
       setError(
@@ -82,20 +73,16 @@ export default function NotificationsPage() {
     const token = getAccessToken();
     if (!token) return;
 
-    const unreadNotifications = notifications.filter((item) => !item.isRead);
-
+    const unread = notifications.filter((item) => !item.isRead);
     setMessage("");
     setError("");
 
     try {
       await Promise.all(
-        unreadNotifications.map((item) =>
-          markNotificationAsRead(token, {
-            notification_id: item.id,
-          }),
+        unread.map((item) =>
+          markNotificationAsRead(token, { notification_id: item.id }),
         ),
       );
-
       setMessage("Semua notifikasi berhasil ditandai sebagai dibaca.");
       await loadNotifications();
     } catch (err) {
@@ -107,167 +94,228 @@ export default function NotificationsPage() {
 
   return (
     <ProtectedPage
-      title="Notifications"
-      description="Daftar notifikasi in-app dari workflow akademik dan pengajuan dosen pembimbing."
+      title="Notifikasi"
+      description="Pemberitahuan dari workflow akademik dan pengajuan dosen pembimbing."
     >
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
-        <Metric label="Total Notifikasi" value={notifications.length} />
-        <Metric label="Belum Dibaca" value={unreadCount} />
+      {/* Summary cards */}
+      <div className="mb-6 grid gap-3 md:grid-cols-3">
+        <Metric label="Total" value={notifications.length} accent="primary" />
+        <Metric label="Belum Dibaca" value={unreadCount} accent="accent" />
         <Metric
           label="Sudah Dibaca"
           value={notifications.length - unreadCount}
+          accent="success"
         />
       </div>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <h2 className="font-semibold text-slate-900">Daftar Notifikasi</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Notifikasi terbaru ditampilkan berdasarkan waktu dibuat.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <button
+      <div className="card">
+        {/* Header with tabs */}
+        <div className="flex flex-col justify-between gap-3 border-b border-border px-6 py-4 md:flex-row md:items-center">
+          <div className="flex flex-wrap gap-1 rounded-lg bg-background-alt p-1">
+            <FilterTab
+              active={filter === "ALL"}
               onClick={() => setFilter("ALL")}
-              className={filterButtonClass(filter === "ALL")}
             >
               Semua
-            </button>
-            <button
+            </FilterTab>
+            <FilterTab
+              active={filter === "UNREAD"}
               onClick={() => setFilter("UNREAD")}
-              className={filterButtonClass(filter === "UNREAD")}
             >
-              Belum Dibaca
-            </button>
-            <button
+              Belum Dibaca {unreadCount > 0 ? `(${unreadCount})` : ""}
+            </FilterTab>
+            <FilterTab
+              active={filter === "READ"}
               onClick={() => setFilter("READ")}
-              className={filterButtonClass(filter === "READ")}
             >
-              Dibaca
-            </button>
+              Sudah Dibaca
+            </FilterTab>
           </div>
-        </div>
 
-        {message ? (
-          <div className="mt-5 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-            {message}
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        ) : null}
-
-        <div className="mt-5 flex justify-end">
           <button
             onClick={handleMarkAllAsRead}
             disabled={unreadCount === 0}
-            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn btn-secondary btn-sm"
           >
             Tandai Semua Dibaca
           </button>
         </div>
 
-        <div className="mt-5 space-y-3">
-          {isLoading ? (
-            <p className="text-sm text-slate-500">Memuat notifikasi...</p>
-          ) : filteredNotifications.length === 0 ? (
-            <p className="text-sm text-slate-500">
+        {/* Messages */}
+        {message ? (
+          <div className="px-6 pt-4">
+            <div className="alert alert-success">{message}</div>
+          </div>
+        ) : null}
+        {error ? (
+          <div className="px-6 pt-4">
+            <div className="alert alert-danger">{error}</div>
+          </div>
+        ) : null}
+
+        {/* List */}
+        {isLoading ? (
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm text-text-muted">Memuat notifikasi...</p>
+          </div>
+        ) : filteredNotifications.length === 0 ? (
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm text-text-muted">
               Tidak ada notifikasi untuk filter ini.
             </p>
-          ) : (
-            filteredNotifications.map((notification) => (
-              <article
-                key={notification.id}
-                className={`rounded-xl border p-4 ${
-                  notification.isRead
-                    ? "border-slate-200 bg-white"
-                    : "border-slate-300 bg-slate-50"
+          </div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {filteredNotifications.map((n) => (
+              <li
+                key={n.id}
+                className={`flex items-start gap-4 px-6 py-4 ${
+                  !n.isRead ? "bg-primary-soft/30" : ""
                 }`}
               >
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-medium text-slate-900">
-                        {notification.title}
-                      </h3>
-
-                      <span className={typeBadgeClass(notification.type)}>
-                        {notification.type}
-                      </span>
-
-                      {!notification.isRead ? (
-                        <span className="rounded-full bg-slate-900 px-2 py-1 text-xs font-medium text-white">
-                          Baru
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      {notification.message}
-                    </p>
-
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-500">
-                      <span>{notification.entityType || "GENERAL"}</span>
-                      {notification.entityId ? (
-                        <span>Entity ID: {notification.entityId}</span>
-                      ) : null}
-                      {notification.createdAt ? (
-                        <span>Dibuat: {notification.createdAt}</span>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {!notification.isRead ? (
-                    <button
-                      onClick={() => handleMarkAsRead(notification.id)}
-                      className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
-                    >
-                      Tandai Dibaca
-                    </button>
-                  ) : (
-                    <span className="text-sm text-slate-400">Sudah dibaca</span>
-                  )}
+                {/* Type icon */}
+                <div
+                  className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${typeIconClass(n.type)}`}
+                >
+                  <NotifIcon type={n.type} />
                 </div>
-              </article>
-            ))
-          )}
-        </div>
-      </section>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-medium text-text-primary">{n.title}</h3>
+                    {!n.isRead ? (
+                      <span className="inline-block h-2 w-2 rounded-full bg-accent" />
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-sm leading-6 text-text-secondary">
+                    {n.message}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-3 text-xs text-text-muted">
+                    {n.entityType ? <span>{n.entityType}</span> : null}
+                    {n.createdAt ? <span>{n.createdAt}</span> : null}
+                  </div>
+                </div>
+
+                {!n.isRead ? (
+                  <button
+                    onClick={() => handleMarkAsRead(n.id)}
+                    className="btn btn-secondary btn-sm shrink-0"
+                  >
+                    Tandai Dibaca
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </ProtectedPage>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+// ─── Components ──────────────────────────────────────────────────────────────
+
+function Metric({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: number;
+  accent: "primary" | "accent" | "success";
+}) {
+  const accentColor: Record<typeof accent, string> = {
+    primary: "bg-primary",
+    accent: "bg-accent",
+    success: "bg-success",
+  };
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+    <div className="card relative overflow-hidden">
+      <div
+        className={`absolute left-0 top-0 h-full w-1 ${accentColor[accent]}`}
+      />
+      <div className="px-5 py-4 pl-6">
+        <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+          {label}
+        </p>
+        <p className="mt-1 text-2xl font-bold text-text-primary tabular-nums">
+          {value.toLocaleString()}
+        </p>
+      </div>
     </div>
   );
 }
 
-function filterButtonClass(active: boolean) {
-  return active
-    ? "rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
-    : "rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50";
+function FilterTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+        active
+          ? "bg-surface text-text-primary shadow-sm"
+          : "text-text-muted hover:text-text-primary"
+      }`}
+    >
+      {children}
+    </button>
+  );
 }
 
-function typeBadgeClass(type: string) {
+function typeIconClass(type: string) {
   switch (type) {
     case "SUCCESS":
-      return "rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-700";
+      return "bg-success-soft text-success";
     case "WARNING":
-      return "rounded-full bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-700";
+      return "bg-warning-soft text-warning";
     case "ERROR":
-      return "rounded-full bg-red-50 px-2 py-1 text-xs font-medium text-red-700";
+      return "bg-danger-soft text-danger";
     default:
-      return "rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700";
+      return "bg-info-soft text-info";
   }
+}
+
+function NotifIcon({ type }: { type: string }) {
+  // Simple bell icon, could be customized per type
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      {type === "SUCCESS" ? (
+        <polyline points="20 6 9 17 4 12" />
+      ) : type === "ERROR" ? (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </>
+      ) : type === "WARNING" ? (
+        <>
+          <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+          <line x1="12" y1="9" x2="12" y2="13" />
+          <line x1="12" y1="17" x2="12.01" y2="17" />
+        </>
+      ) : (
+        <>
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+        </>
+      )}
+    </svg>
+  );
 }
