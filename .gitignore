@@ -28,6 +28,9 @@ vendor/
 .vscode/
 .idea/
 
+# Kiro
+.kiro/
+
 # Docker
 *.log
 

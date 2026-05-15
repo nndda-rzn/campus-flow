@@ -10,6 +10,7 @@ import {
   getCurrentUser,
 } from "@/lib/auth-storage";
 import type { UserProfile, UserRole } from "@/types/auth";
+import { listMyNotifications } from "@/lib/notification-api";
 
 type ProtectedPageProps = {
   children: ReactNode;
@@ -30,6 +31,7 @@ export function ProtectedPage({
   const [status, setStatus] = useState<"checking" | "allowed" | "forbidden">(
     "checking",
   );
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -48,12 +50,30 @@ export function ProtectedPage({
 
     setUser(currentUser);
     setStatus("allowed");
+
+    listMyNotifications(token)
+      .then((response) => {
+        const unread = response.data.notifications.filter(
+          (item) => !item.isRead,
+        ).length;
+
+        setUnreadCount(unread);
+      })
+      .catch(() => {
+        setUnreadCount(0);
+      });
   }, [allowedRoles, router]);
 
   function handleLogout() {
     clearAuthSession();
     router.replace("/login");
   }
+
+  const canOpenReports =
+    user?.role === "SUPER_ADMIN" ||
+    user?.role === "ADMIN_PRODI" ||
+    user?.role === "KAPRODI" ||
+    user?.role === "TATA_USAHA";
 
   if (status == "checking") {
     return (
@@ -105,12 +125,28 @@ export function ProtectedPage({
             >
               Dashboard
             </Link>
+
             <Link
-              href="/reports"
-              className="text-slate-600 hover:text-slate-900"
+              href="/notifications"
+              className="relative text-slate-600 hover:text-slate-900"
             >
-              Reports
+              Notifications
+              {unreadCount > 0 ? (
+                <span className="ml-2 rounded-full bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">
+                  {unreadCount}
+                </span>
+              ) : null}
             </Link>
+
+            {canOpenReports ? (
+              <Link
+                href="/reports"
+                className="text-slate-600 hover:text-slate-900"
+              >
+                Reports
+              </Link>
+            ) : null}
+
             <button
               onClick={handleLogout}
               className="rounded-lg border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50"

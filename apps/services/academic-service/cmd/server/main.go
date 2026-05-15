@@ -40,19 +40,21 @@ func main() {
 
 	rabbitPublisher, err := messaging.NewRabbitMQPublisher(cfg.RabbitMQURL, "campusflow.events")
 	if err != nil {
-		log.Fatalf("failed to connect rabbitmq: %v", err)
+		log.Printf("WARNING: failed to connect to RabbitMQ, outbox publisher will not start: %v", err)
+	} else {
+		defer rabbitPublisher.Close()
+
+		workerCtx, cancelWorker := context.WithCancel(context.Background())
+		defer cancelWorker()
+
+		go worker.StartOutboxPublisher(
+			workerCtx,
+			outboxRepo,
+			rabbitPublisher,
+			3*time.Second,
+		)
+		fmt.Println("Academic Service outbox publisher started")
 	}
-	defer rabbitPublisher.Close()
-
-	workerCtx, cancelWorker := context.WithCancel(context.Background())
-	defer cancelWorker()
-
-	go worker.StartOutboxPublisher(
-		workerCtx,
-		outboxRepo,
-		rabbitPublisher,
-		3*time.Second,
-	)
 
 	listener, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {
@@ -64,7 +66,6 @@ func main() {
 
 	fmt.Println("Academic Service gRPC running on port", cfg.GRPCPort)
 	fmt.Println("Academic Service connected to academic_db")
-	fmt.Println("Academic Service outbox publisher started")
 
 	if err := grpcServer.Serve(listener); err != nil {
 		log.Fatalf("failed to serve grpc: %v", err)

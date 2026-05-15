@@ -22,14 +22,17 @@ export default function StudentDashboardPage() {
           </p>
         </Link>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <Link
+          href="/student/supervisor-requests"
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:border-slate-400"
+        >
           <h2 className="font-semibold text-slate-900">
             Pengajuan Dosen Pembimbing
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Modul UI akan dibuat setelah halaman layanan akademik stabil.
+            Ajukan topik tugas akhir dan pilih calon dosen pembimbing.
           </p>
-        </div>
+        </Link>
       </div>
     </ProtectedPage>
   );

@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"errors"
+	"log"
 
 	"campus-flow/apps/services/academic-service/internal/model"
 	"campus-flow/apps/services/academic-service/internal/service"
@@ -52,6 +53,9 @@ func (h *AcademicHandler) CreateAcademicRequest(
 	ctx context.Context,
 	req *academicv1.CreateAcademicRequestRequest,
 ) (*academicv1.AcademicRequestResponse, error) {
+	log.Printf("[CreateAcademicRequest] student_user_id=%q service_code=%q title=%q",
+		req.StudentUserId, req.ServiceCode, req.Title)
+
 	created, err := h.academicService.CreateAcademicRequest(
 		ctx,
 		req.StudentUserId,
@@ -60,6 +64,8 @@ func (h *AcademicHandler) CreateAcademicRequest(
 		req.Description,
 	)
 	if err != nil {
+		log.Printf("[CreateAcademicRequest] ERROR: %v", err)
+
 		if errors.Is(err, service.ErrInvalidInput) {
 			return nil, status.Error(codes.InvalidArgument, "student_user_id, service_code, and title are required")
 		}

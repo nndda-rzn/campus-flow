@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	
+
 	"campus-flow/apps/services/academic-service/internal/model"
-	
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -45,12 +45,12 @@ func (r *AcademicRepository) ListAcademicServices(ctx context.Context) ([]model.
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var services []model.AcademicServiceItem
-	
+
 	for rows.Next() {
 		var item model.AcademicServiceItem
-		
+
 		if err := rows.Scan(
 			&item.ID,
 			&item.Code,
@@ -60,14 +60,14 @@ func (r *AcademicRepository) ListAcademicServices(ctx context.Context) ([]model.
 		); err != nil {
 			return nil, err
 		}
-		
+
 		services = append(services, item)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	
+
 	return services, nil
 }
 
@@ -83,9 +83,9 @@ func (r *AcademicRepository) CreateAcademicRequest(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	
+
 	var svc model.AcademicServiceItem
-	
+
 	err = tx.QueryRow(
 		ctx, `
 		SELECT id::text, code, name, description, is_active
@@ -101,19 +101,19 @@ func (r *AcademicRepository) CreateAcademicRequest(
 		&svc.Description,
 		&svc.IsActive,
 	)
-	
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAcademicServiceNotFound
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	requestNumber := generateRequestNumber()
-	
+
 	var req model.AcademicRequest
-	
+
 	err = tx.QueryRow(
 		ctx, `
 		INSERT INTO service_requests (
@@ -151,10 +151,10 @@ func (r *AcademicRepository) CreateAcademicRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	req.ServiceCode = svc.Code
 	req.ServiceName = svc.Name
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO request_status_histories (
@@ -170,7 +170,7 @@ func (r *AcademicRepository) CreateAcademicRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO audit_logs (
@@ -185,14 +185,14 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			'ACADEMIC_REQUEST_CREATED',
 			'service_requests',
 			$2::uuid,
-			jsonb_build_object('request_number', $3, 'service_code', $4)
+			jsonb_build_object('request_number', $3::text, 'service_code', $4::text)
 		)
 	`, studentUserID, req.ID, req.RequestNumber, svc.Code,
 	)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 	INSERT INTO outbox_events (
@@ -206,13 +206,13 @@ func (r *AcademicRepository) CreateAcademicRequest(
 		'service_requests',
 		'academic_request.created',
 		jsonb_build_object(
-			'request_id', $1::text,
-			'request_number', $2,
-			'student_user_id', $3,
-			'status', $4,
-			'service_code', $5,
-			'service_name', $6,
-			'title', $7
+			'request_id',      $1::text,
+			'request_number',  $2::text,
+			'student_user_id', $3::text,
+			'status',          $4::text,
+			'service_code',    $5::text,
+			'service_name',    $6::text,
+			'title',           $7::text
 		)
 	)
 `, req.ID, req.RequestNumber, req.StudentUserID, req.Status, req.ServiceCode, req.ServiceName, req.Title,
@@ -220,11 +220,11 @@ func (r *AcademicRepository) CreateAcademicRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	return &req, nil
 }
 
@@ -233,7 +233,7 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 	requestID string,
 ) (*model.AcademicRequest, error) {
 	var req model.AcademicRequest
-	
+
 	err := r.db.QueryRow(
 		ctx, `
 		SELECT 
@@ -266,15 +266,15 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 		&req.CreatedAt,
 		&req.UpdatedAt,
 	)
-	
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAcademicRequestNotFound
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return &req, nil
 }
 
@@ -306,12 +306,12 @@ func (r *AcademicRepository) ListByStudentUserID(
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var requests []model.AcademicRequest
-	
+
 	for rows.Next() {
 		var req model.AcademicRequest
-		
+
 		if err := rows.Scan(
 			&req.ID,
 			&req.RequestNumber,
@@ -327,20 +327,24 @@ func (r *AcademicRepository) ListByStudentUserID(
 		); err != nil {
 			return nil, err
 		}
-		
+
 		requests = append(requests, req)
 	}
-	
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	
+
 	return requests, nil
 }
 
 func generateRequestNumber() string {
 	now := time.Now()
-	return fmt.Sprintf("CF-REQ-%s-%04d", now.Format("20060102150405"), now.UnixNano()%10000)
+	// Use the last 6 digits of UnixNano to reduce collision probability under
+	// rapid sequential inserts (the previous %10000 only gave 4 digits / 10k
+	// distinct values per second, causing duplicate key errors in tests and
+	// under load).
+	return fmt.Sprintf("CF-REQ-%s-%06d", now.Format("20060102150405"), now.UnixNano()%1000000)
 }
 
 func (r *AcademicRepository) UpdateAcademicRequestStatus(
@@ -358,11 +362,11 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	
+
 	var currentStatus string
 	var studentUserID string
 	var requestNumber string
-	
+
 	err = tx.QueryRow(
 		ctx, `
 	SELECT 
@@ -374,19 +378,19 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	FOR UPDATE
 `, requestID,
 	).Scan(&currentStatus, &studentUserID, &requestNumber)
-	
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAcademicRequestNotFound
 	}
-	
+
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if !isStatusAllowed(currentStatus, allowedCurrentStatuses) {
 		return nil, ErrInvalidStatusTransition
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		UPDATE service_requests
@@ -400,7 +404,7 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO request_status_histories (
@@ -416,7 +420,7 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO request_approvals (
@@ -432,7 +436,7 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO audit_logs (
@@ -458,9 +462,9 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	eventType := academicRequestEventType(targetStatus)
-	
+
 	_, err = tx.Exec(
 		ctx, `
 	INSERT INTO outbox_events (
@@ -489,11 +493,11 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	return r.GetAcademicRequestByID(ctx, requestID)
 }
 
@@ -503,7 +507,7 @@ func isStatusAllowed(currentStatus string, allowedStatuses []string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

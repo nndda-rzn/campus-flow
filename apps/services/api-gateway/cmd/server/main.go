@@ -265,7 +265,9 @@ func main() {
 	fmt.Println("API Gateway running on port 8080")
 	fmt.Println("Auth Service target: localhost:50051")
 
-	if err := http.ListenAndServe(":8080", mux); err != nil {
+	handlerWithCORS := middleware.CORSMiddleware(mux)
+
+	if err := http.ListenAndServe(":8080", handlerWithCORS); err != nil {
 		panic(err)
 	}
 }
