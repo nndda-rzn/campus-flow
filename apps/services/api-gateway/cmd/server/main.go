@@ -93,6 +93,15 @@ func main() {
 	)
 
 	mux.Handle(
+		"/api/v1/admin/academic-requests",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("ADMIN_PRODI", "KAPRODI", "TATA_USAHA", "SUPER_ADMIN")(
+				http.HandlerFunc(academicHandler.ListAllAcademicRequests),
+			),
+		),
+	)
+
+	mux.Handle(
 		"/api/v1/student/academic-requests",
 		authMiddleware.RequireAuth(
 			authMiddleware.RequireRole("MAHASISWA")(

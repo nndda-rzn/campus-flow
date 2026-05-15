@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"campus-flow/apps/services/api-gateway/internal/client"
@@ -164,6 +165,38 @@ func (h *AcademicHandler) ListMyAcademicRequests(w http.ResponseWriter, r *http.
 	})
 }
 
+func (h *AcademicHandler) ListAllAcademicRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	statusFilter := strings.TrimSpace(r.URL.Query().Get("status"))
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.academicClient.Client.ListAllAcademicRequests(ctx, &academicv1.ListAllAcademicRequestsRequest{
+		StatusFilter: statusFilter,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to list academic requests",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "list all academic requests success",
+		Data:    res,
+	})
+}
+
 func (h *AcademicHandler) VerifyAcademicRequest(w http.ResponseWriter, r *http.Request) {
 	h.workflowAction(w, r, "verify")
 }
@@ -220,7 +253,7 @@ func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request,
 	defer cancel()
 
 	grpcReq := &academicv1.WorkflowActionRequest{
-		RequestId:    body.RequestID,
+		RequestId:   body.RequestID,
 		ActorUserId: userID,
 		Note:        body.Note,
 	}

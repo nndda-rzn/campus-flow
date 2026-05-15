@@ -9,6 +9,7 @@ service AcademicService {
   rpc CreateAcademicRequest(CreateAcademicRequestRequest) returns (AcademicRequestResponse);
   rpc GetAcademicRequest(GetAcademicRequestRequest) returns (AcademicRequestResponse);
   rpc ListMyAcademicRequests(ListMyAcademicRequestsRequest) returns (ListAcademicRequestsResponse);
+  rpc ListAllAcademicRequests(ListAllAcademicRequestsRequest) returns (ListAcademicRequestsResponse);
 
   rpc VerifyAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
   rpc ApproveAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
@@ -53,6 +54,10 @@ message GetAcademicRequestRequest {
 
 message ListMyAcademicRequestsRequest {
   string student_user_id = 1;
+}
+
+message ListAllAcademicRequestsRequest {
+  string status_filter = 1; // opsional, kosong = semua status
 }
 
 message WorkflowActionRequest {

@@ -70,3 +70,73 @@ export async function createAcademicRequest(
     },
   );
 }
+
+// ─── Admin / Staff workflow actions ──────────────────────────────────────────
+
+export type WorkflowPayload = {
+  request_id: string;
+  note?: string;
+};
+
+export async function verifyAcademicRequest(
+  token: string,
+  payload: WorkflowPayload,
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/admin/academic-requests/verify",
+    { method: "POST", token, body: payload },
+  );
+}
+
+export async function approveAcademicRequest(
+  token: string,
+  payload: WorkflowPayload,
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/head/academic-requests/approve",
+    { method: "POST", token, body: payload },
+  );
+}
+
+export async function rejectAcademicRequest(
+  token: string,
+  payload: WorkflowPayload,
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/head/academic-requests/reject",
+    { method: "POST", token, body: payload },
+  );
+}
+
+export async function completeAcademicRequest(
+  token: string,
+  payload: WorkflowPayload,
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/staff/academic-requests/complete",
+    { method: "POST", token, body: payload },
+  );
+}
+
+// ─── Admin: list semua pengajuan (pakai endpoint yang sama, filter di FE) ────
+
+export type ListAllAcademicRequestsData = {
+  requests: AcademicRequest[];
+};
+
+/**
+ * List semua academic request (untuk Admin, Kaprodi, Tata Usaha, Super Admin).
+ * Opsional filter berdasarkan status.
+ */
+export async function listAllAcademicRequests(
+  token: string,
+  statusFilter?: string,
+) {
+  const query = statusFilter
+    ? `?status=${encodeURIComponent(statusFilter)}`
+    : "";
+  return apiFetch<ApiResponse<ListAllAcademicRequestsData>>(
+    `/api/v1/admin/academic-requests${query}`,
+    { token },
+  );
+}

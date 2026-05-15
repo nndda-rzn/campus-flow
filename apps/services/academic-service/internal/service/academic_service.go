@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ErrInvalidInput             = errors.New("invalid input")
+	ErrInvalidInput            = errors.New("invalid input")
 	ErrAcademicServiceNotFound = errors.New("academic service not found")
 	ErrAcademicRequestNotFound = errors.New("academic request not found")
 	ErrInvalidStatusTransition = errors.New("invalid status transition")
@@ -95,6 +95,13 @@ func (s *AcademicService) ListMyAcademicRequests(
 	}
 
 	return s.repo.ListByStudentUserID(ctx, studentUserID)
+}
+
+func (s *AcademicService) ListAllAcademicRequests(
+	ctx context.Context,
+	statusFilter string,
+) ([]model.AcademicRequest, error) {
+	return s.repo.ListAllAcademicRequests(ctx, strings.TrimSpace(statusFilter))
 }
 
 func (s *AcademicService) VerifyAcademicRequest(

@@ -338,6 +338,73 @@ func (r *AcademicRepository) ListByStudentUserID(
 	return requests, nil
 }
 
+func (r *AcademicRepository) ListAllAcademicRequests(
+	ctx context.Context,
+	statusFilter string,
+) ([]model.AcademicRequest, error) {
+	query := `
+		SELECT 
+			sr.id::text,
+			sr.request_number,
+			sr.student_user_id::text,
+			sr.academic_service_id::text,
+			acs.code,
+			acs.name,
+			sr.title,
+			sr.description,
+			sr.status,
+			sr.created_at,
+			sr.updated_at
+		FROM service_requests sr
+		JOIN academic_services acs ON acs.id = sr.academic_service_id
+	`
+
+	var args []interface{}
+
+	if statusFilter != "" {
+		query += " WHERE sr.status = $1"
+		args = append(args, statusFilter)
+	}
+
+	query += " ORDER BY sr.created_at DESC"
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var requests []model.AcademicRequest
+
+	for rows.Next() {
+		var req model.AcademicRequest
+
+		if err := rows.Scan(
+			&req.ID,
+			&req.RequestNumber,
+			&req.StudentUserID,
+			&req.AcademicServiceID,
+			&req.ServiceCode,
+			&req.ServiceName,
+			&req.Title,
+			&req.Description,
+			&req.Status,
+			&req.CreatedAt,
+			&req.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		requests = append(requests, req)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return requests, nil
+}
+
 func generateRequestNumber() string {
 	now := time.Now()
 	// Use the last 6 digits of UnixNano to reduce collision probability under

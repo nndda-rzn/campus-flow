@@ -128,6 +128,26 @@ func (h *AcademicHandler) ListMyAcademicRequests(
 	}, nil
 }
 
+func (h *AcademicHandler) ListAllAcademicRequests(
+	ctx context.Context,
+	req *academicv1.ListAllAcademicRequestsRequest,
+) (*academicv1.ListAcademicRequestsResponse, error) {
+	requests, err := h.academicService.ListAllAcademicRequests(ctx, req.StatusFilter)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	items := make([]*academicv1.AcademicRequest, 0, len(requests))
+	for _, item := range requests {
+		itemCopy := item
+		items = append(items, toProtoAcademicRequest(&itemCopy))
+	}
+
+	return &academicv1.ListAcademicRequestsResponse{
+		Requests: items,
+	}, nil
+}
+
 func toProtoAcademicRequest(req *model.AcademicRequest) *academicv1.AcademicRequest {
 	return &academicv1.AcademicRequest{
 		Id:                req.ID,

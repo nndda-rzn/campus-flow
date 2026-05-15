@@ -3,6 +3,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { FileSection } from "@/components/academic/file-section";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   AcademicRequest,
@@ -21,6 +22,9 @@ export default function StudentAcademicRequestsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(
+    null,
+  );
 
   async function loadData() {
     const token = getAccessToken();
@@ -79,6 +83,10 @@ export default function StudentAcademicRequestsPage() {
     }
   }
 
+  function toggleExpand(requestId: string) {
+    setExpandedRequestId((prev) => (prev === requestId ? null : requestId));
+  }
+
   return (
     <ProtectedPage
       title="Pengajuan Layanan Akademik"
@@ -86,6 +94,7 @@ export default function StudentAcademicRequestsPage() {
       allowedRoles={["MAHASISWA"]}
     >
       <div className="grid gap-6 lg:grid-cols-[420px_1fr]">
+        {/* ── Form Buat Pengajuan ── */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold text-slate-900">Buat Pengajuan</h2>
 
@@ -155,6 +164,7 @@ export default function StudentAcademicRequestsPage() {
           </form>
         </section>
 
+        {/* ── Riwayat Pengajuan ── */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="font-semibold text-slate-900">Riwayat Pengajuan</h2>
 
@@ -164,35 +174,94 @@ export default function StudentAcademicRequestsPage() {
                 Belum ada pengajuan layanan akademik.
               </p>
             ) : (
-              requests.map((request) => (
-                <article
-                  key={request.id}
-                  className="rounded-xl border border-slate-200 p-4"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-medium text-slate-900">
-                        {request.title}
-                      </h3>
-                      <p className="mt-1 text-xs text-slate-500">
-                        {request.requestNumber} · {request.serviceName}
-                      </p>
-                    </div>
+              requests.map((request) => {
+                const token = getAccessToken() ?? "";
+                const isExpanded = expandedRequestId === request.id;
 
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                      {request.status}
-                    </span>
-                  </div>
+                return (
+                  <article
+                    key={request.id}
+                    className="rounded-xl border border-slate-200"
+                  >
+                    {/* Header card */}
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(request.id)}
+                      className="flex w-full items-start justify-between gap-4 p-4 text-left"
+                    >
+                      <div>
+                        <h3 className="font-medium text-slate-900">
+                          {request.title}
+                        </h3>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {request.requestNumber} · {request.serviceName}
+                        </p>
+                      </div>
 
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {request.description || "-"}
-                  </p>
-                </article>
-              ))
+                      <div className="flex shrink-0 items-center gap-2">
+                        <StatusBadge status={request.status} />
+                        <span className="text-xs text-slate-400">
+                          {isExpanded ? "▲" : "▼"}
+                        </span>
+                      </div>
+                    </button>
+
+                    {/* Expanded: deskripsi + file section */}
+                    {isExpanded && (
+                      <div className="border-t border-slate-100 px-4 pb-4 pt-3">
+                        {request.description ? (
+                          <p className="mb-4 text-sm leading-6 text-slate-600">
+                            {request.description}
+                          </p>
+                        ) : null}
+
+                        <FileSection
+                          token={token}
+                          requestId={request.id}
+                          canUploadSupporting={true}
+                        />
+                      </div>
+                    )}
+                  </article>
+                );
+              })
             )}
           </div>
         </section>
       </div>
     </ProtectedPage>
+  );
+}
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: string }) {
+  const colorMap: Record<string, string> = {
+    SUBMITTED: "bg-blue-100 text-blue-700",
+    VERIFIED: "bg-yellow-100 text-yellow-700",
+    APPROVED: "bg-green-100 text-green-700",
+    REJECTED: "bg-red-100 text-red-700",
+    COMPLETED: "bg-slate-100 text-slate-700",
+    CANCELLED: "bg-slate-100 text-slate-500",
+    REVISION_REQUIRED: "bg-orange-100 text-orange-700",
+  };
+
+  const labelMap: Record<string, string> = {
+    SUBMITTED: "Diajukan",
+    VERIFIED: "Diverifikasi",
+    APPROVED: "Disetujui",
+    REJECTED: "Ditolak",
+    COMPLETED: "Selesai",
+    CANCELLED: "Dibatalkan",
+    REVISION_REQUIRED: "Perlu Revisi",
+  };
+
+  const color = colorMap[status] ?? "bg-slate-100 text-slate-700";
+  const label = labelMap[status] ?? status;
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-medium ${color}`}>
+      {label}
+    </span>
   );
 }
