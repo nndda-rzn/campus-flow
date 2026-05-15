@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
+	
 	"campus-flow/apps/services/academic-service/internal/model"
-
+	
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -28,23 +28,29 @@ func NewAcademicRepository(db *pgxpool.Pool) *AcademicRepository {
 	}
 }
 
+func (r *AcademicRepository) DB() *pgxpool.Pool {
+	return r.db
+}
+
 func (r *AcademicRepository) ListAcademicServices(ctx context.Context) ([]model.AcademicServiceItem, error) {
-	rows, err := r.db.Query(ctx, `
+	rows, err := r.db.Query(
+		ctx, `
 		SELECT id::text, code, name, description, is_active
 		FROM academic_services
 		WHERE is_active = TRUE
 		ORDER BY name ASC
-	`)
+	`,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
+	
 	var services []model.AcademicServiceItem
-
+	
 	for rows.Next() {
 		var item model.AcademicServiceItem
-
+		
 		if err := rows.Scan(
 			&item.ID,
 			&item.Code,
@@ -54,14 +60,14 @@ func (r *AcademicRepository) ListAcademicServices(ctx context.Context) ([]model.
 		); err != nil {
 			return nil, err
 		}
-
+		
 		services = append(services, item)
 	}
-
+	
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
+	
 	return services, nil
 }
 
@@ -77,36 +83,39 @@ func (r *AcademicRepository) CreateAcademicRequest(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-
+	
 	var svc model.AcademicServiceItem
-
-	err = tx.QueryRow(ctx, `
+	
+	err = tx.QueryRow(
+		ctx, `
 		SELECT id::text, code, name, description, is_active
 		FROM academic_services
 		WHERE code = $1
 		  AND is_active = TRUE
 		LIMIT 1
-	`, serviceCode).Scan(
+	`, serviceCode,
+	).Scan(
 		&svc.ID,
 		&svc.Code,
 		&svc.Name,
 		&svc.Description,
 		&svc.IsActive,
 	)
-
+	
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAcademicServiceNotFound
 	}
-
+	
 	if err != nil {
 		return nil, err
 	}
-
+	
 	requestNumber := generateRequestNumber()
-
+	
 	var req model.AcademicRequest
-
-	err = tx.QueryRow(ctx, `
+	
+	err = tx.QueryRow(
+		ctx, `
 		INSERT INTO service_requests (
 			request_number,
 			student_user_id,
@@ -127,7 +136,8 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			status,
 			created_at,
 			updated_at
-	`, requestNumber, studentUserID, svc.ID, title, description).Scan(
+	`, requestNumber, studentUserID, svc.ID, title, description,
+	).Scan(
 		&req.ID,
 		&req.RequestNumber,
 		&req.StudentUserID,
@@ -141,11 +151,12 @@ func (r *AcademicRepository) CreateAcademicRequest(
 	if err != nil {
 		return nil, err
 	}
-
+	
 	req.ServiceCode = svc.Code
 	req.ServiceName = svc.Name
-
-	_, err = tx.Exec(ctx, `
+	
+	_, err = tx.Exec(
+		ctx, `
 		INSERT INTO request_status_histories (
 			request_id,
 			old_status,
@@ -154,12 +165,14 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			note
 		)
 		VALUES ($1::uuid, NULL, 'SUBMITTED', $2::uuid, 'Request submitted by student')
-	`, req.ID, studentUserID)
+	`, req.ID, studentUserID,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = tx.Exec(ctx, `
+	
+	_, err = tx.Exec(
+		ctx, `
 		INSERT INTO audit_logs (
 			actor_user_id,
 			action,
@@ -174,12 +187,14 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			$2::uuid,
 			jsonb_build_object('request_number', $3, 'service_code', $4)
 		)
-	`, studentUserID, req.ID, req.RequestNumber, svc.Code)
+	`, studentUserID, req.ID, req.RequestNumber, svc.Code,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = tx.Exec(ctx, `
+	
+	_, err = tx.Exec(
+		ctx, `
 	INSERT INTO outbox_events (
 		aggregate_id,
 		aggregate_type,
@@ -200,15 +215,16 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			'title', $7
 		)
 	)
-`, req.ID, req.RequestNumber, req.StudentUserID, req.Status, req.ServiceCode, req.ServiceName, req.Title)
-if err != nil {
-	return nil, err
-}
-
+`, req.ID, req.RequestNumber, req.StudentUserID, req.Status, req.ServiceCode, req.ServiceName, req.Title,
+	)
+	if err != nil {
+		return nil, err
+	}
+	
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-
+	
 	return &req, nil
 }
 
@@ -217,8 +233,9 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 	requestID string,
 ) (*model.AcademicRequest, error) {
 	var req model.AcademicRequest
-
-	err := r.db.QueryRow(ctx, `
+	
+	err := r.db.QueryRow(
+		ctx, `
 		SELECT 
 			sr.id::text,
 			sr.request_number,
@@ -235,7 +252,8 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
 		WHERE sr.id = $1::uuid
 		LIMIT 1
-	`, requestID).Scan(
+	`, requestID,
+	).Scan(
 		&req.ID,
 		&req.RequestNumber,
 		&req.StudentUserID,
@@ -248,15 +266,15 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 		&req.CreatedAt,
 		&req.UpdatedAt,
 	)
-
+	
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAcademicRequestNotFound
 	}
-
+	
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return &req, nil
 }
 
@@ -264,7 +282,8 @@ func (r *AcademicRepository) ListByStudentUserID(
 	ctx context.Context,
 	studentUserID string,
 ) ([]model.AcademicRequest, error) {
-	rows, err := r.db.Query(ctx, `
+	rows, err := r.db.Query(
+		ctx, `
 		SELECT 
 			sr.id::text,
 			sr.request_number,
@@ -281,17 +300,18 @@ func (r *AcademicRepository) ListByStudentUserID(
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
 		WHERE sr.student_user_id = $1::uuid
 		ORDER BY sr.created_at DESC
-	`, studentUserID)
+	`, studentUserID,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
+	
 	var requests []model.AcademicRequest
-
+	
 	for rows.Next() {
 		var req model.AcademicRequest
-
+		
 		if err := rows.Scan(
 			&req.ID,
 			&req.RequestNumber,
@@ -307,14 +327,14 @@ func (r *AcademicRepository) ListByStudentUserID(
 		); err != nil {
 			return nil, err
 		}
-
+		
 		requests = append(requests, req)
 	}
-
+	
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-
+	
 	return requests, nil
 }
 
@@ -338,12 +358,13 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-
+	
 	var currentStatus string
-var studentUserID string
-var requestNumber string
-
-err = tx.QueryRow(ctx, `
+	var studentUserID string
+	var requestNumber string
+	
+	err = tx.QueryRow(
+		ctx, `
 	SELECT 
 		status,
 		student_user_id::text,
@@ -351,33 +372,37 @@ err = tx.QueryRow(ctx, `
 	FROM service_requests
 	WHERE id = $1::uuid
 	FOR UPDATE
-`, requestID).Scan(&currentStatus, &studentUserID, &requestNumber)
-
+`, requestID,
+	).Scan(&currentStatus, &studentUserID, &requestNumber)
+	
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrAcademicRequestNotFound
 	}
-
+	
 	if err != nil {
 		return nil, err
 	}
-
+	
 	if !isStatusAllowed(currentStatus, allowedCurrentStatuses) {
 		return nil, ErrInvalidStatusTransition
 	}
-
-	_, err = tx.Exec(ctx, `
+	
+	_, err = tx.Exec(
+		ctx, `
 		UPDATE service_requests
 		SET 
 			status = $1,
 			updated_at = NOW(),
 			completed_at = CASE WHEN $1 = 'COMPLETED' THEN NOW() ELSE completed_at END
 		WHERE id = $2::uuid
-	`, targetStatus, requestID)
+	`, targetStatus, requestID,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = tx.Exec(ctx, `
+	
+	_, err = tx.Exec(
+		ctx, `
 		INSERT INTO request_status_histories (
 			request_id,
 			old_status,
@@ -386,12 +411,14 @@ err = tx.QueryRow(ctx, `
 			note
 		)
 		VALUES ($1::uuid, $2, $3, $4::uuid, $5)
-	`, requestID, currentStatus, targetStatus, actorUserID, note)
+	`, requestID, currentStatus, targetStatus, actorUserID, note,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = tx.Exec(ctx, `
+	
+	_, err = tx.Exec(
+		ctx, `
 		INSERT INTO request_approvals (
 			request_id,
 			approver_user_id,
@@ -400,12 +427,14 @@ err = tx.QueryRow(ctx, `
 			note
 		)
 		VALUES ($1::uuid, $2::uuid, $3, $4, $5)
-	`, requestID, actorUserID, actorRole, action, note)
+	`, requestID, actorUserID, actorRole, action, note,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-	_, err = tx.Exec(ctx, `
+	
+	_, err = tx.Exec(
+		ctx, `
 		INSERT INTO audit_logs (
 			actor_user_id,
 			action,
@@ -424,14 +453,16 @@ err = tx.QueryRow(ctx, `
 				'actor_role', $6
 			)
 		)
-	`, actorUserID, action, requestID, currentStatus, targetStatus, actorRole)
+	`, actorUserID, action, requestID, currentStatus, targetStatus, actorRole,
+	)
 	if err != nil {
 		return nil, err
 	}
-
-		eventType := academicRequestEventType(targetStatus)
-
-_, err = tx.Exec(ctx, `
+	
+	eventType := academicRequestEventType(targetStatus)
+	
+	_, err = tx.Exec(
+		ctx, `
 	INSERT INTO outbox_events (
 		aggregate_id,
 		aggregate_type,
@@ -453,15 +484,16 @@ _, err = tx.Exec(ctx, `
 			'note', $9
 		)
 	)
-`, requestID, eventType, requestNumber, studentUserID, currentStatus, targetStatus, actorUserID, actorRole, note)
-if err != nil {
-	return nil, err
-}
-
+`, requestID, eventType, requestNumber, studentUserID, currentStatus, targetStatus, actorUserID, actorRole, note,
+	)
+	if err != nil {
+		return nil, err
+	}
+	
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-
+	
 	return r.GetAcademicRequestByID(ctx, requestID)
 }
 
@@ -471,7 +503,7 @@ func isStatusAllowed(currentStatus string, allowedStatuses []string) bool {
 			return true
 		}
 	}
-
+	
 	return false
 }
 

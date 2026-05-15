@@ -14,6 +14,16 @@ service AcademicService {
   rpc ApproveAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
   rpc RejectAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
   rpc CompleteAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+
+
+  rpc ListLecturers(ListLecturersRequest) returns (ListLecturersResponse);
+  rpc CreateSupervisorRequest(CreateSupervisorRequestRequest) returns (SupervisorRequestResponse);
+  rpc ListMySupervisorRequests(ListMySupervisorRequestsRequest) returns (ListSupervisorRequestsResponse);
+  rpc ListLecturerSupervisorRequests(ListLecturerSupervisorRequestsRequest) returns (ListSupervisorRequestsResponse);
+  rpc VerifySupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
+  rpc AssignSupervisor(AssignSupervisorRequest) returns (SupervisorRequestResponse);
+  rpc AcceptSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
+  rpc RejectSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -71,4 +81,76 @@ message AcademicRequestResponse {
 
 message ListAcademicRequestsResponse {
   repeated AcademicRequest requests = 1;
+}
+
+message ListLecturersRequest {}
+
+message LecturerItem {
+  string id = 1;
+  string user_id = 2;
+  string nidn = 3;
+  string full_name = 4;
+  string email = 5;
+  string status = 6;
+  int32 max_supervisor_quota = 7;
+}
+
+message ListLecturersResponse {
+  repeated LecturerItem lecturers = 1;
+}
+
+message CreateSupervisorRequestRequest {
+  string student_user_id = 1;
+  string topic_title = 2;
+  string topic_description = 3;
+  repeated string lecturer_ids = 4;
+}
+
+message ListMySupervisorRequestsRequest {
+  string student_user_id = 1;
+}
+
+message ListLecturerSupervisorRequestsRequest {
+  string lecturer_user_id = 1;
+}
+
+message SupervisorWorkflowActionRequest {
+  string request_id = 1;
+  string actor_user_id = 2;
+  string note = 3;
+}
+
+message AssignSupervisorRequest {
+  string request_id = 1;
+  string actor_user_id = 2;
+  string lecturer_id = 3;
+  string note = 4;
+}
+
+message SupervisorChoice {
+  string lecturer_id = 1;
+  string lecturer_name = 2;
+  int32 priority = 3;
+}
+
+message SupervisorRequest {
+  string id = 1;
+  string request_number = 2;
+  string student_user_id = 3;
+  string topic_title = 4;
+  string topic_description = 5;
+  string status = 6;
+  string assigned_lecturer_id = 7;
+  string assigned_lecturer_name = 8;
+  repeated SupervisorChoice choices = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message SupervisorRequestResponse {
+  SupervisorRequest request = 1;
+}
+
+message ListSupervisorRequestsResponse {
+  repeated SupervisorRequest requests = 1;
 }
