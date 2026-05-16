@@ -13,11 +13,11 @@ func Load() Config {
 		GRPCPort: ":50055",
 		DatabaseURL: getEnv(
 			"DATABASE_URL",
-			"postgres://campusflow:campusflow_password@localhost:5432/reporting_db?sslmode=disable",
+			"postgres://campusflow:campusflow_password@127.0.0.1:5432/reporting_db?sslmode=disable",
 		),
 		RabbitMQURL: getEnv(
 			"RABBITMQ_URL",
-			"amqp://campusflow:campusflow_password@localhost:5672/",
+			"amqp://campusflow:campusflow_password@127.0.0.1:5672/",
 		),
 	}
 }

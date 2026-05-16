@@ -109,9 +109,9 @@ func (r *FileRepository) RegisterUploadedFile(
 			'file.uploaded',
 			jsonb_build_object(
 				'file_id', $1::text,
-				'owner_type', $2,
-				'owner_id', $3,
-				'purpose', $4
+				'owner_type', $2::text,
+				'owner_id', $3::text,
+				'purpose', $4::text
 			)
 		)
 	`, created.ID, file.OwnerType, file.OwnerID, file.Purpose)
@@ -240,7 +240,6 @@ func (r *FileRepository) ListFilesByOwner(
 
 	return files, nil
 }
-
 
 func (r *FileRepository) LogFileAccess(
 	ctx context.Context,

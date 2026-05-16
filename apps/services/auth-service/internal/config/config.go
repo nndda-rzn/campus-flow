@@ -18,7 +18,7 @@ func Load() Config {
 		GRPCPort: ":50051",
 		DatabaseURL: getEnv(
 			"DATABASE_URL",
-			"postgres://campusflow:campusflow_password@localhost:5432/auth_db?sslmode=disable",
+			"postgres://campusflow:campusflow_password@127.0.0.1:5432/auth_db?sslmode=disable",
 		),
 		JWTSecret:       getEnv("JWT_SECRET", "campusflow_dev_secret_change_me"),
 		AccessTokenTTL:  15 * time.Minute,

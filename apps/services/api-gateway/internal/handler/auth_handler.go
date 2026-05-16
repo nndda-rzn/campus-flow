@@ -10,6 +10,9 @@ import (
 
 	"campus-flow/apps/services/api-gateway/internal/client"
 	authv1 "campus-flow/proto/gen/auth/v1"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // BE-03-01: package-level regex untuk performa optimal
@@ -113,10 +116,24 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Password: body.Password,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, APIResponse{
-			Success: false,
-			Message: "failed to call auth service",
-		})
+		st, _ := status.FromError(err)
+		switch st.Code() {
+		case codes.Unauthenticated:
+			writeJSON(w, http.StatusUnauthorized, APIResponse{
+				Success: false,
+				Message: "email atau password salah",
+			})
+		case codes.PermissionDenied:
+			writeJSON(w, http.StatusForbidden, APIResponse{
+				Success: false,
+				Message: "akun tidak aktif",
+			})
+		default:
+			writeJSON(w, http.StatusBadGateway, APIResponse{
+				Success: false,
+				Message: "failed to call auth service",
+			})
+		}
 		return
 	}
 
@@ -203,10 +220,24 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		Role:     body.Role,
 	})
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, APIResponse{
-			Success: false,
-			Message: "failed to call auth service",
-		})
+		st, _ := status.FromError(err)
+		switch st.Code() {
+		case codes.AlreadyExists:
+			writeJSON(w, http.StatusConflict, APIResponse{
+				Success: false,
+				Message: "email sudah terdaftar",
+			})
+		case codes.InvalidArgument:
+			writeJSON(w, http.StatusBadRequest, APIResponse{
+				Success: false,
+				Message: st.Message(),
+			})
+		default:
+			writeJSON(w, http.StatusBadGateway, APIResponse{
+				Success: false,
+				Message: "failed to call auth service",
+			})
+		}
 		return
 	}
 

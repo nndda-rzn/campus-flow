@@ -12,7 +12,7 @@ func Load() Config {
 		GRPCPort: ":50053",
 		DatabaseURL: getEnv(
 			"DATABASE_URL",
-			"postgres://campusflow:campusflow_password@localhost:5432/file_db?sslmode=disable",
+			"postgres://campusflow:campusflow_password@127.0.0.1:5432/file_db?sslmode=disable",
 		),
 	}
 }

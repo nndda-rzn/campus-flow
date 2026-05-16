@@ -10,19 +10,19 @@ import (
 )
 
 func main() {
-	authClient := client.NewAuthClient("localhost:50051")
+	authClient := client.NewAuthClient("127.0.0.1:50051")
 	defer authClient.Close()
 
-	academicClient := client.NewAcademicClient("localhost:50052")
+	academicClient := client.NewAcademicClient("127.0.0.1:50052")
 	defer academicClient.Close()
 
-	fileClient := client.NewFileClient("localhost:50053")
+	fileClient := client.NewFileClient("127.0.0.1:50053")
 	defer fileClient.Close()
 
-	notificationClient := client.NewNotificationClient("localhost:50054")
+	notificationClient := client.NewNotificationClient("127.0.0.1:50054")
 	defer notificationClient.Close()
 
-	reportingClient := client.NewReportingClient("localhost:50055")
+	reportingClient := client.NewReportingClient("127.0.0.1:50055")
 	defer reportingClient.Close()
 
 	authHandler := handler.NewAuthHandler(authClient)

@@ -8,10 +8,14 @@ import (
 	"campus-flow/apps/services/auth-service/internal/model"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var ErrUserNotFound = errors.New("user not found")
+var (
+	ErrUserNotFound   = errors.New("user not found")
+	ErrEmailDuplicate = errors.New("email already registered")
+)
 
 type UserRepository struct {
 	db *pgxpool.Pool
@@ -55,6 +59,10 @@ func (r *UserRepository) CreateUserWithRole(
 		&user.UpdatedAt,
 	)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return nil, ErrEmailDuplicate
+		}
 		return nil, err
 	}
 

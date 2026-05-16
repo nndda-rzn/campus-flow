@@ -35,6 +35,10 @@ func (h *AuthHandler) Register(ctx context.Context, req *authv1.RegisterRequest)
 			return nil, status.Error(codes.InvalidArgument, "invalid role")
 		}
 
+		if errors.Is(err, service.ErrEmailDuplicate) {
+			return nil, status.Error(codes.AlreadyExists, "email already registered")
+		}
+
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 

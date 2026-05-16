@@ -16,6 +16,7 @@ import (
 var (
 	ErrInvalidCredential = errors.New("invalid credential")
 	ErrInvalidRole       = errors.New("invalid role")
+	ErrEmailDuplicate    = errors.New("email already registered")
 	ErrUserInactive      = errors.New("user inactive")
 	ErrInvalidToken      = errors.New("invalid token")
 )
@@ -80,6 +81,9 @@ func (s *AuthService) Register(
 		role,
 	)
 	if err != nil {
+		if errors.Is(err, repository.ErrEmailDuplicate) {
+			return nil, ErrEmailDuplicate
+		}
 		return nil, err
 	}
 
