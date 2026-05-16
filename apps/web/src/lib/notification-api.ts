@@ -98,3 +98,25 @@ export async function markNotificationAsRead(
     },
   };
 }
+
+export async function markAllNotificationsAsRead(token: string) {
+  const response = await apiFetch<ApiResponse<RawRecord>>(
+    "/api/v1/notifications/read-all",
+    {
+      method: "POST",
+      token,
+    },
+  );
+
+  const updatedCount =
+    typeof response.data?.updatedCount === "number"
+      ? response.data.updatedCount
+      : typeof response.data?.updated_count === "number"
+        ? response.data.updated_count
+        : 0;
+
+  return {
+    ...response,
+    data: { updatedCount },
+  };
+}

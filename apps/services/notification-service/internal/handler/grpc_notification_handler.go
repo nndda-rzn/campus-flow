@@ -118,3 +118,25 @@ func toProtoNotification(notification *model.Notification) *notificationv1.Notif
 		ReadAt:     readAt,
 	}
 }
+
+func (h *NotificationHandler) MarkAllNotificationsAsRead(
+	ctx context.Context,
+	req *notificationv1.MarkAllNotificationsAsReadRequest,
+) (*notificationv1.MarkAllNotificationsAsReadResponse, error) {
+	if req.UserId == "" {
+		return nil, status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	count, err := h.notificationService.MarkAllNotificationsAsRead(ctx, req.UserId)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidInput) {
+			return nil, status.Error(codes.InvalidArgument, "user_id is required")
+		}
+
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &notificationv1.MarkAllNotificationsAsReadResponse{
+		UpdatedCount: count,
+	}, nil
+}

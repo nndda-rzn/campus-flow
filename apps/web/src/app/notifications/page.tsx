@@ -3,6 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Bell,
@@ -23,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   listMyNotifications,
+  markAllNotificationsAsRead,
   markNotificationAsRead,
   type NotificationItem,
 } from "@/lib/notification-api";
@@ -42,6 +44,7 @@ export default function NotificationsPage() {
 }
 
 function NotificationsContent() {
+  const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [filter, setFilter] = useState<FilterValue>("ALL");
   const [isLoading, setIsLoading] = useState(true);
@@ -115,13 +118,11 @@ function NotificationsContent() {
 
     setIsMarkingAll(true);
 
+    // Optimistic update
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+
     try {
-      await Promise.all(
-        unread.map((n) =>
-          markNotificationAsRead(token, { notification_id: n.id }),
-        ),
-      );
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      await markAllNotificationsAsRead(token);
       toast.success(`${unread.length} notifikasi ditandai dibaca`);
     } catch (err) {
       toast.error("Gagal menandai semua", {
@@ -130,6 +131,16 @@ function NotificationsContent() {
       await loadNotifications();
     } finally {
       setIsMarkingAll(false);
+    }
+  }
+
+  function handleNotificationClick(notification: NotificationItem) {
+    if (!notification.isRead) {
+      handleMarkAsRead(notification);
+    }
+    const path = getEntityPath(notification);
+    if (path) {
+      router.push(path);
     }
   }
 
@@ -198,6 +209,7 @@ function NotificationsContent() {
                 notification={notification}
                 isLast={idx === filteredNotifications.length - 1}
                 onMarkAsRead={() => handleMarkAsRead(notification)}
+                onClick={() => handleNotificationClick(notification)}
               />
             ))}
           </ul>
@@ -213,13 +225,16 @@ function NotificationRow({
   notification,
   isLast,
   onMarkAsRead,
+  onClick,
 }: {
   notification: NotificationItem;
   isLast: boolean;
   onMarkAsRead: () => void;
+  onClick: () => void;
 }) {
   const cfg = typeConfig(notification.type);
   const Icon = cfg.icon;
+  const hasLink = !!getEntityPath(notification);
 
   return (
     <li
@@ -227,7 +242,18 @@ function NotificationRow({
         "group relative flex items-start gap-3 px-5 py-4 transition-colors",
         !isLast && "border-b border-border",
         !notification.isRead && "bg-info-soft/20",
+        hasLink && "cursor-pointer hover:bg-background-alt",
       )}
+      onClick={hasLink ? onClick : undefined}
+      role={hasLink ? "button" : undefined}
+      tabIndex={hasLink ? 0 : undefined}
+      onKeyDown={
+        hasLink
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") onClick();
+            }
+          : undefined
+      }
     >
       {/* Unread indicator (left rail) */}
       {!notification.isRead ? (
@@ -346,6 +372,20 @@ function typeConfig(type: string) {
         iconBg: "bg-background-alt text-text-secondary border-border",
       };
   }
+}
+
+function getEntityPath(notification: NotificationItem): string | null {
+  const { entityType, entityId } = notification;
+  if (!entityType || !entityId) return null;
+
+  const type = entityType.toLowerCase();
+  if (type === "academic_requests" || type === "academic-requests") {
+    return `/student/academic-requests`;
+  }
+  if (type === "supervisor_requests" || type === "supervisor-requests") {
+    return `/student/supervisor-requests`;
+  }
+  return null;
 }
 
 function formatRelative(dateStr: string | undefined | null): string {

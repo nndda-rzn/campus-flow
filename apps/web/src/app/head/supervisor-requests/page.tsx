@@ -1,16 +1,27 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
-
-import { FormEvent, useEffect, useState } from "react";
-import { CheckCircle2, GraduationCap, Info, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  GraduationCap,
+  RefreshCw,
+  Search,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -18,6 +29,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogBody,
@@ -31,16 +50,27 @@ import {
 import { getAccessToken } from "@/lib/auth-storage";
 import {
   Lecturer,
+  SupervisorRequest,
   assignSupervisor,
+  listAllSupervisorRequests,
   listLecturers,
 } from "@/lib/supervisor-api";
+import { cn } from "@/lib/cn";
+
+const STATUS_OPTIONS = [
+  { value: "VERIFIED", label: "Menunggu Penetapan" },
+  { value: "ASSIGNED", label: "Ditetapkan" },
+  { value: "ACCEPTED", label: "Diterima" },
+  { value: "REJECTED", label: "Ditolak" },
+  { value: "", label: "Semua" },
+];
 
 export default function HeadSupervisorRequestsPage() {
   return (
     <ProtectedPage
       title="Penetapan Dosen Pembimbing"
       description="Tetapkan dosen pembimbing untuk pengajuan yang sudah diverifikasi Admin Prodi."
-      allowedRoles={["KAPRODI"]}
+      allowedRoles={["KAPRODI", "SUPER_ADMIN"]}
     >
       <PageContent />
     </ProtectedPage>
@@ -48,123 +78,347 @@ export default function HeadSupervisorRequestsPage() {
 }
 
 function PageContent() {
+  const searchParams = useSearchParams();
+  const initialStatus = searchParams.get("status") ?? "VERIFIED";
+
+  const [requests, setRequests] = useState<SupervisorRequest[]>([]);
   const [lecturers, setLecturers] = useState<Lecturer[]>([]);
-  const [requestId, setRequestId] = useState("");
-  const [lecturerId, setLecturerId] = useState("");
-  const [note, setNote] = useState("Dosen pembimbing ditetapkan oleh Kaprodi.");
+  const [statusFilter, setStatusFilter] = useState(initialStatus);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function loadLecturers() {
-      const token = getAccessToken();
-      if (!token) return;
-      try {
-        const response = await listLecturers(token);
-        setLecturers(response.data.lecturers);
-        if (response.data.lecturers.length > 0) {
-          setLecturerId(response.data.lecturers[0].id);
-        }
-      } catch (err) {
-        toast.error("Gagal memuat daftar dosen", {
-          description: err instanceof Error ? err.message : "Coba lagi",
-        });
-      }
-    }
+  const [assignTarget, setAssignTarget] = useState<SupervisorRequest | null>(
+    null,
+  );
+  const [selectedLecturerId, setSelectedLecturerId] = useState("");
+  const [assignNote, setAssignNote] = useState("");
+  const [isAssigning, setIsAssigning] = useState(false);
 
-    loadLecturers();
-  }, []);
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!requestId.trim() || !lecturerId) {
-      toast.error("Field tidak lengkap", {
-        description: "Request ID dan dosen wajib diisi.",
-      });
-      return;
-    }
-    setConfirmOpen(true);
-  }
-
-  async function handleConfirm() {
+  async function loadData(filter: string) {
     const token = getAccessToken();
     if (!token) return;
 
     setIsLoading(true);
+    setError("");
     try {
-      const response = await assignSupervisor(token, {
-        request_id: requestId.trim(),
-        lecturer_id: lecturerId,
-        note,
-      });
-
-      const selected = lecturers.find((l) => l.id === lecturerId);
-      toast.success("Dosen ditetapkan", {
-        description: `${selected?.fullName ?? "Dosen"} ditetapkan untuk pengajuan. Status: ${response.data.request.status}`,
-      });
-
-      setRequestId("");
-      setNote("Dosen pembimbing ditetapkan oleh Kaprodi.");
-      setConfirmOpen(false);
+      const [reqRes, lecRes] = await Promise.all([
+        listAllSupervisorRequests(token, filter || undefined),
+        listLecturers(token),
+      ]);
+      setRequests(reqRes.data?.requests ?? []);
+      setLecturers(lecRes.data?.lecturers ?? []);
     } catch (err) {
-      toast.error("Gagal menetapkan dosen", {
-        description: err instanceof Error ? err.message : "Coba lagi",
-      });
+      setError(err instanceof Error ? err.message : "Gagal memuat data");
     } finally {
       setIsLoading(false);
     }
   }
 
-  const selectedLecturer = lecturers.find((l) => l.id === lecturerId);
+  useEffect(() => {
+    loadData(statusFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
+
+  const filteredRequests = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return requests;
+    return requests.filter(
+      (r) =>
+        r.topicTitle.toLowerCase().includes(q) ||
+        r.requestNumber.toLowerCase().includes(q),
+    );
+  }, [requests, searchQuery]);
+
+  function openAssignDialog(request: SupervisorRequest) {
+    setAssignTarget(request);
+    // Pre-select first choice if available
+    const firstChoice = request.choices[0];
+    const matchedLecturer = firstChoice
+      ? lecturers.find((l) => l.id === firstChoice.lecturerId)
+      : null;
+    setSelectedLecturerId(matchedLecturer?.id ?? lecturers[0]?.id ?? "");
+    setAssignNote("Dosen pembimbing ditetapkan oleh Kaprodi.");
+  }
+
+  function closeAssignDialog() {
+    setAssignTarget(null);
+    setSelectedLecturerId("");
+    setAssignNote("");
+  }
+
+  async function handleAssign() {
+    if (!assignTarget || !selectedLecturerId) return;
+    const token = getAccessToken();
+    if (!token) return;
+
+    setIsAssigning(true);
+    try {
+      await assignSupervisor(token, {
+        request_id: assignTarget.id,
+        lecturer_id: selectedLecturerId,
+        note: assignNote.trim() || "Dosen pembimbing ditetapkan oleh Kaprodi.",
+      });
+
+      const selected = lecturers.find((l) => l.id === selectedLecturerId);
+      toast.success("Dosen ditetapkan", {
+        description: `${selected?.fullName ?? "Dosen"} ditetapkan untuk ${assignTarget.requestNumber}.`,
+      });
+      closeAssignDialog();
+      await loadData(statusFilter);
+    } catch (err) {
+      toast.error("Gagal menetapkan dosen", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
+    } finally {
+      setIsAssigning(false);
+    }
+  }
+
+  const verifiedCount = requests.filter((r) => r.status === "VERIFIED").length;
+  const selectedLecturer = lecturers.find((l) => l.id === selectedLecturerId);
 
   return (
     <>
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-        {/* ── Form ── */}
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <GraduationCap className="size-4 text-primary" />
-              Form Penetapan Dosen
-            </CardTitle>
-            <p className="text-[12.5px] text-text-muted">
-              Pilih dosen yang akan ditetapkan sebagai pembimbing untuk
-              pengajuan yang sudah diverifikasi.
-            </p>
-          </CardHeader>
+      <div className="space-y-4">
+        {/* Toolbar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList className="overflow-x-auto">
+              {STATUS_OPTIONS.map((opt) => (
+                <TabsTrigger key={opt.value || "all"} value={opt.value}>
+                  {opt.label}
+                  {opt.value === "VERIFIED" && verifiedCount > 0 ? (
+                    <span className="ml-1 rounded-full bg-warning-soft px-1.5 py-0 text-[10.5px] font-semibold tabular-nums leading-tight text-warning-text">
+                      {verifiedCount}
+                    </span>
+                  ) : null}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
 
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="request-id">Request ID</Label>
-                <Input
-                  id="request-id"
-                  value={requestId}
-                  onChange={(e) => setRequestId(e.target.value)}
-                  placeholder="UUID supervisor request"
-                  className="font-mono text-[12.5px]"
-                  required
-                />
-                <p className="text-[11.5px] text-text-muted">
-                  Salin Request ID dari notifikasi atau dashboard Admin Prodi.
-                </p>
-              </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-text-muted" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari nomor atau topik..."
+                className="h-9 w-full pl-8 sm:w-64"
+              />
+            </div>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={() => loadData(statusFilter)}
+              aria-label="Refresh"
+            >
+              <RefreshCw
+                className={cn("size-4", isLoading && "animate-spin")}
+              />
+            </Button>
+          </div>
+        </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="lecturer-id">Dosen Pembimbing</Label>
-                <Select
-                  value={lecturerId}
-                  onValueChange={setLecturerId}
-                  required
+        {/* Table */}
+        <Card className="overflow-hidden">
+          {error ? (
+            <EmptyState
+              icon={<GraduationCap className="size-4" />}
+              title="Tidak dapat memuat pengajuan"
+              description={error}
+              action={
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => loadData(statusFilter)}
                 >
-                  <SelectTrigger id="lecturer-id">
-                    <SelectValue placeholder="Pilih dosen..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lecturers.map((lecturer) => (
+                  Coba lagi
+                </Button>
+              }
+            />
+          ) : isLoading ? (
+            <TableSkeleton />
+          ) : filteredRequests.length === 0 ? (
+            <EmptyState
+              icon={<ClipboardList className="size-4" />}
+              title={searchQuery ? "Tidak ada hasil" : "Tidak ada pengajuan"}
+              description={
+                searchQuery
+                  ? `Tidak ditemukan pengajuan yang cocok dengan "${searchQuery}".`
+                  : "Belum ada pengajuan pembimbing dengan status ini."
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Topik</TableHead>
+                  <TableHead>Pilihan Mahasiswa</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRequests.map((request) => (
+                  <TableRow key={request.id}>
+                    <TableCell className="max-w-xs">
+                      <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
+                        {request.topicTitle}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11.5px] text-text-muted">
+                        {request.requestNumber}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      {request.choices.length > 0 ? (
+                        <div className="space-y-0.5">
+                          {request.choices.slice(0, 2).map((c) => (
+                            <p
+                              key={c.lecturerId}
+                              className="text-[12.5px] text-text-secondary"
+                            >
+                              <span className="mr-1 font-mono text-[10.5px] text-text-disabled">
+                                {c.priority}.
+                              </span>
+                              {c.lecturerName}
+                            </p>
+                          ))}
+                          {request.choices.length > 2 ? (
+                            <p className="text-[11.5px] text-text-muted">
+                              +{request.choices.length - 2} lainnya
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-[12.5px] text-text-disabled">
+                          —
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={request.status} />
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center gap-1.5 text-[12.5px] text-text-muted">
+                        <Clock className="size-3" />
+                        {formatRelativeDate(request.createdAt)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {request.status === "VERIFIED" ? (
+                        <Button
+                          size="sm"
+                          onClick={() => openAssignDialog(request)}
+                          disabled={lecturers.length === 0}
+                        >
+                          <Users className="size-3.5" />
+                          Tetapkan
+                        </Button>
+                      ) : (
+                        <span className="text-[12.5px] text-text-disabled">
+                          —
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </Card>
+
+        {!isLoading && !error && filteredRequests.length > 0 ? (
+          <p className="text-[12px] text-text-muted">
+            Menampilkan {filteredRequests.length} pengajuan
+            {searchQuery ? ` (filter: "${searchQuery}")` : ""}
+          </p>
+        ) : null}
+      </div>
+
+      {/* Assign Dialog */}
+      <Dialog
+        open={assignTarget !== null}
+        onOpenChange={(open) => !open && closeAssignDialog()}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GraduationCap className="size-4 text-primary" />
+              Tetapkan Dosen Pembimbing
+            </DialogTitle>
+            <DialogDescription>
+              Pilih dosen yang akan ditetapkan. Dosen akan menerima notifikasi
+              untuk menerima atau menolak penetapan ini.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="space-y-4">
+            {assignTarget ? (
+              <div className="rounded-md border border-border bg-background-alt p-3 space-y-2">
+                <div>
+                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                    Pengajuan
+                  </p>
+                  <p className="mt-0.5 font-mono text-[12px] text-text-muted">
+                    {assignTarget.requestNumber}
+                  </p>
+                  <p className="mt-0.5 text-[14px] font-medium text-text-primary">
+                    {assignTarget.topicTitle}
+                  </p>
+                </div>
+                {assignTarget.choices.length > 0 ? (
+                  <div>
+                    <p className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                      Rekomendasi Mahasiswa
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {assignTarget.choices.map((c) => (
+                        <li
+                          key={c.lecturerId}
+                          className="text-[12.5px] text-text-secondary"
+                        >
+                          <span className="font-mono text-text-disabled">
+                            {c.priority}.
+                          </span>{" "}
+                          {c.lecturerName}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="assign-lecturer">
+                Dosen Pembimbing <span className="text-danger">*</span>
+              </Label>
+              <Select
+                value={selectedLecturerId}
+                onValueChange={setSelectedLecturerId}
+              >
+                <SelectTrigger id="assign-lecturer">
+                  <SelectValue placeholder="Pilih dosen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {lecturers.map((lecturer) => {
+                    const isRecommended = assignTarget?.choices.some(
+                      (c) => c.lecturerId === lecturer.id,
+                    );
+                    return (
                       <SelectItem key={lecturer.id} value={lecturer.id}>
                         <div className="flex flex-col">
-                          <span>{lecturer.fullName}</span>
+                          <span>
+                            {lecturer.fullName}
+                            {isRecommended ? (
+                              <span className="ml-1.5 text-[10.5px] font-medium text-primary">
+                                (pilihan mahasiswa)
+                              </span>
+                            ) : null}
+                          </span>
                           <span className="font-mono text-[10.5px] text-text-muted">
                             {lecturer.nidn
                               ? `NIDN ${lecturer.nidn}`
@@ -173,141 +427,47 @@ function PageContent() {
                           </span>
                         </div>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="assign-note">
-                  Catatan{" "}
-                  <span className="font-normal text-text-muted">
-                    (akan dikirim ke dosen)
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {selectedLecturer ? (
+                <p className="text-[11.5px] text-text-muted">
+                  Sisa kuota:{" "}
+                  <span className="font-medium text-text-secondary">
+                    {selectedLecturer.maxSupervisorQuota}
                   </span>
-                </Label>
-                <Textarea
-                  id="assign-note"
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  className="min-h-24"
-                />
-              </div>
-
-              <Button
-                type="submit"
-                disabled={lecturers.length === 0}
-                size="lg"
-                className="w-full"
-              >
-                <CheckCircle2 className="size-4" />
-                Tetapkan Dosen
-              </Button>
-            </CardContent>
-          </form>
-        </Card>
-
-        {/* ── Side info ── */}
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="size-4 text-info" />
-              Cara Kerja
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-[13px] leading-relaxed text-text-secondary">
-            <div className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary">
-                1
-              </span>
-              <p>
-                Salin <span className="font-medium">Request ID</span> dari
-                pengajuan yang sudah diverifikasi.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary">
-                2
-              </span>
-              <p>
-                Pilih dosen pembimbing yang sesuai topik dan kuotanya masih
-                tersedia.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-soft font-semibold text-primary">
-                3
-              </span>
-              <p>
-                Dosen akan menerima notifikasi untuk{" "}
-                <span className="font-medium">terima atau tolak</span> penetapan
-                ini.
-              </p>
+                </p>
+              ) : null}
             </div>
 
-            <div className="rounded-md border border-info-soft bg-info-soft/40 px-3 py-2.5">
-              <p className="flex items-start gap-2 text-[12.5px] text-info-text">
-                <Users className="mt-0.5 size-3.5 shrink-0" />
-                <span>
-                  Total{" "}
-                  <span className="font-mono font-semibold">
-                    {lecturers.length}
-                  </span>{" "}
-                  dosen aktif tersedia.
+            <div className="space-y-1.5">
+              <Label htmlFor="assign-note">
+                Catatan{" "}
+                <span className="font-normal text-text-muted">
+                  (akan dikirim ke dosen)
                 </span>
-              </p>
+              </Label>
+              <Textarea
+                id="assign-note"
+                value={assignNote}
+                onChange={(e) => setAssignNote(e.target.value)}
+                className="min-h-20"
+              />
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Confirmation dialog */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <GraduationCap className="size-4 text-primary" />
-              Konfirmasi Penetapan
-            </DialogTitle>
-            <DialogDescription>
-              Pastikan informasi berikut sudah benar sebelum melanjutkan.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogBody className="space-y-3">
-            <div className="rounded-md border border-border bg-background-alt p-3">
-              <p className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
-                Request ID
-              </p>
-              <p className="mt-1 break-all font-mono text-[12.5px] text-text-primary">
-                {requestId}
-              </p>
-            </div>
-
-            {selectedLecturer ? (
-              <div className="rounded-md border border-border bg-background-alt p-3">
-                <p className="text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
-                  Dosen
-                </p>
-                <p className="mt-1 text-[14px] font-medium text-text-primary">
-                  {selectedLecturer.fullName}
-                </p>
-                <p className="mt-0.5 font-mono text-[11.5px] text-text-muted">
-                  {selectedLecturer.nidn
-                    ? `NIDN ${selectedLecturer.nidn}`
-                    : "Tanpa NIDN"}{" "}
-                  · Kuota {selectedLecturer.maxSupervisorQuota}
-                </p>
-              </div>
-            ) : null}
           </DialogBody>
 
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="secondary" disabled={isLoading}>
+              <Button variant="secondary" disabled={isAssigning}>
                 Batal
               </Button>
             </DialogClose>
-            <Button onClick={handleConfirm} loading={isLoading}>
+            <Button
+              onClick={handleAssign}
+              loading={isAssigning}
+              disabled={!selectedLecturerId}
+            >
               <CheckCircle2 className="size-3.5" />
               Tetapkan Dosen
             </Button>
@@ -316,4 +476,54 @@ function PageContent() {
       </Dialog>
     </>
   );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function TableSkeleton() {
+  return (
+    <div>
+      <div className="border-b border-border bg-background-alt px-4 py-2">
+        <Skeleton className="h-3 w-24" />
+      </div>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className="flex items-center gap-4 border-b border-border px-4 py-3 last:border-b-0"
+        >
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-2/3" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          <Skeleton className="h-3 w-40" />
+          <Skeleton className="h-5 w-20" />
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-8 w-24" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatRelativeDate(dateStr: string | undefined | null): string {
+  if (!dateStr) return "—";
+  const isoLike = dateStr.replace(" ", "T");
+  const date = new Date(isoLike);
+  if (isNaN(date.getTime())) return dateStr;
+
+  const diff = Date.now() - date.getTime();
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (minutes < 1) return "Baru saja";
+  if (minutes < 60) return `${minutes}m lalu`;
+  if (hours < 24) return `${hours}j lalu`;
+  if (days < 7) return `${days}h lalu`;
+
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }

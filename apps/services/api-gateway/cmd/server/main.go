@@ -193,6 +193,13 @@ func main() {
 	)
 
 	mux.Handle(
+		"/api/v1/notifications/read-all",
+		authMiddleware.RequireAuth(
+			http.HandlerFunc(notificationHandler.MarkAllNotificationsAsRead),
+		),
+	)
+
+	mux.Handle(
 		"/api/v1/reports/academic-requests",
 		authMiddleware.RequireAuth(
 			authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "TATA_USAHA")(
@@ -213,6 +220,15 @@ func main() {
 		authMiddleware.RequireAuth(
 			authMiddleware.RequireRole("MAHASISWA")(
 				http.HandlerFunc(supervisorHandler.StudentSupervisorRequests),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/admin/supervisor-requests",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("ADMIN_PRODI", "KAPRODI", "SUPER_ADMIN")(
+				http.HandlerFunc(supervisorHandler.ListAllSupervisorRequests),
 			),
 		),
 	)

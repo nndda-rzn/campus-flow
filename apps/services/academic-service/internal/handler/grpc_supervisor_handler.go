@@ -73,6 +73,18 @@ func (h *AcademicHandler) ListMySupervisorRequests(
 	return toProtoSupervisorRequestList(requests), nil
 }
 
+func (h *AcademicHandler) ListAllSupervisorRequests(
+	ctx context.Context,
+	req *academicv1.ListAllSupervisorRequestsRequest,
+) (*academicv1.ListSupervisorRequestsResponse, error) {
+	requests, err := h.academicService.ListAllSupervisorRequests(ctx, req.StatusFilter)
+	if err != nil {
+		return nil, mapSupervisorError(err)
+	}
+
+	return toProtoSupervisorRequestList(requests), nil
+}
+
 func (h *AcademicHandler) ListLecturerSupervisorRequests(
 	ctx context.Context,
 	req *academicv1.ListLecturerSupervisorRequestsRequest,

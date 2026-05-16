@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
-	
+
 	"campus-flow/apps/services/academic-service/internal/model"
 	"campus-flow/apps/services/academic-service/internal/repository"
 )
@@ -24,13 +24,13 @@ func (s *AcademicService) CreateSupervisorRequest(
 	studentUserID = strings.TrimSpace(studentUserID)
 	topicTitle = strings.TrimSpace(topicTitle)
 	topicDescription = strings.TrimSpace(topicDescription)
-	
+
 	if studentUserID == "" || topicTitle == "" || len(lecturerIDs) == 0 {
 		return nil, ErrInvalidInput
 	}
-	
+
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
-	
+
 	return supervisorRepo.CreateSupervisorRequest(
 		ctx,
 		studentUserID,
@@ -38,6 +38,14 @@ func (s *AcademicService) CreateSupervisorRequest(
 		topicDescription,
 		lecturerIDs,
 	)
+}
+
+func (s *AcademicService) ListAllSupervisorRequests(
+	ctx context.Context,
+	statusFilter string,
+) ([]model.SupervisorRequest, error) {
+	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
+	return supervisorRepo.ListAllSupervisorRequests(ctx, statusFilter)
 }
 
 func (s *AcademicService) ListMySupervisorRequests(
@@ -48,7 +56,7 @@ func (s *AcademicService) ListMySupervisorRequests(
 	if studentUserID == "" {
 		return nil, ErrInvalidInput
 	}
-	
+
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
 	return supervisorRepo.ListByStudentUserID(ctx, studentUserID)
 }
@@ -61,7 +69,7 @@ func (s *AcademicService) ListLecturerSupervisorRequests(
 	if lecturerUserID == "" {
 		return nil, ErrInvalidInput
 	}
-	
+
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
 	return supervisorRepo.ListByLecturerUserID(ctx, lecturerUserID)
 }
@@ -75,9 +83,9 @@ func (s *AcademicService) VerifySupervisorRequest(
 	if strings.TrimSpace(requestID) == "" || strings.TrimSpace(actorUserID) == "" {
 		return nil, ErrInvalidInput
 	}
-	
+
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
-	
+
 	req, err := supervisorRepo.VerifySupervisorRequest(ctx, requestID, actorUserID, note)
 	return mapSupervisorRepoError(req, err)
 }
@@ -92,9 +100,9 @@ func (s *AcademicService) AssignSupervisor(
 	if strings.TrimSpace(requestID) == "" || strings.TrimSpace(actorUserID) == "" || strings.TrimSpace(lecturerID) == "" {
 		return nil, ErrInvalidInput
 	}
-	
+
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
-	
+
 	req, err := supervisorRepo.AssignSupervisor(ctx, requestID, actorUserID, lecturerID, note)
 	return mapSupervisorRepoError(req, err)
 }
@@ -108,9 +116,9 @@ func (s *AcademicService) AcceptSupervisorRequest(
 	if strings.TrimSpace(requestID) == "" || strings.TrimSpace(lecturerUserID) == "" {
 		return nil, ErrInvalidInput
 	}
-	
+
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
-	
+
 	req, err := supervisorRepo.AcceptSupervisorRequest(ctx, requestID, lecturerUserID, note)
 	return mapSupervisorRepoError(req, err)
 }
@@ -124,9 +132,9 @@ func (s *AcademicService) RejectSupervisorRequest(
 	if strings.TrimSpace(requestID) == "" || strings.TrimSpace(lecturerUserID) == "" {
 		return nil, ErrInvalidInput
 	}
-	
+
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
-	
+
 	req, err := supervisorRepo.RejectSupervisorRequest(ctx, requestID, lecturerUserID, note)
 	return mapSupervisorRepoError(req, err)
 }
@@ -138,22 +146,22 @@ func mapSupervisorRepoError(
 	if err == nil {
 		return req, nil
 	}
-	
+
 	if errors.Is(err, repository.ErrSupervisorRequestNotFound) {
 		return nil, ErrAcademicRequestNotFound
 	}
-	
+
 	if errors.Is(err, repository.ErrInvalidStatusTransition) {
 		return nil, ErrInvalidStatusTransition
 	}
-	
+
 	if errors.Is(err, repository.ErrLecturerNotFound) {
 		return nil, ErrInvalidInput
 	}
-	
+
 	if errors.Is(err, repository.ErrLecturerNotAssigned) {
 		return nil, ErrInvalidStatusTransition
 	}
-	
+
 	return nil, err
 }

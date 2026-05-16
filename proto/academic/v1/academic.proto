@@ -20,6 +20,7 @@ service AcademicService {
   rpc ListLecturers(ListLecturersRequest) returns (ListLecturersResponse);
   rpc CreateSupervisorRequest(CreateSupervisorRequestRequest) returns (SupervisorRequestResponse);
   rpc ListMySupervisorRequests(ListMySupervisorRequestsRequest) returns (ListSupervisorRequestsResponse);
+  rpc ListAllSupervisorRequests(ListAllSupervisorRequestsRequest) returns (ListSupervisorRequestsResponse);
   rpc ListLecturerSupervisorRequests(ListLecturerSupervisorRequestsRequest) returns (ListSupervisorRequestsResponse);
   rpc VerifySupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc AssignSupervisor(AssignSupervisorRequest) returns (SupervisorRequestResponse);
@@ -113,6 +114,10 @@ message CreateSupervisorRequestRequest {
 
 message ListMySupervisorRequestsRequest {
   string student_user_id = 1;
+}
+
+message ListAllSupervisorRequestsRequest {
+  string status_filter = 1; // opsional, kosong = semua status
 }
 
 message ListLecturerSupervisorRequestsRequest {

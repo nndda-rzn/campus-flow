@@ -5,10 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	
+
 	"campus-flow/apps/services/academic-service/internal/model"
-	`github.com/jackc/pgx/v5/pgconn`
-	
+
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -47,9 +48,9 @@ func (r *SupervisorRepository) ListLecturers(ctx context.Context) ([]model.Lectu
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var lecturers []model.Lecturer
-	
+
 	for rows.Next() {
 		var lecturer model.Lecturer
 		if err := rows.Scan(
@@ -63,10 +64,10 @@ func (r *SupervisorRepository) ListLecturers(ctx context.Context) ([]model.Lectu
 		); err != nil {
 			return nil, err
 		}
-		
+
 		lecturers = append(lecturers, lecturer)
 	}
-	
+
 	return lecturers, rows.Err()
 }
 
@@ -82,11 +83,11 @@ func (r *SupervisorRepository) CreateSupervisorRequest(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	
+
 	requestNumber := generateSupervisorRequestNumber()
-	
+
 	var req model.SupervisorRequest
-	
+
 	err = tx.QueryRow(
 		ctx, `
 		INSERT INTO supervisor_requests (
@@ -120,7 +121,7 @@ func (r *SupervisorRepository) CreateSupervisorRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	for index, lecturerID := range lecturerIDs {
 		_, err = tx.Exec(
 			ctx, `
@@ -136,7 +137,7 @@ func (r *SupervisorRepository) CreateSupervisorRequest(
 			return nil, err
 		}
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO supervisor_status_histories (
@@ -152,7 +153,7 @@ func (r *SupervisorRepository) CreateSupervisorRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO audit_logs (
@@ -174,7 +175,7 @@ func (r *SupervisorRepository) CreateSupervisorRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO outbox_events (
@@ -200,11 +201,11 @@ func (r *SupervisorRepository) CreateSupervisorRequest(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	return r.GetSupervisorRequestByID(ctx, req.ID)
 }
 
@@ -213,7 +214,7 @@ func (r *SupervisorRepository) GetSupervisorRequestByID(
 	requestID string,
 ) (*model.SupervisorRequest, error) {
 	var req model.SupervisorRequest
-	
+
 	err := r.db.QueryRow(
 		ctx, `
 		SELECT
@@ -246,22 +247,64 @@ func (r *SupervisorRepository) GetSupervisorRequestByID(
 		&req.CreatedAt,
 		&req.UpdatedAt,
 	)
-	
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSupervisorRequestNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	
+
 	choices, err := r.listChoices(ctx, req.ID)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	req.Choices = choices
-	
+
 	return &req, nil
+}
+
+func (r *SupervisorRepository) ListAllSupervisorRequests(
+	ctx context.Context,
+	statusFilter string,
+) ([]model.SupervisorRequest, error) {
+	query := `
+		SELECT id::text
+		FROM supervisor_requests
+	`
+	args := []interface{}{}
+
+	if statusFilter != "" {
+		query += " WHERE status = $1"
+		args = append(args, statusFilter)
+	}
+
+	query += " ORDER BY created_at DESC"
+
+	rows, err := r.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var requests []model.SupervisorRequest
+
+	for rows.Next() {
+		var requestID string
+		if err := rows.Scan(&requestID); err != nil {
+			return nil, err
+		}
+
+		req, err := r.GetSupervisorRequestByID(ctx, requestID)
+		if err != nil {
+			return nil, err
+		}
+
+		requests = append(requests, *req)
+	}
+
+	return requests, rows.Err()
 }
 
 func (r *SupervisorRepository) ListByStudentUserID(
@@ -280,23 +323,23 @@ func (r *SupervisorRepository) ListByStudentUserID(
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var requests []model.SupervisorRequest
-	
+
 	for rows.Next() {
 		var requestID string
 		if err := rows.Scan(&requestID); err != nil {
 			return nil, err
 		}
-		
+
 		req, err := r.GetSupervisorRequestByID(ctx, requestID)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		requests = append(requests, *req)
 	}
-	
+
 	return requests, rows.Err()
 }
 
@@ -318,23 +361,23 @@ func (r *SupervisorRepository) ListByLecturerUserID(
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var requests []model.SupervisorRequest
-	
+
 	for rows.Next() {
 		var requestID string
 		if err := rows.Scan(&requestID); err != nil {
 			return nil, err
 		}
-		
+
 		req, err := r.GetSupervisorRequestByID(ctx, requestID)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		requests = append(requests, *req)
 	}
-	
+
 	return requests, rows.Err()
 }
 
@@ -367,11 +410,11 @@ func (r *SupervisorRepository) AssignSupervisor(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	
+
 	var currentStatus string
 	var studentUserID string
 	var requestNumber string
-	
+
 	err = tx.QueryRow(
 		ctx, `
 		SELECT status, student_user_id::text, request_number
@@ -380,18 +423,18 @@ func (r *SupervisorRepository) AssignSupervisor(
 		FOR UPDATE
 	`, requestID,
 	).Scan(&currentStatus, &studentUserID, &requestNumber)
-	
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSupervisorRequestNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if currentStatus != "VERIFIED" {
 		return nil, ErrInvalidStatusTransition
 	}
-	
+
 	var lecturerExists bool
 	err = tx.QueryRow(
 		ctx, `
@@ -405,11 +448,11 @@ func (r *SupervisorRepository) AssignSupervisor(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if !lecturerExists {
 		return nil, ErrLecturerNotFound
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		INSERT INTO supervisor_assignments (
@@ -425,7 +468,7 @@ func (r *SupervisorRepository) AssignSupervisor(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		UPDATE supervisor_requests
@@ -438,11 +481,11 @@ func (r *SupervisorRepository) AssignSupervisor(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := r.insertSupervisorHistory(ctx, tx, requestID, currentStatus, "ASSIGNED", actorUserID, note); err != nil {
 		return nil, err
 	}
-	
+
 	if err := r.insertSupervisorOutbox(
 		ctx,
 		tx,
@@ -456,11 +499,11 @@ func (r *SupervisorRepository) AssignSupervisor(
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	return r.GetSupervisorRequestByID(ctx, requestID)
 }
 
@@ -495,12 +538,12 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	
+
 	var currentStatus string
 	var studentUserID string
 	var requestNumber string
 	var assignmentID string
-	
+
 	err = tx.QueryRow(
 		ctx, `
 		SELECT
@@ -519,18 +562,18 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 		FOR UPDATE
 	`, requestID, lecturerUserID,
 	).Scan(&currentStatus, &studentUserID, &requestNumber, &assignmentID)
-	
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrLecturerNotAssigned
 	}
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if currentStatus != "ASSIGNED" {
 		return nil, ErrInvalidStatusTransition
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		UPDATE supervisor_assignments
@@ -543,7 +586,7 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		UPDATE supervisor_requests
@@ -557,7 +600,7 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := r.insertSupervisorHistory(
 		ctx,
 		tx,
@@ -569,7 +612,7 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if err := r.insertSupervisorOutbox(
 		ctx,
 		tx,
@@ -583,11 +626,11 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	return r.GetSupervisorRequestByID(ctx, requestID)
 }
 
@@ -605,11 +648,11 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
-	
+
 	var currentStatus string
 	var studentUserID string
 	var requestNumber string
-	
+
 	err = tx.QueryRow(
 		ctx, `
 		SELECT status, student_user_id::text, request_number
@@ -618,18 +661,18 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 		FOR UPDATE
 	`, requestID,
 	).Scan(&currentStatus, &studentUserID, &requestNumber)
-	
+
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrSupervisorRequestNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if !isStatusAllowed(currentStatus, allowedStatuses) {
 		return nil, ErrInvalidStatusTransition
 	}
-	
+
 	_, err = tx.Exec(
 		ctx, `
 		UPDATE supervisor_requests
@@ -642,11 +685,11 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if err := r.insertSupervisorHistory(ctx, tx, requestID, currentStatus, targetStatus, actorUserID, note); err != nil {
 		return nil, err
 	}
-	
+
 	eventType := "supervisor_request.verified"
 	if err := r.insertSupervisorOutbox(
 		ctx,
@@ -661,11 +704,11 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 	); err != nil {
 		return nil, err
 	}
-	
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}
-	
+
 	return r.GetSupervisorRequestByID(ctx, requestID)
 }
 
@@ -686,18 +729,18 @@ func (r *SupervisorRepository) listChoices(ctx context.Context, requestID string
 		return nil, err
 	}
 	defer rows.Close()
-	
+
 	var choices []model.SupervisorChoice
-	
+
 	for rows.Next() {
 		var choice model.SupervisorChoice
 		if err := rows.Scan(&choice.LecturerID, &choice.LecturerName, &choice.Priority); err != nil {
 			return nil, err
 		}
-		
+
 		choices = append(choices, choice)
 	}
-	
+
 	return choices, rows.Err()
 }
 
@@ -726,7 +769,7 @@ func (r *SupervisorRepository) insertSupervisorHistory(
 		VALUES ($1::uuid, $2, $3, $4::uuid, $5)
 	`, requestID, oldStatus, newStatus, actorUserID, note,
 	)
-	
+
 	return err
 }
 
@@ -764,7 +807,7 @@ func (r *SupervisorRepository) insertSupervisorOutbox(
 		)
 	`, requestID, eventType, requestNumber, studentUserID, status, actorUserID, note,
 	)
-	
+
 	return err
 }
 

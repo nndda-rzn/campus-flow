@@ -121,3 +121,45 @@ func (h *NotificationHandler) MarkNotificationAsRead(w http.ResponseWriter, r *h
 		Data:    res,
 	})
 }
+
+func (h *NotificationHandler) MarkAllNotificationsAsRead(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "missing user id",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.notificationClient.Client.MarkAllNotificationsAsRead(
+		ctx,
+		&notificationv1.MarkAllNotificationsAsReadRequest{
+			UserId: userID,
+		},
+	)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to mark all notifications as read",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "all notifications marked as read",
+		Data:    res,
+	})
+}

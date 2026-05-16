@@ -257,3 +257,18 @@ export async function rejectSupervisorRequest(
 
   return normalizeSingleResponse(response);
 }
+
+export async function listAllSupervisorRequests(
+  token: string,
+  statusFilter?: string,
+) {
+  const query = statusFilter
+    ? `?status=${encodeURIComponent(statusFilter)}`
+    : "";
+  const response = await apiFetch<ApiResponse<RawRecord>>(
+    `/api/v1/admin/supervisor-requests${query}`,
+    { token },
+  );
+
+  return normalizeListResponse(response);
+}

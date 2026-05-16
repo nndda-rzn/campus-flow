@@ -8,6 +8,7 @@ service NotificationService {
   rpc CreateNotification(CreateNotificationRequest) returns (NotificationResponse);
   rpc ListMyNotifications(ListMyNotificationsRequest) returns (ListNotificationsResponse);
   rpc MarkNotificationAsRead(MarkNotificationAsReadRequest) returns (NotificationResponse);
+  rpc MarkAllNotificationsAsRead(MarkAllNotificationsAsReadRequest) returns (MarkAllNotificationsAsReadResponse);
 }
 
 message CreateNotificationRequest {
@@ -47,4 +48,12 @@ message NotificationResponse {
 
 message ListNotificationsResponse {
   repeated NotificationItem notifications = 1;
+}
+
+message MarkAllNotificationsAsReadRequest {
+  string user_id = 1;
+}
+
+message MarkAllNotificationsAsReadResponse {
+  int32 updated_count = 1;
 }

@@ -172,3 +172,22 @@ func (r *NotificationRepository) MarkAsRead(
 
 	return &updated, nil
 }
+
+func (r *NotificationRepository) MarkAllAsRead(
+	ctx context.Context,
+	userID string,
+) (int32, error) {
+	tag, err := r.db.Exec(ctx, `
+		UPDATE notifications
+		SET
+			is_read = TRUE,
+			read_at = COALESCE(read_at, NOW())
+		WHERE user_id = $1::uuid
+		  AND is_read = FALSE
+	`, userID)
+	if err != nil {
+		return 0, err
+	}
+
+	return int32(tag.RowsAffected()), nil
+}

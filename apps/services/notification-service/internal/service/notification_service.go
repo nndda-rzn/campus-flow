@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	ErrInvalidInput          = errors.New("invalid input")
+	ErrInvalidInput         = errors.New("invalid input")
 	ErrNotificationNotFound = errors.New("notification not found")
 )
 
@@ -108,4 +108,17 @@ func isAllowedNotificationType(notificationType string) bool {
 	}
 
 	return allowed[notificationType]
+}
+
+func (s *NotificationService) MarkAllNotificationsAsRead(
+	ctx context.Context,
+	userID string,
+) (int32, error) {
+	userID = strings.TrimSpace(userID)
+
+	if userID == "" {
+		return 0, ErrInvalidInput
+	}
+
+	return s.repo.MarkAllAsRead(ctx, userID)
 }
