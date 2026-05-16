@@ -240,6 +240,25 @@ func (h *AcademicHandler) CompleteAcademicRequest(
 	}, nil
 }
 
+func (h *AcademicHandler) CancelAcademicRequest(
+	ctx context.Context,
+	req *academicv1.WorkflowActionRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.CancelAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
 func mapWorkflowError(err error) error {
 	if errors.Is(err, service.ErrInvalidInput) {
 		return status.Error(codes.InvalidArgument, "request_id and actor_user_id are required")
@@ -254,4 +273,37 @@ func mapWorkflowError(err error) error {
 	}
 
 	return status.Error(codes.Internal, err.Error())
+}
+
+func (h *AcademicHandler) GetAcademicRequestHistory(
+	ctx context.Context,
+	req *academicv1.GetAcademicRequestHistoryRequest,
+) (*academicv1.GetAcademicRequestHistoryResponse, error) {
+	histories, err := h.academicService.GetAcademicRequestHistory(ctx, req.RequestId)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidInput) {
+			return nil, status.Error(codes.InvalidArgument, "request_id is required")
+		}
+		if errors.Is(err, service.ErrAcademicRequestNotFound) {
+			return nil, status.Error(codes.NotFound, "academic request not found")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	items := make([]*academicv1.RequestStatusHistoryItem, 0, len(histories))
+	for _, h := range histories {
+		items = append(items, &academicv1.RequestStatusHistoryItem{
+			Id:          h.ID,
+			RequestId:   h.RequestID,
+			OldStatus:   h.OldStatus,
+			NewStatus:   h.NewStatus,
+			ActorUserId: h.ActorUserID,
+			Note:        h.Note,
+			CreatedAt:   h.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	return &academicv1.GetAcademicRequestHistoryResponse{
+		Histories: items,
+	}, nil
 }

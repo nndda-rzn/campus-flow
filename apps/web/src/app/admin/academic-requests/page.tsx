@@ -6,12 +6,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   ClipboardList,
   Clock,
   FileText,
   RefreshCw,
   Search,
 } from "lucide-react";
+import { usePagination } from "@/lib/use-pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { Card } from "@/components/ui/card";
@@ -47,6 +51,7 @@ import {
   listAllAcademicRequests,
   verifyAcademicRequest,
 } from "@/lib/academic-api";
+import { FileSection } from "@/components/academic/file-section";
 import { cn } from "@/lib/cn";
 
 const STATUS_OPTIONS = [
@@ -79,6 +84,13 @@ function PageContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Expand row state
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  function toggleExpand(id: string) {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }
 
   // Verify dialog state
   const [verifyTarget, setVerifyTarget] = useState<AcademicRequest | null>(
@@ -121,6 +133,17 @@ function PageContent() {
         r.serviceName.toLowerCase().includes(q),
     );
   }, [requests, searchQuery]);
+
+  const { currentPage, paginatedItems, setPage, goToFirst } = usePagination(
+    filteredRequests,
+    10,
+  );
+
+  // Reset to page 1 when filter or search changes
+  useEffect(() => {
+    goToFirst();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, searchQuery]);
 
   function openVerifyDialog(request: AcademicRequest) {
     setVerifyTarget(request);
@@ -250,46 +273,102 @@ function PageContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.map((request) => (
-                  <TableRow key={request.id}>
-                    <TableCell className="max-w-md">
-                      <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
-                        {request.title}
-                      </p>
-                      <p className="mt-0.5 font-mono text-[11.5px] text-text-muted">
-                        {request.requestNumber}
-                      </p>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-[13px] text-text-secondary">
-                        {request.serviceName}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={request.status} />
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex items-center gap-1.5 text-[12.5px] text-text-muted">
-                        <Clock className="size-3" />
-                        {formatRelativeDate(request.createdAt)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {request.status === "SUBMITTED" ? (
-                        <Button
-                          size="sm"
-                          onClick={() => openVerifyDialog(request)}
-                        >
-                          <CheckCircle2 className="size-3.5" />
-                          Verifikasi
-                        </Button>
-                      ) : (
-                        <Button size="sm" variant="ghost" disabled>
-                          —
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
+                {paginatedItems.map((request) => (
+                  <>
+                    <TableRow key={request.id}>
+                      <TableCell className="max-w-md">
+                        <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
+                          {request.title}
+                        </p>
+                        <p className="mt-0.5 font-mono text-[11.5px] text-text-muted">
+                          {request.requestNumber}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-[13px] text-text-secondary">
+                          {request.serviceName}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={request.status} />
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center gap-1.5 text-[12.5px] text-text-muted">
+                          <Clock className="size-3" />
+                          {formatRelativeDate(request.createdAt)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="inline-flex items-center justify-end gap-1.5">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => toggleExpand(request.id)}
+                            aria-label={
+                              expandedId === request.id
+                                ? "Tutup detail"
+                                : "Lihat detail"
+                            }
+                            title={
+                              expandedId === request.id
+                                ? "Tutup detail"
+                                : "Lihat detail"
+                            }
+                          >
+                            {expandedId === request.id ? (
+                              <ChevronUp className="size-3.5" />
+                            ) : (
+                              <ChevronDown className="size-3.5" />
+                            )}
+                            Detail
+                          </Button>
+                          {request.status === "SUBMITTED" ? (
+                            <Button
+                              size="sm"
+                              onClick={() => openVerifyDialog(request)}
+                            >
+                              <CheckCircle2 className="size-3.5" />
+                              Verifikasi
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" disabled>
+                              —
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    {expandedId === request.id && (
+                      <TableRow
+                        key={`${request.id}-detail`}
+                        className="bg-background-alt hover:bg-background-alt"
+                      >
+                        <TableCell colSpan={5} className="px-5 py-4">
+                          <div className="space-y-4">
+                            <div>
+                              <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                Deskripsi
+                              </p>
+                              <p className="text-[13px] leading-relaxed text-text-secondary">
+                                {request.description?.trim()
+                                  ? request.description
+                                  : "Tidak ada deskripsi"}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                File Terlampir
+                              </p>
+                              <FileSection
+                                requestId={request.id}
+                                token={getAccessToken() ?? ""}
+                              />
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
                 ))}
               </TableBody>
             </Table>
@@ -298,10 +377,12 @@ function PageContent() {
 
         {/* Result count footer */}
         {!isLoading && !error && filteredRequests.length > 0 ? (
-          <p className="text-[12px] text-text-muted">
-            Menampilkan {filteredRequests.length} pengajuan
-            {searchQuery ? ` (filter: "${searchQuery}")` : ""}
-          </p>
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredRequests.length}
+            pageSize={10}
+            onPageChange={setPage}
+          />
         ) : null}
       </div>
 

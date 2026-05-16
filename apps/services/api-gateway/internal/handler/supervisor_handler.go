@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"campus-flow/apps/services/api-gateway/internal/client"
@@ -46,6 +47,20 @@ func (h *SupervisorHandler) ListAllSupervisorRequests(w http.ResponseWriter, r *
 
 	statusFilter := r.URL.Query().Get("status")
 
+	// BE-01: Baca query params pagination
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	page := 1
+	limit := 20
+
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+		limit = l
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -59,7 +74,32 @@ func (h *SupervisorHandler) ListAllSupervisorRequests(w http.ResponseWriter, r *
 		return
 	}
 
-	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "list all supervisor requests success", Data: res})
+	// BE-01: Pagination di memory
+	allRequests := res.Requests
+	total := len(allRequests)
+	totalPages := (total + limit - 1) / limit
+
+	start := (page - 1) * limit
+	end := start + limit
+	if start > total {
+		start = total
+	}
+	if end > total {
+		end = total
+	}
+	pagedRequests := allRequests[start:end]
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "list all supervisor requests success",
+		Data: map[string]interface{}{
+			"requests":    pagedRequests,
+			"total":       total,
+			"page":        page,
+			"limit":       limit,
+			"total_pages": totalPages,
+		},
+	})
 }
 
 func (h *SupervisorHandler) ListLecturers(w http.ResponseWriter, r *http.Request) {
@@ -110,6 +150,15 @@ func (h *SupervisorHandler) CreateSupervisorRequest(w http.ResponseWriter, r *ht
 			http.StatusBadRequest,
 			APIResponse{Success: false, Message: "topic_title and lecturer_ids are required"},
 		)
+		return
+	}
+
+	// BE-03-05: Validasi panjang topic_title max 255 karakter
+	if len([]rune(body.TopicTitle)) > 255 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "judul topik maksimal 255 karakter",
+		})
 		return
 	}
 
@@ -198,6 +247,10 @@ func (h *SupervisorHandler) RejectSupervisorRequest(w http.ResponseWriter, r *ht
 	h.supervisorAction(w, r, "reject")
 }
 
+func (h *SupervisorHandler) CancelSupervisorRequest(w http.ResponseWriter, r *http.Request) {
+	h.supervisorAction(w, r, "cancel")
+}
+
 func (h *SupervisorHandler) supervisorAction(w http.ResponseWriter, r *http.Request, action string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
@@ -242,6 +295,8 @@ func (h *SupervisorHandler) supervisorAction(w http.ResponseWriter, r *http.Requ
 		res, err = h.academicClient.Client.AcceptSupervisorRequest(ctx, grpcReq)
 	case "reject":
 		res, err = h.academicClient.Client.RejectSupervisorRequest(ctx, grpcReq)
+	case "cancel":
+		res, err = h.academicClient.Client.CancelSupervisorRequest(ctx, grpcReq)
 	}
 
 	if err != nil {

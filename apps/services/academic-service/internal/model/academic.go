@@ -23,3 +23,13 @@ type AcademicRequest struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 }
+
+type RequestStatusHistory struct {
+	ID          string
+	RequestID   string
+	OldStatus   string
+	NewStatus   string
+	ActorUserID string
+	Note        string
+	CreatedAt   time.Time
+}

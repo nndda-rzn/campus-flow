@@ -71,6 +71,18 @@ export async function createAcademicRequest(
   );
 }
 
+// ─── Student: cancel pengajuan ───────────────────────────────────────────────
+
+export async function cancelAcademicRequest(
+  token: string,
+  payload: { request_id: string; note?: string },
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/student/academic-requests/cancel",
+    { method: "POST", token, body: payload },
+  );
+}
+
 // ─── Admin / Staff workflow actions ──────────────────────────────────────────
 
 export type WorkflowPayload = {
@@ -120,21 +132,36 @@ export async function completeAcademicRequest(
 
 // ─── Admin: list semua pengajuan (pakai endpoint yang sama, filter di FE) ────
 
+export type PaginationMeta = {
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+};
+
 export type ListAllAcademicRequestsData = {
   requests: AcademicRequest[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
 };
 
 /**
  * List semua academic request (untuk Admin, Kaprodi, Tata Usaha, Super Admin).
- * Opsional filter berdasarkan status.
+ * Opsional filter berdasarkan status dan pagination.
  */
 export async function listAllAcademicRequests(
   token: string,
   statusFilter?: string,
+  page?: number,
+  limit?: number,
 ) {
-  const query = statusFilter
-    ? `?status=${encodeURIComponent(statusFilter)}`
-    : "";
+  const params = new URLSearchParams();
+  if (statusFilter) params.set("status", statusFilter);
+  if (page) params.set("page", String(page));
+  if (limit) params.set("limit", String(limit));
+  const query = params.toString() ? `?${params.toString()}` : "";
   return apiFetch<ApiResponse<ListAllAcademicRequestsData>>(
     `/api/v1/admin/academic-requests${query}`,
     { token },

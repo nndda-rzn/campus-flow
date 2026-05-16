@@ -592,3 +592,39 @@ func academicRequestEventType(status string) string {
 		return "academic_request.updated"
 	}
 }
+
+func (r *AcademicRepository) GetRequestStatusHistories(
+	ctx context.Context,
+	requestID string,
+) ([]model.RequestStatusHistory, error) {
+	rows, err := r.db.Query(ctx, `
+		SELECT 
+			id::text,
+			request_id::text,
+			COALESCE(old_status, ''),
+			new_status,
+			COALESCE(actor_user_id::text, ''),
+			COALESCE(note, ''),
+			created_at
+		FROM request_status_histories
+		WHERE request_id = $1::uuid
+		ORDER BY created_at ASC
+	`, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var histories []model.RequestStatusHistory
+	for rows.Next() {
+		var h model.RequestStatusHistory
+		if err := rows.Scan(
+			&h.ID, &h.RequestID, &h.OldStatus, &h.NewStatus,
+			&h.ActorUserID, &h.Note, &h.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		histories = append(histories, h)
+	}
+	return histories, rows.Err()
+}

@@ -176,6 +176,24 @@ func (s *AcademicService) CompleteAcademicRequest(
 	)
 }
 
+func (s *AcademicService) CancelAcademicRequest(
+	ctx context.Context,
+	requestID string,
+	studentUserID string,
+	note string,
+) (*model.AcademicRequest, error) {
+	return s.workflowAction(
+		ctx,
+		requestID,
+		studentUserID,
+		"MAHASISWA",
+		"ACADEMIC_REQUEST_CANCELLED",
+		"CANCELLED",
+		[]string{"SUBMITTED"},
+		note,
+	)
+}
+
 func (s *AcademicService) workflowAction(
 	ctx context.Context,
 	requestID string,
@@ -217,4 +235,25 @@ func (s *AcademicService) workflowAction(
 	}
 
 	return req, nil
+}
+
+func (s *AcademicService) GetAcademicRequestHistory(
+	ctx context.Context,
+	requestID string,
+) ([]model.RequestStatusHistory, error) {
+	requestID = strings.TrimSpace(requestID)
+	if requestID == "" {
+		return nil, ErrInvalidInput
+	}
+
+	// Verify the request exists first
+	_, err := s.repo.GetAcademicRequestByID(ctx, requestID)
+	if err != nil {
+		if errors.Is(err, repository.ErrAcademicRequestNotFound) {
+			return nil, ErrAcademicRequestNotFound
+		}
+		return nil, err
+	}
+
+	return s.repo.GetRequestStatusHistories(ctx, requestID)
 }

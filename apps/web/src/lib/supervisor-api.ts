@@ -98,8 +98,17 @@ function normalizeSupervisorRequest(raw: RawRecord): SupervisorRequest {
   };
 }
 
+export type SupervisorListData = {
+  requests: SupervisorRequest[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+};
+
 function normalizeListResponse(response: ApiResponse<RawRecord>) {
-  const rawRequests = getArray(response.data ?? {}, "requests");
+  const data = response.data ?? {};
+  const rawRequests = getArray(data, "requests");
 
   return {
     ...response,
@@ -107,7 +116,11 @@ function normalizeListResponse(response: ApiResponse<RawRecord>) {
       requests: rawRequests.map((item) =>
         normalizeSupervisorRequest(item as RawRecord),
       ),
-    },
+      total: getNumber(data, "total"),
+      page: getNumber(data, "page"),
+      limit: getNumber(data, "limit"),
+      total_pages: getNumber(data, "total_pages", "totalPages"),
+    } as SupervisorListData,
   };
 }
 
@@ -255,6 +268,17 @@ export async function rejectSupervisorRequest(
     },
   );
 
+  return normalizeSingleResponse(response);
+}
+
+export async function cancelSupervisorRequest(
+  token: string,
+  payload: { request_id: string; note?: string },
+) {
+  const response = await apiFetch<ApiResponse<RawRecord>>(
+    "/api/v1/student/supervisor-requests/cancel",
+    { method: "POST", token, body: payload },
+  );
   return normalizeSingleResponse(response);
 }
 

@@ -8,6 +8,7 @@ service AcademicService {
   rpc ListAcademicServices(ListAcademicServicesRequest) returns (ListAcademicServicesResponse);
   rpc CreateAcademicRequest(CreateAcademicRequestRequest) returns (AcademicRequestResponse);
   rpc GetAcademicRequest(GetAcademicRequestRequest) returns (AcademicRequestResponse);
+  rpc GetAcademicRequestHistory(GetAcademicRequestHistoryRequest) returns (GetAcademicRequestHistoryResponse);
   rpc ListMyAcademicRequests(ListMyAcademicRequestsRequest) returns (ListAcademicRequestsResponse);
   rpc ListAllAcademicRequests(ListAllAcademicRequestsRequest) returns (ListAcademicRequestsResponse);
 
@@ -15,6 +16,7 @@ service AcademicService {
   rpc ApproveAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
   rpc RejectAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
   rpc CompleteAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+  rpc CancelAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
 
 
   rpc ListLecturers(ListLecturersRequest) returns (ListLecturersResponse);
@@ -51,6 +53,24 @@ message CreateAcademicRequestRequest {
 
 message GetAcademicRequestRequest {
   string request_id = 1;
+}
+
+message GetAcademicRequestHistoryRequest {
+  string request_id = 1;
+}
+
+message RequestStatusHistoryItem {
+  string id = 1;
+  string request_id = 2;
+  string old_status = 3;
+  string new_status = 4;
+  string actor_user_id = 5;
+  string note = 6;
+  string created_at = 7;
+}
+
+message GetAcademicRequestHistoryResponse {
+  repeated RequestStatusHistoryItem histories = 1;
 }
 
 message ListMyAcademicRequestsRequest {

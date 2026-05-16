@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   XCircle,
 } from "lucide-react";
+import { usePagination } from "@/lib/use-pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { Card } from "@/components/ui/card";
@@ -125,6 +127,17 @@ function PageContent() {
         r.serviceName.toLowerCase().includes(q),
     );
   }, [requests, searchQuery]);
+
+  const { currentPage, paginatedItems, setPage, goToFirst } = usePagination(
+    filteredRequests,
+    10,
+  );
+
+  // Reset to page 1 when filter or search changes
+  useEffect(() => {
+    goToFirst();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, searchQuery]);
 
   function openActionDialog(type: ActionType, request: AcademicRequest) {
     setActionTarget({ type, request });
@@ -265,7 +278,7 @@ function PageContent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRequests.map((request) => (
+                {paginatedItems.map((request) => (
                   <TableRow key={request.id}>
                     <TableCell className="max-w-md">
                       <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
@@ -323,9 +336,12 @@ function PageContent() {
         </Card>
 
         {!isLoading && !error && filteredRequests.length > 0 ? (
-          <p className="text-[12px] text-text-muted">
-            Menampilkan {filteredRequests.length} pengajuan
-          </p>
+          <Pagination
+            currentPage={currentPage}
+            totalItems={filteredRequests.length}
+            pageSize={10}
+            onPageChange={setPage}
+          />
         ) : null}
       </div>
 

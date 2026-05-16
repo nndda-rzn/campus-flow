@@ -4,11 +4,26 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"regexp"
+	"strings"
 	"time"
 
 	"campus-flow/apps/services/api-gateway/internal/client"
 	authv1 "campus-flow/proto/gen/auth/v1"
 )
+
+// BE-03-01: package-level regex untuk performa optimal
+var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+// BE-03-03: daftar role yang valid
+var validRoles = map[string]bool{
+	"MAHASISWA":   true,
+	"DOSEN":       true,
+	"ADMIN_PRODI": true,
+	"KAPRODI":     true,
+	"TATA_USAHA":  true,
+	"SUPER_ADMIN": true,
+}
 
 type AuthHandler struct {
 	authClient *client.AuthClient
@@ -69,10 +84,23 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// BE-03: Trim input
+	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
+	body.Password = strings.TrimSpace(body.Password)
+
 	if body.Email == "" || body.Password == "" {
 		writeJSON(w, http.StatusBadRequest, APIResponse{
 			Success: false,
 			Message: "email and password are required",
+		})
+		return
+	}
+
+	// BE-03: Validasi format email
+	if !emailRegex.MatchString(body.Email) {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "format email tidak valid",
 		})
 		return
 	}
@@ -99,8 +127,6 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-
-
 func writeJSON(w http.ResponseWriter, statusCode int, payload APIResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
@@ -126,10 +152,43 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// BE-03: Trim semua input
+	body.FullName = strings.TrimSpace(body.FullName)
+	body.Email = strings.TrimSpace(strings.ToLower(body.Email))
+	body.Password = strings.TrimSpace(body.Password)
+	body.Role = strings.TrimSpace(strings.ToUpper(body.Role))
+
 	if body.FullName == "" || body.Email == "" || body.Password == "" {
 		writeJSON(w, http.StatusBadRequest, APIResponse{
 			Success: false,
 			Message: "full_name, email, and password are required",
+		})
+		return
+	}
+
+	// BE-03-01: Validasi format email dengan regex
+	if !emailRegex.MatchString(body.Email) {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "format email tidak valid",
+		})
+		return
+	}
+
+	// BE-03-02: Validasi panjang password minimal 8 karakter
+	if len(body.Password) < 8 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "password minimal 8 karakter",
+		})
+		return
+	}
+
+	// BE-03-03: Validasi role yang valid (jika tidak kosong)
+	if body.Role != "" && !validRoles[body.Role] {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "role tidak valid, gunakan: MAHASISWA, DOSEN, ADMIN_PRODI, KAPRODI, TATA_USAHA, SUPER_ADMIN",
 		})
 		return
 	}

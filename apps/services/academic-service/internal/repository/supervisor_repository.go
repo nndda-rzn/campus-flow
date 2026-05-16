@@ -398,6 +398,23 @@ func (r *SupervisorRepository) VerifySupervisorRequest(
 	)
 }
 
+func (r *SupervisorRepository) CancelSupervisorRequest(
+	ctx context.Context,
+	requestID string,
+	studentUserID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	return r.updateSupervisorStatus(
+		ctx,
+		requestID,
+		studentUserID,
+		"SUPERVISOR_REQUEST_CANCELLED",
+		"CANCELLED",
+		[]string{"SUBMITTED"},
+		note,
+	)
+}
+
 func (r *SupervisorRepository) AssignSupervisor(
 	ctx context.Context,
 	requestID string,

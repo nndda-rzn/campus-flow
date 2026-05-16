@@ -145,6 +145,18 @@ func (h *AcademicHandler) RejectSupervisorRequest(
 	return &academicv1.SupervisorRequestResponse{Request: toProtoSupervisorRequest(updated)}, nil
 }
 
+func (h *AcademicHandler) CancelSupervisorRequest(
+	ctx context.Context,
+	req *academicv1.SupervisorWorkflowActionRequest,
+) (*academicv1.SupervisorRequestResponse, error) {
+	updated, err := h.academicService.CancelSupervisorRequest(ctx, req.RequestId, req.ActorUserId, req.Note)
+	if err != nil {
+		return nil, mapSupervisorError(err)
+	}
+
+	return &academicv1.SupervisorRequestResponse{Request: toProtoSupervisorRequest(updated)}, nil
+}
+
 func mapSupervisorError(err error) error {
 	if errors.Is(err, service.ErrInvalidInput) {
 		return status.Error(codes.InvalidArgument, "invalid supervisor request input")

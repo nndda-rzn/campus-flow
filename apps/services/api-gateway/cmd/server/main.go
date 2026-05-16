@@ -147,6 +147,15 @@ func main() {
 	)
 
 	mux.Handle(
+		"/api/v1/student/academic-requests/cancel",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("MAHASISWA")(
+				http.HandlerFunc(academicHandler.CancelAcademicRequest),
+			),
+		),
+	)
+
+	mux.Handle(
 		"/api/v1/student/academic-requests/upload-supporting-document",
 		authMiddleware.RequireAuth(
 			authMiddleware.RequireRole("MAHASISWA")(
@@ -168,6 +177,16 @@ func main() {
 		"/api/v1/academic-requests/files",
 		authMiddleware.RequireAuth(
 			http.HandlerFunc(fileHandler.ListAcademicRequestFiles),
+		),
+	)
+
+	// BE-02-04: GET /api/v1/academic-requests/{id}
+	// BE-02-02: GET /api/v1/academic-requests/{id}/history
+	// Must be registered AFTER specific sub-paths like /files to avoid conflicts
+	mux.Handle(
+		"/api/v1/academic-requests/",
+		authMiddleware.RequireAuth(
+			http.HandlerFunc(academicHandler.RouteAcademicRequestByID),
 		),
 	)
 
@@ -274,6 +293,15 @@ func main() {
 		authMiddleware.RequireAuth(
 			authMiddleware.RequireRole("DOSEN")(
 				http.HandlerFunc(supervisorHandler.RejectSupervisorRequest),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/student/supervisor-requests/cancel",
+		authMiddleware.RequireAuth(
+			authMiddleware.RequireRole("MAHASISWA")(
+				http.HandlerFunc(supervisorHandler.CancelSupervisorRequest),
 			),
 		),
 	)

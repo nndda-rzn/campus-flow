@@ -139,6 +139,22 @@ func (s *AcademicService) RejectSupervisorRequest(
 	return mapSupervisorRepoError(req, err)
 }
 
+func (s *AcademicService) CancelSupervisorRequest(
+	ctx context.Context,
+	requestID string,
+	studentUserID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	if strings.TrimSpace(requestID) == "" || strings.TrimSpace(studentUserID) == "" {
+		return nil, ErrInvalidInput
+	}
+
+	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
+
+	req, err := supervisorRepo.CancelSupervisorRequest(ctx, requestID, studentUserID, note)
+	return mapSupervisorRepoError(req, err)
+}
+
 func mapSupervisorRepoError(
 	req *model.SupervisorRequest,
 	err error,

@@ -8,8 +8,11 @@ import {
   GraduationCap,
   Inbox,
   RefreshCw,
+  User,
   XCircle,
 } from "lucide-react";
+import { usePagination } from "@/lib/use-pagination";
+import { Pagination } from "@/components/ui/pagination";
 import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { Button } from "@/components/ui/button";
@@ -97,6 +100,17 @@ function PageContent() {
     if (filter === "ALL") return requests;
     return requests.filter((r) => r.status === filter);
   }, [requests, filter]);
+
+  const { currentPage, paginatedItems, setPage, goToFirst } = usePagination(
+    filteredRequests,
+    10,
+  );
+
+  // Reset to page 1 when filter changes
+  useEffect(() => {
+    goToFirst();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter]);
 
   const assignedCount = useMemo(
     () => requests.filter((r) => r.status === "ASSIGNED").length,
@@ -213,16 +227,24 @@ function PageContent() {
             />
           </Card>
         ) : (
-          <ul className="space-y-3">
-            {filteredRequests.map((request) => (
-              <RequestCard
-                key={request.id}
-                request={request}
-                onAccept={() => openActionDialog("accept", request)}
-                onReject={() => openActionDialog("reject", request)}
-              />
-            ))}
-          </ul>
+          <>
+            <ul className="space-y-3">
+              {paginatedItems.map((request) => (
+                <RequestCard
+                  key={request.id}
+                  request={request}
+                  onAccept={() => openActionDialog("accept", request)}
+                  onReject={() => openActionDialog("reject", request)}
+                />
+              ))}
+            </ul>
+            <Pagination
+              currentPage={currentPage}
+              totalItems={filteredRequests.length}
+              pageSize={10}
+              onPageChange={setPage}
+            />
+          </>
         )}
       </div>
 
@@ -342,6 +364,10 @@ function RequestCard({
               </div>
               <p className="mt-1 font-mono text-[11.5px] text-text-muted">
                 {request.requestNumber}
+              </p>
+              <p className="mt-1 inline-flex items-center gap-1 font-mono text-[11.5px] text-text-muted">
+                <User className="size-3 shrink-0" />
+                ID Mahasiswa: {request.studentUserId}
               </p>
             </div>
             <StatusBadge status={request.status} />
