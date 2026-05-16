@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"campus-flow/apps/services/api-gateway/internal/client"
 	"campus-flow/apps/services/api-gateway/internal/handler"
@@ -35,6 +36,10 @@ func main() {
 	reportingHandler := handler.NewReportingHandler(reportingClient)
 	supervisorHandler := handler.NewSupervisorHandler(academicClient)
 
+	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
+	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
+	authenticatedRateLimiter := middleware.NewRateLimiter(300, time.Minute)
+
 	mux := http.NewServeMux()
 
 	mux.HandleFunc(
@@ -44,139 +49,194 @@ func main() {
 		},
 	)
 
-	// Public auth routes
-	mux.HandleFunc("/api/v1/auth/register", authHandler.Register)
-	mux.HandleFunc("/api/v1/auth/login", authHandler.Login)
-	mux.HandleFunc("/api/v1/auth/refresh", authHandler.RefreshToken)
-	mux.HandleFunc("/api/v1/auth/validate", authHandler.ValidateToken)
-	mux.HandleFunc("/api/v1/auth/logout", authHandler.Logout)
+	// Public auth routes (rate limited)
+	mux.Handle(
+		"/api/v1/auth/register",
+		middleware.RateLimitMiddleware(publicRateLimiter)(
+			http.HandlerFunc(authHandler.Register),
+		),
+	)
+	mux.Handle(
+		"/api/v1/auth/login",
+		middleware.RateLimitMiddleware(publicRateLimiter)(
+			http.HandlerFunc(authHandler.Login),
+		),
+	)
+	mux.Handle(
+		"/api/v1/auth/refresh",
+		middleware.RateLimitMiddleware(publicRateLimiter)(
+			http.HandlerFunc(authHandler.RefreshToken),
+		),
+	)
+	mux.Handle(
+		"/api/v1/auth/validate",
+		middleware.RateLimitMiddleware(publicRateLimiter)(
+			http.HandlerFunc(authHandler.ValidateToken),
+		),
+	)
+	mux.Handle(
+		"/api/v1/auth/logout",
+		middleware.RateLimitMiddleware(publicRateLimiter)(
+			http.HandlerFunc(authHandler.Logout),
+		),
+	)
 
-	// Protected route
+	// Protected routes (rate limited + authenticated)
 	mux.Handle(
 		"/api/v1/me",
-		authMiddleware.RequireAuth(http.HandlerFunc(meHandler.GetMe)),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(meHandler.GetMe)),
+		),
 	)
 
 	// Protected role-based test routes
 	mux.Handle(
 		"/api/v1/student/test",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("MAHASISWA")(
-				http.HandlerFunc(roleTestHandler.StudentOnly),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(roleTestHandler.StudentOnly),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/admin/test",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI")(
-				http.HandlerFunc(roleTestHandler.AdminOnly),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI")(
+					http.HandlerFunc(roleTestHandler.AdminOnly),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/head/test",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("KAPRODI")(
-				http.HandlerFunc(roleTestHandler.HeadOnly),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI")(
+					http.HandlerFunc(roleTestHandler.HeadOnly),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/academic-services",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(academicHandler.ListAcademicServices),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(academicHandler.ListAcademicServices),
+			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/admin/academic-requests",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("ADMIN_PRODI", "KAPRODI", "TATA_USAHA", "SUPER_ADMIN")(
-				http.HandlerFunc(academicHandler.ListAllAcademicRequests),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("ADMIN_PRODI", "KAPRODI", "TATA_USAHA", "SUPER_ADMIN")(
+					http.HandlerFunc(academicHandler.ListAllAcademicRequests),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/student/academic-requests",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("MAHASISWA")(
-				http.HandlerFunc(academicHandler.StudentAcademicRequests),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(academicHandler.StudentAcademicRequests),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/admin/academic-requests/verify",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
-				http.HandlerFunc(academicHandler.VerifyAcademicRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(academicHandler.VerifyAcademicRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/head/academic-requests/approve",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
-				http.HandlerFunc(academicHandler.ApproveAcademicRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(academicHandler.ApproveAcademicRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/head/academic-requests/reject",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
-				http.HandlerFunc(academicHandler.RejectAcademicRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(academicHandler.RejectAcademicRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/staff/academic-requests/complete",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("TATA_USAHA", "SUPER_ADMIN")(
-				http.HandlerFunc(academicHandler.CompleteAcademicRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("TATA_USAHA", "SUPER_ADMIN")(
+					http.HandlerFunc(academicHandler.CompleteAcademicRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/student/academic-requests/cancel",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("MAHASISWA")(
-				http.HandlerFunc(academicHandler.CancelAcademicRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(academicHandler.CancelAcademicRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/student/academic-requests/upload-supporting-document",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("MAHASISWA")(
-				http.HandlerFunc(fileHandler.UploadAcademicSupportingDocument),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(fileHandler.UploadAcademicSupportingDocument),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/staff/academic-requests/upload-final-document",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("TATA_USAHA", "SUPER_ADMIN")(
-				http.HandlerFunc(fileHandler.UploadAcademicFinalDocument),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("TATA_USAHA", "SUPER_ADMIN")(
+					http.HandlerFunc(fileHandler.UploadAcademicFinalDocument),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/academic-requests/files",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(fileHandler.ListAcademicRequestFiles),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(fileHandler.ListAcademicRequestFiles),
+			),
 		),
 	)
 
@@ -185,132 +245,164 @@ func main() {
 	// Must be registered AFTER specific sub-paths like /files to avoid conflicts
 	mux.Handle(
 		"/api/v1/academic-requests/",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(academicHandler.RouteAcademicRequestByID),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(academicHandler.RouteAcademicRequestByID),
+			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/files/download",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(fileHandler.DownloadFile),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(fileHandler.DownloadFile),
+			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/notifications",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(notificationHandler.ListMyNotifications),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(notificationHandler.ListMyNotifications),
+			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/notifications/read",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(notificationHandler.MarkNotificationAsRead),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(notificationHandler.MarkNotificationAsRead),
+			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/notifications/read-all",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(notificationHandler.MarkAllNotificationsAsRead),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(notificationHandler.MarkAllNotificationsAsRead),
+			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/reports/academic-requests",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "TATA_USAHA")(
-				http.HandlerFunc(reportingHandler.GetAcademicDashboard),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "TATA_USAHA")(
+					http.HandlerFunc(reportingHandler.GetAcademicDashboard),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/lecturers",
-		authMiddleware.RequireAuth(
-			http.HandlerFunc(supervisorHandler.ListLecturers),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(supervisorHandler.ListLecturers),
+			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/student/supervisor-requests",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("MAHASISWA")(
-				http.HandlerFunc(supervisorHandler.StudentSupervisorRequests),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(supervisorHandler.StudentSupervisorRequests),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/admin/supervisor-requests",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("ADMIN_PRODI", "KAPRODI", "SUPER_ADMIN")(
-				http.HandlerFunc(supervisorHandler.ListAllSupervisorRequests),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("ADMIN_PRODI", "KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(supervisorHandler.ListAllSupervisorRequests),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/admin/supervisor-requests/verify",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
-				http.HandlerFunc(supervisorHandler.VerifySupervisorRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(supervisorHandler.VerifySupervisorRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/head/supervisor-requests/assign",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
-				http.HandlerFunc(supervisorHandler.AssignSupervisor),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(supervisorHandler.AssignSupervisor),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/lecturer/supervisor-requests",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("DOSEN")(
-				http.HandlerFunc(supervisorHandler.ListLecturerSupervisorRequests),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(supervisorHandler.ListLecturerSupervisorRequests),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/lecturer/supervisor-requests/accept",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("DOSEN")(
-				http.HandlerFunc(supervisorHandler.AcceptSupervisorRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(supervisorHandler.AcceptSupervisorRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/lecturer/supervisor-requests/reject",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("DOSEN")(
-				http.HandlerFunc(supervisorHandler.RejectSupervisorRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(supervisorHandler.RejectSupervisorRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/student/supervisor-requests/cancel",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("MAHASISWA")(
-				http.HandlerFunc(supervisorHandler.CancelSupervisorRequest),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(supervisorHandler.CancelSupervisorRequest),
+				),
 			),
 		),
 	)
 
 	mux.Handle(
 		"/api/v1/reports/supervisor-requests",
-		authMiddleware.RequireAuth(
-			authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "TATA_USAHA")(
-				http.HandlerFunc(reportingHandler.GetSupervisorDashboard),
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "TATA_USAHA")(
+					http.HandlerFunc(reportingHandler.GetSupervisorDashboard),
+				),
 			),
 		),
 	)
@@ -318,7 +410,9 @@ func main() {
 	fmt.Println("API Gateway running on port 8080")
 	fmt.Println("Auth Service target: localhost:50051")
 
-	handlerWithCORS := middleware.CORSMiddleware(mux)
+	// Apply middleware chain: Security Headers -> CORS -> Rate Limiting -> Main Handler
+	handlerWithSecurity := middleware.SecurityHeadersMiddleware(mux)
+	handlerWithCORS := middleware.CORSMiddleware(handlerWithSecurity)
 
 	if err := http.ListenAndServe(":8080", handlerWithCORS); err != nil {
 		panic(err)
