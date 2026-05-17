@@ -133,6 +133,11 @@ function getNavigation(role: UserRole): NavGroup[] {
               icon: <IconUsers />,
             },
             {
+              label: "Mahasiswa Bimbingan",
+              href: "/lecturer/supervised-students",
+              icon: <IconGraduationCap />,
+            },
+            {
               label: "Notifikasi",
               href: "/notifications",
               icon: <IconBell />,
@@ -150,6 +155,11 @@ function getNavigation(role: UserRole): NavGroup[] {
             {
               label: "Pengajuan Akademik",
               href: "/staff/academic-requests",
+              icon: <IconDocument />,
+            },
+            {
+              label: "Dokumen Final",
+              href: "/staff/final-documents",
               icon: <IconDocument />,
             },
           ],
