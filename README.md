@@ -376,11 +376,15 @@ Buka [http://localhost:3000](http://localhost:3000).
 
 Setiap service membaca konfigurasi dari environment variables dengan fallback ke nilai default. Variabel yang umum:
 
-| Variable       | Default                                                                              | Service yang Membaca              |
-| -------------- | ------------------------------------------------------------------------------------ | --------------------------------- |
-| `DATABASE_URL` | `postgres://campusflow:campusflow_password@localhost:5432/<db_name>?sslmode=disable` | Semua service kecuali GW          |
-| `RABBITMQ_URL` | `amqp://campusflow:campusflow_password@localhost:5672/`                              | academic, notification, reporting |
-| `JWT_SECRET`   | dikonfigurasi di auth-service                                                        | auth-service                      |
+| Variable                | Default                                                                              | Service yang Membaca              |
+| ----------------------- | ------------------------------------------------------------------------------------ | --------------------------------- |
+| `DATABASE_URL`          | `postgres://campusflow:campusflow_password@localhost:5432/<db_name>?sslmode=disable` | Semua service kecuali GW          |
+| `RABBITMQ_URL`          | `amqp://campusflow:campusflow_password@localhost:5672/`                              | auth, academic, file, notification, reporting |
+| `JWT_SECRET`            | `campusflow_dev_secret_change_me`                                                    | auth-service                      |
+| `AUTH_SERVICE_ADDR`     | `127.0.0.1:50051`                                                                    | notification-service              |
+| `MAX_FILE_SIZE_BYTES`   | `10485760` (10 MB)                                                                   | file-service                      |
+| `ALLOWED_MIME_TYPES`    | `application/pdf,application/msword,...,image/jpeg,image/png`                        | file-service                      |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` / `MAIL_FROM` | empty (stub) | auth-service (forgot password)    |
 
 Override via shell:
 
@@ -591,16 +595,149 @@ cd apps/web && npm run lint
 
 ---
 
+## Multi-tenancy & Academic Year
+
+### Departmental Scoping (FR-277)
+
+Admin Prodi dan Kaprodi terikat pada satu atau lebih program studi melalui tabel pivot `user_department_scopes`. SUPER_ADMIN tidak terikat scope (akses semua data).
+
+- Saat membuat user dengan role ADMIN_PRODI atau KAPRODI di `/admin/users`, dialog akan **wajib meminta minimal 1 program studi**.
+- Scope dapat diubah kapan saja via tombol "Scope" di tabel users.
+- Endpoint:
+  - `GET  /api/v1/admin/users/scope?user_id=...` — list prodi yang menjadi scope.
+  - `POST /api/v1/admin/users/scope/set` — replace dengan list baru.
+
+### Academic Year Context (FR-278)
+
+Setiap pengajuan akademik dan supervisor request dikaitkan ke tahun akademik aktif saat dibuat.
+
+- **Hanya satu tahun akademik aktif pada satu waktu** (dijaga oleh partial unique index `one_active_academic_year`).
+- Saat ada pengajuan baru, sistem auto-stamp `academic_year_id` dari tahun aktif.
+- Migrasi `007_academic_years.sql` melakukan **backfill data lama** ke tahun aktif default (`2025-2026-GENAP`) sehingga reporting historis tetap meaningful.
+- Endpoint:
+  - `GET  /api/v1/academic-years` — daftar semua tahun akademik (any authenticated).
+  - `GET  /api/v1/academic-years/active` — tahun yang sedang aktif.
+  - `POST /api/v1/admin/academic-years/create` (SUPER_ADMIN).
+  - `POST /api/v1/admin/academic-years/set-active` (SUPER_ADMIN) — auto-demote tahun aktif sebelumnya dalam transaksi yang sama.
+- UI: `/admin/academic-years` (Super Admin only).
+
+---
+
+## Self-service Authentication
+
+### Forgot / Reset Password (FR-271)
+
+Alur lupa password lengkap dengan token sekali pakai berdurasi 30 menit:
+
+1. User klik "Lupa password?" di `/login` → diarahkan ke `/forgot-password`.
+2. Sistem generate raw token (32 bytes hex), simpan **SHA-256 hash** di `password_reset_tokens`, kirim **raw token** lewat email.
+3. User klik link `/reset-password?token=...` → input password baru → verifikasi hash + tandai `used_at` + revoke semua refresh token user.
+4. Response untuk request reset selalu **enumeration-safe** — sistem tidak konfirmasi keberadaan email.
+
+#### Email Backend
+
+- **Default (development):** `stubSender` — log body email ke stdout. Cukup untuk testing E2E tanpa setup SMTP.
+- **Production:** set env `SMTP_HOST` (+ `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM`) dan auth-service otomatis switch ke `smtpSender` (pakai `net/smtp` standard library, tanpa external dependency).
+
+```bash
+# Production example
+export SMTP_HOST=smtp.sendgrid.net
+export SMTP_PORT=587
+export SMTP_USERNAME=apikey
+export SMTP_PASSWORD=SG.xxxxxxxxxxxxxxxxxxxxxxxx
+export MAIL_FROM=no-reply@kampus.id
+```
+
+### Change Password (Self-service)
+
+User yang sudah login bisa ganti password dari `/profile`. Setelah berhasil, **semua refresh token user di-revoke** sehingga sesi di perangkat lain dipaksa logout.
+
+Endpoint: `POST /api/v1/me/change-password { current_password, new_password }` (min 8 char, beda dari current).
+
+---
+
+## SLA Tracking & Reminders
+
+### Due Date Tracking (FR-254)
+
+Setiap pengajuan akademik baru otomatis dapat `due_at = NOW() + 5 hari`. Empat timestamp lain tercatat saat transisi: `verified_at`, `approved_at`, `completed_at`.
+
+UI menampilkan `SLABadge`:
+- **Merah** — overdue
+- **Amber** — `< 24` jam tersisa
+- **Slate** — `> 24` jam tersisa
+- **Hidden** — pengajuan terminal (COMPLETED / REJECTED / CANCELLED)
+
+### Reminder Cron (FR-266)
+
+Worker `StartSLAReminderWorker` di academic-service scan tiap 1 jam (configurable):
+
+- Filter: `status NOT IN terminal AND due_at < NOW() + 24h AND last_sla_warning_at older than 23h`.
+- Concurrency-safe pakai `FOR UPDATE SKIP LOCKED` sehingga multi-replica tidak double-emit.
+- Update `last_sla_warning_at` + insert event `academic_request.sla_warning` dalam transaksi yang sama (idempotent retry).
+- Notification consumer mapping: WARNING-level notif ke mahasiswa pemilik pengajuan.
+
+---
+
+## Comment Threads & Bulk Operations
+
+### Discussion Threads (FR-260)
+
+Append-only chat per pengajuan akademik dan supervisor request. Dosen dapat balasan-balasan dengan mahasiswa tanpa perlu mensubmit ulang pengajuan.
+
+- Tabel `request_comments` (request_type ACADEMIC | SUPERVISOR).
+- Tampil di expand row admin & student academic-requests.
+- Role-tinted bubble per author (Mahasiswa biru, Admin Prodi accent, Kaprodi amber, dst).
+
+### Bulk Verify (FR-255)
+
+Admin Prodi bisa pilih multiple pengajuan SUBMITTED dengan checkbox dan verifikasi sekaligus dengan note bersama. Maksimal 100 per batch, partial failure tolerated.
+
+Endpoint: `POST /api/v1/admin/academic-requests/bulk-verify { request_ids[], note }`.
+
+### CSV Export (FR-256)
+
+Tiga endpoint reporting mendukung `?format=csv`:
+
+- `/api/v1/reports/academic-requests?format=csv`
+- `/api/v1/reports/supervisor-requests?format=csv`
+- `/api/v1/reports/lecturer-workload?format=csv`
+
+Browser auto-download file dengan nama bertanggal (`academic-requests-20260517.csv`). Frontend menggunakan fetch dengan Authorization header lalu trigger download via Blob URL — bypassing browser limitation untuk href download dengan custom header.
+
+---
+
 ## Roadmap
 
-- [ ] Containerize semua microservice (Dockerfile per service + multi-stage build)
-- [ ] Compose stack lengkap (services + infra) untuk single-command startup
-- [ ] Migrate runner script (PowerShell + Bash) di `scripts/`
-- [ ] Observability: structured logging, metrics (Prometheus), tracing (OpenTelemetry)
-- [ ] CI/CD pipeline (GitHub Actions: lint, test, build)
+Sudah selesai (commit history `git log --oneline`):
+
+- [x] Workflow approval lengkap untuk academic & supervisor (Epic 1)
+- [x] User & data master management dengan auto-stub PENDING_BIND (Epic 2)
+- [x] File service hardening (mime/size validation, outbox file.uploaded / file.attached) (Epic 3)
+- [x] Reporting v2 + audit log viewer + lecturer workload (Epic 4)
+- [x] Frontend polish: profile, final docs queue, supervised students (Epic 5)
+- [x] Containerize per service (multi-stage Dockerfile) + compose stack lengkap (Epic 6 + 8)
+- [x] Migrate runner script PowerShell + Bash di `scripts/` (Epic 6)
+- [x] Structured logging + request ID middleware di gateway (Epic 8)
+- [x] Graceful shutdown SIGINT/SIGTERM + `/healthz`, `/readyz` (Epic 8)
+- [x] CI/CD GitHub Actions: lint + test + build (Epic 8)
+- [x] Announcements, SLA tracking, visual timeline (Epic 9)
+- [x] Multi-tenancy (departmental scope) + academic year context (Epic 10a)
+- [x] Comment threads, bulk verify, CSV export (Epic 10b)
+- [x] Forgot password + SMTP abstraction + SLA reminder cron (Epic 10c)
+
+Belum tertutup (kandidat enterprise berikutnya):
+
 - [ ] Object storage (S3-compatible) untuk file service di production
 - [ ] Idempotency key & dead-letter queue di message consumer
 - [ ] E2E testing dengan Playwright untuk frontend
+- [ ] Observability: Prometheus metrics + OpenTelemetry tracing
+- [ ] 2FA TOTP untuk role admin (Super Admin / Kaprodi)
+- [ ] Webhook outbound + API key untuk integrasi external (SIAKAD, sistem keuangan)
+- [ ] Workflow type per service (`SIMPLE` / `STANDARD` / `EXTENDED`) dengan dynamic field schema
+- [ ] PDF preview inline + document templates dengan merge fields
+- [ ] Saved filters dan quick-action templates per role
+- [ ] Data retention policy (archive after N years) + immutable audit log
 
 ---
 
