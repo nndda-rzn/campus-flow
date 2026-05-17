@@ -113,6 +113,20 @@ func (r *AcademicRepository) CreateAcademicRequest(
 
 	requestNumber := generateRequestNumber()
 
+	// Resolve active academic year (FR-278). Falls back to NULL if none is
+	// configured — repository stays operational for fresh installs that
+	// haven't seeded an academic year yet.
+	var activeYearID *string
+	{
+		var id string
+		err := tx.QueryRow(ctx, `
+			SELECT id::text FROM academic_years WHERE is_active = TRUE LIMIT 1
+		`).Scan(&id)
+		if err == nil {
+			activeYearID = &id
+		}
+	}
+
 	var req model.AcademicRequest
 
 	err = tx.QueryRow(
@@ -125,9 +139,11 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			description,
 			status,
 			submitted_at,
-			due_at
+			due_at,
+			academic_year_id
 		)
-		VALUES ($1, $2::uuid, $3::uuid, $4, $5, 'SUBMITTED', NOW(), NOW() + INTERVAL '5 days')
+		VALUES ($1, $2::uuid, $3::uuid, $4, $5, 'SUBMITTED', NOW(),
+		        NOW() + INTERVAL '5 days', NULLIF($6, '')::uuid)
 		RETURNING 
 			id::text,
 			request_number,
@@ -141,8 +157,9 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			due_at,
 			verified_at,
 			approved_at,
-			completed_at
-	`, requestNumber, studentUserID, svc.ID, title, description,
+			completed_at,
+			COALESCE(academic_year_id::text, '')
+	`, requestNumber, studentUserID, svc.ID, title, description, ptrOrEmpty(activeYearID),
 	).Scan(
 		&req.ID,
 		&req.RequestNumber,
@@ -157,6 +174,7 @@ func (r *AcademicRepository) CreateAcademicRequest(
 		&req.VerifiedAt,
 		&req.ApprovedAt,
 		&req.CompletedAt,
+		&req.AcademicYearID,
 	)
 	if err != nil {
 		return nil, err
@@ -261,9 +279,12 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 			sr.due_at,
 			sr.verified_at,
 			sr.approved_at,
-			sr.completed_at
+			sr.completed_at,
+			COALESCE(sr.academic_year_id::text, ''),
+			COALESCE(ay.code, '')
 		FROM service_requests sr
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
+		LEFT JOIN academic_years ay ON ay.id = sr.academic_year_id
 		WHERE sr.id = $1::uuid
 		LIMIT 1
 	`, requestID,
@@ -283,6 +304,8 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 		&req.VerifiedAt,
 		&req.ApprovedAt,
 		&req.CompletedAt,
+		&req.AcademicYearID,
+		&req.AcademicYearCode,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -317,9 +340,12 @@ func (r *AcademicRepository) ListByStudentUserID(
 			sr.due_at,
 			sr.verified_at,
 			sr.approved_at,
-			sr.completed_at
+			sr.completed_at,
+			COALESCE(sr.academic_year_id::text, ''),
+			COALESCE(ay.code, '')
 		FROM service_requests sr
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
+		LEFT JOIN academic_years ay ON ay.id = sr.academic_year_id
 		WHERE sr.student_user_id = $1::uuid
 		ORDER BY sr.created_at DESC
 	`, studentUserID,
@@ -350,6 +376,8 @@ func (r *AcademicRepository) ListByStudentUserID(
 			&req.VerifiedAt,
 			&req.ApprovedAt,
 			&req.CompletedAt,
+			&req.AcademicYearID,
+			&req.AcademicYearCode,
 		); err != nil {
 			return nil, err
 		}
@@ -384,9 +412,12 @@ func (r *AcademicRepository) ListAllAcademicRequests(
 			sr.due_at,
 			sr.verified_at,
 			sr.approved_at,
-			sr.completed_at
+			sr.completed_at,
+			COALESCE(sr.academic_year_id::text, ''),
+			COALESCE(ay.code, '')
 		FROM service_requests sr
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
+		LEFT JOIN academic_years ay ON ay.id = sr.academic_year_id
 	`
 
 	var args []interface{}
@@ -425,6 +456,8 @@ func (r *AcademicRepository) ListAllAcademicRequests(
 			&req.VerifiedAt,
 			&req.ApprovedAt,
 			&req.CompletedAt,
+			&req.AcademicYearID,
+			&req.AcademicYearCode,
 		); err != nil {
 			return nil, err
 		}

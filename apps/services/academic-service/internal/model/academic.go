@@ -20,6 +20,8 @@ type AcademicRequest struct {
 	Title             string
 	Description       string
 	Status            string
+	AcademicYearID    string
+	AcademicYearCode  string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	DueAt             *time.Time

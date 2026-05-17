@@ -172,6 +172,8 @@ func toProtoAcademicRequest(req *model.AcademicRequest) *academicv1.AcademicRequ
 		VerifiedAt:        formatPtr(req.VerifiedAt),
 		ApprovedAt:        formatPtr(req.ApprovedAt),
 		CompletedAt:       formatPtr(req.CompletedAt),
+		AcademicYearId:    req.AcademicYearID,
+		AcademicYearCode:  req.AcademicYearCode,
 	}
 }
 

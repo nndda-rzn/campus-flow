@@ -42,10 +42,14 @@ import {
   AdminUser,
   assignUserRole,
   createUser,
+  Department,
+  listDepartments,
   listUsers,
   setUserStatus,
   updateUser,
 } from "@/lib/admin-api";
+import { getUserScope, setUserScope } from "@/lib/academic-year-api";
+import { cn } from "@/lib/cn";
 
 const ROLES = [
   "SUPER_ADMIN",
@@ -92,6 +96,15 @@ function PageContent() {
   const [createRole, setCreateRole] = useState("MAHASISWA");
   const [createError, setCreateError] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [createScopeIDs, setCreateScopeIDs] = useState<string[]>([]);
+
+  // Departments cache for scope binding (loaded once)
+  const [departments, setDepartments] = useState<Department[]>([]);
+
+  // Scope dialog state (manage existing user's scoped departments)
+  const [scopeTarget, setScopeTarget] = useState<AdminUser | null>(null);
+  const [scopeIDs, setScopeIDs] = useState<string[]>([]);
+  const [isSavingScope, setIsSavingScope] = useState(false);
 
   async function load() {
     const token = getAccessToken();
@@ -99,12 +112,23 @@ function PageContent() {
 
     setIsLoading(true);
     try {
-      const res = await listUsers(token, {
+      const usersPromise = listUsers(token, {
         role: roleFilter || undefined,
         status: statusFilter || undefined,
         search: search || undefined,
       });
+
+      // Lazy-load departments only once (used by scope dialog).
+      const deptsPromise =
+        departments.length > 0
+          ? Promise.resolve({ data: { departments } })
+          : listDepartments(token);
+
+      const [res, deptsRes] = await Promise.all([usersPromise, deptsPromise]);
       setUsers(res.data?.users ?? []);
+      if (deptsRes.data?.departments) {
+        setDepartments(deptsRes.data.departments);
+      }
     } catch (err) {
       toast.error("Gagal memuat pengguna", {
         description: err instanceof Error ? err.message : undefined,
@@ -112,6 +136,56 @@ function PageContent() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function openScope(u: AdminUser) {
+    const token = getAccessToken();
+    if (!token) return;
+
+    setScopeTarget(u);
+    setScopeIDs([]);
+    try {
+      const res = await getUserScope(token, u.id);
+      setScopeIDs((res.data?.scopes ?? []).map((s) => s.departmentId));
+    } catch (err) {
+      toast.error("Gagal memuat scope", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    }
+  }
+
+  async function handleSaveScope() {
+    if (!scopeTarget) return;
+    const token = getAccessToken();
+    if (!token) return;
+
+    setIsSavingScope(true);
+    try {
+      await setUserScope(token, {
+        user_id: scopeTarget.id,
+        department_ids: scopeIDs,
+      });
+      toast.success("Scope diperbarui");
+      setScopeTarget(null);
+    } catch (err) {
+      toast.error("Gagal menyimpan scope", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsSavingScope(false);
+    }
+  }
+
+  function toggleScope(id: string) {
+    setScopeIDs((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
+
+  function toggleCreateScope(id: string) {
+    setCreateScopeIDs((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   }
 
   useEffect(() => {
@@ -207,6 +281,7 @@ function PageContent() {
     setCreateEmail("");
     setCreatePassword("");
     setCreateRole("MAHASISWA");
+    setCreateScopeIDs([]);
     setCreateError("");
   }
 
@@ -215,6 +290,7 @@ function PageContent() {
     setCreateName("");
     setCreateEmail("");
     setCreatePassword("");
+    setCreateScopeIDs([]);
     setCreateError("");
   }
 
@@ -234,18 +310,41 @@ function PageContent() {
       return;
     }
 
+    // FR-277: Admin Prodi & Kaprodi wajib pilih minimal 1 prodi.
+    const needsScope =
+      createRole === "ADMIN_PRODI" || createRole === "KAPRODI";
+    if (needsScope && createScopeIDs.length === 0) {
+      setCreateError("Role ini wajib terikat ke minimal 1 program studi.");
+      return;
+    }
+
     const token = getAccessToken();
     if (!token) return;
 
     setIsCreating(true);
     setCreateError("");
     try {
-      await createUser(token, {
+      const res = await createUser(token, {
         full_name: name,
         email,
         password: createPassword,
         role: createRole,
       });
+
+      // Bind scope segera setelah user dibuat (untuk role yang relevan).
+      if (needsScope && createScopeIDs.length > 0) {
+        const data = res.data as
+          | { user_id?: string }
+          | undefined;
+        const newUserID = data?.user_id;
+        if (newUserID) {
+          await setUserScope(token, {
+            user_id: newUserID,
+            department_ids: createScopeIDs,
+          });
+        }
+      }
+
       toast.success("Pengguna berhasil dibuat", {
         description: `${name} (${createRole.replace("_", " ")}) ditambahkan.`,
       });
@@ -364,6 +463,19 @@ function PageContent() {
                         >
                           <ShieldCheck className="size-3.5" />
                         </Button>
+                        {(u.role === "ADMIN_PRODI" || u.role === "KAPRODI") && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openScope(u)}
+                            aria-label="Atur scope prodi"
+                            title="Atur scope prodi"
+                          >
+                            <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em]">
+                              Scope
+                            </span>
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant={u.status === "ACTIVE" ? "ghost" : "secondary"}
@@ -546,6 +658,36 @@ function PageContent() {
                 </SelectContent>
               </Select>
             </div>
+            {(createRole === "ADMIN_PRODI" || createRole === "KAPRODI") && (
+              <div className="space-y-2">
+                <Label>
+                  Program Studi <span className="text-danger">*</span>
+                </Label>
+                <p className="text-[11.5px] text-text-muted">
+                  Pilih minimal 1 prodi yang akan menjadi scope akses user ini.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {departments.map((d) => {
+                    const active = createScopeIDs.includes(d.id);
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => toggleCreateScope(d.id)}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors",
+                          active
+                            ? "border-accent bg-accent-soft text-accent"
+                            : "border-border bg-surface text-text-secondary hover:border-text-muted",
+                        )}
+                      >
+                        {d.code} · {d.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {createError ? (
               <p className="text-[12.5px] text-danger">{createError}</p>
             ) : (
@@ -565,6 +707,67 @@ function PageContent() {
             <Button onClick={handleCreate} loading={isCreating}>
               <Plus className="size-3.5" />
               Tambah Pengguna
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Scope dialog (FR-277) */}
+      <Dialog
+        open={scopeTarget !== null}
+        onOpenChange={(o) => !o && setScopeTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Atur Scope Program Studi</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            {scopeTarget ? (
+              <div className="rounded-md border border-border bg-background-alt p-3">
+                <p className="text-[14px] font-medium text-text-primary">
+                  {scopeTarget.fullName}
+                </p>
+                <p className="mt-1 text-[12.5px] text-text-muted">
+                  {scopeTarget.email} · {scopeTarget.role}
+                </p>
+              </div>
+            ) : null}
+            <div className="space-y-2">
+              <Label>Program Studi yang Bisa Diakses</Label>
+              <p className="text-[11.5px] text-text-muted">
+                Kosongkan untuk mencabut akses prodi (user tetap bisa login
+                tapi tidak melihat data apapun).
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {departments.map((d) => {
+                  const active = scopeIDs.includes(d.id);
+                  return (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => toggleScope(d.id)}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-[11.5px] font-medium transition-colors",
+                        active
+                          ? "border-accent bg-accent-soft text-accent"
+                          : "border-border bg-surface text-text-secondary hover:border-text-muted",
+                      )}
+                    >
+                      {d.code} · {d.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" disabled={isSavingScope}>
+                Batal
+              </Button>
+            </DialogClose>
+            <Button onClick={handleSaveScope} loading={isSavingScope}>
+              Simpan Scope
             </Button>
           </DialogFooter>
         </DialogContent>

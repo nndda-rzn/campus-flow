@@ -43,6 +43,8 @@ func main() {
 	adminHandler := handler.NewAdminHandler(authClient, academicClient)
 	auditHandler := handler.NewAuditHandler(authClient, academicClient)
 	announcementHandler := handler.NewAnnouncementHandler(academicClient)
+	academicYearHandler := handler.NewAcademicYearHandler(academicClient)
+	scopeHandler := handler.NewScopeHandler(academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -513,6 +515,27 @@ func main() {
 		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
 	registerAdmin("/api/v1/admin/announcements/deactivate", announcementHandler.Deactivate,
 		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+
+	// Academic years (Epic 10a / FR-278) — read for everyone authenticated,
+	// write only Super Admin.
+	mux.Handle(
+		"/api/v1/academic-years",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(academicYearHandler.List)),
+		),
+	)
+	mux.Handle(
+		"/api/v1/academic-years/active",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(academicYearHandler.GetActive)),
+		),
+	)
+	registerAdmin("/api/v1/admin/academic-years/create", academicYearHandler.Create, "SUPER_ADMIN")
+	registerAdmin("/api/v1/admin/academic-years/set-active", academicYearHandler.SetActive, "SUPER_ADMIN")
+
+	// User department scopes (Epic 10a / FR-277).
+	registerAdmin("/api/v1/admin/users/scope", scopeHandler.GetUserScope, "SUPER_ADMIN")
+	registerAdmin("/api/v1/admin/users/scope/set", scopeHandler.SetUserScope, "SUPER_ADMIN")
 
 	// Lecturer workload report (Epic 4).
 	mux.Handle(

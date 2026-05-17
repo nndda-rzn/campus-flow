@@ -56,6 +56,16 @@ service AcademicService {
   rpc CreateAnnouncement(CreateAnnouncementRequest) returns (AnnouncementItemResponse);
   rpc UpdateAnnouncement(UpdateAnnouncementRequest) returns (AnnouncementItemResponse);
   rpc DeactivateAnnouncement(DeactivateAnnouncementRequest) returns (AnnouncementItemResponse);
+
+  // Academic years (Epic 10a / FR-278).
+  rpc ListAcademicYears(ListAcademicYearsRequest) returns (ListAcademicYearsResponse);
+  rpc GetActiveAcademicYear(GetActiveAcademicYearRequest) returns (AcademicYearResponse);
+  rpc CreateAcademicYear(CreateAcademicYearRequest) returns (AcademicYearResponse);
+  rpc SetActiveAcademicYear(SetActiveAcademicYearRequest) returns (AcademicYearResponse);
+
+  // Departmental scopes (Epic 10a / FR-277).
+  rpc GetUserScope(GetUserScopeRequest) returns (UserScopeResponse);
+  rpc SetUserScope(SetUserScopeRequest) returns (UserScopeResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -138,6 +148,8 @@ message AcademicRequest {
   string verified_at = 13;
   string approved_at = 14;
   string completed_at = 15;
+  string academic_year_id = 16;   // FR-278
+  string academic_year_code = 17;
 }
 
 message AcademicRequestResponse {
@@ -396,4 +408,64 @@ message UpdateAnnouncementRequest {
 
 message DeactivateAnnouncementRequest {
   string id = 1;
+}
+
+// ─── Academic years (Epic 10a / FR-278) ────────────────────────────────────
+
+message AcademicYearItem {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string start_date = 4;
+  string end_date = 5;
+  bool is_active = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message AcademicYearResponse {
+  AcademicYearItem year = 1;
+}
+
+message ListAcademicYearsRequest {}
+
+message ListAcademicYearsResponse {
+  repeated AcademicYearItem items = 1;
+}
+
+message GetActiveAcademicYearRequest {}
+
+message CreateAcademicYearRequest {
+  string code = 1;
+  string name = 2;
+  string start_date = 3;
+  string end_date = 4;
+  bool is_active = 5;
+}
+
+message SetActiveAcademicYearRequest {
+  string id = 1;
+}
+
+// ─── User department scopes (Epic 10a / FR-277) ────────────────────────────
+
+message UserScopeItem {
+  string user_id = 1;
+  string department_id = 2;
+  string department_code = 3;
+  string department_name = 4;
+}
+
+message UserScopeResponse {
+  string user_id = 1;
+  repeated UserScopeItem scopes = 2;
+}
+
+message GetUserScopeRequest {
+  string user_id = 1;
+}
+
+message SetUserScopeRequest {
+  string user_id = 1;
+  repeated string department_ids = 2;
 }
