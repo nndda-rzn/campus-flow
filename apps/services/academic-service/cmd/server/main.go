@@ -56,6 +56,31 @@ func main() {
 		fmt.Println("Academic Service outbox publisher started")
 	}
 
+	// Consumer for user.registered events from auth-service so we can auto-stub
+	// student/lecturer records in PENDING_BIND state.
+	userConsumer, userDeliveries, err := messaging.NewRabbitMQConsumer(
+		cfg.RabbitMQURL,
+		"campusflow.events",
+		"q.academic.users",
+		[]string{"user.*"},
+		"academic-service-users",
+	)
+	if err != nil {
+		log.Printf("WARNING: failed to start user-registered consumer: %v", err)
+	} else {
+		defer userConsumer.Close()
+
+		consumerCtx, cancelConsumer := context.WithCancel(context.Background())
+		defer cancelConsumer()
+
+		go worker.StartUserRegisteredConsumer(
+			consumerCtx,
+			userDeliveries,
+			academicService,
+		)
+		fmt.Println("Academic Service user-registered consumer started")
+	}
+
 	listener, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

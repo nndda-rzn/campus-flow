@@ -2,7 +2,10 @@ module campus-flow/apps/services/auth-service
 
 go 1.25.3
 
-require google.golang.org/grpc v1.81.0
+require (
+	github.com/rabbitmq/amqp091-go v1.11.0
+	google.golang.org/grpc v1.81.0
+)
 
 require (
 	github.com/jackc/pgpassfile v1.0.0 // indirect

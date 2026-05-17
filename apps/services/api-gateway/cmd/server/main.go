@@ -35,6 +35,7 @@ func main() {
 	notificationHandler := handler.NewNotificationHandler(notificationClient)
 	reportingHandler := handler.NewReportingHandler(reportingClient)
 	supervisorHandler := handler.NewSupervisorHandler(academicClient)
+	adminHandler := handler.NewAdminHandler(authClient, academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -450,6 +451,36 @@ func main() {
 			),
 		),
 	)
+
+	// ─── Admin: User & Data Master Management (Epic 2) ─────────────────────
+
+	registerAdmin := func(path string, handlerFn http.HandlerFunc, roles ...string) {
+		mux.Handle(
+			path,
+			middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+				authMiddleware.RequireAuth(
+					authMiddleware.RequireRole(roles...)(handlerFn),
+				),
+			),
+		)
+	}
+
+	registerAdmin("/api/v1/admin/users", adminHandler.ListUsers, "SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/users/update", adminHandler.UpdateUser, "SUPER_ADMIN")
+	registerAdmin("/api/v1/admin/users/status", adminHandler.SetUserStatus, "SUPER_ADMIN")
+	registerAdmin("/api/v1/admin/users/role", adminHandler.AssignUserRole, "SUPER_ADMIN")
+
+	registerAdmin("/api/v1/admin/departments", adminHandler.ListDepartments, "SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+	registerAdmin("/api/v1/admin/departments/create", adminHandler.CreateDepartment, "SUPER_ADMIN")
+	registerAdmin("/api/v1/admin/departments/update", adminHandler.UpdateDepartment, "SUPER_ADMIN")
+
+	registerAdmin("/api/v1/admin/students", adminHandler.ListStudents, "SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+	registerAdmin("/api/v1/admin/students/upsert", adminHandler.UpsertStudent, "SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/students/status", adminHandler.SetStudentStatus, "SUPER_ADMIN", "ADMIN_PRODI")
+
+	registerAdmin("/api/v1/admin/lecturers", adminHandler.ListAllLecturers, "SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+	registerAdmin("/api/v1/admin/lecturers/upsert", adminHandler.UpsertLecturer, "SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/lecturers/status", adminHandler.SetLecturerStatus, "SUPER_ADMIN", "ADMIN_PRODI")
 
 	fmt.Println("API Gateway running on port 8080")
 	fmt.Println("Auth Service target: localhost:50051")

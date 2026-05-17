@@ -11,6 +11,9 @@ const LABELS: Record<string, string> = {
   CANCELLED: "Dibatalkan",
   ASSIGNED: "Ditugaskan",
   ACCEPTED: "Diterima",
+  ACTIVE: "Aktif",
+  INACTIVE: "Nonaktif",
+  PENDING_BIND: "Belum Terhubung",
 };
 
 const VARIANTS: Record<string, BadgeProps["variant"]> = {
@@ -24,6 +27,9 @@ const VARIANTS: Record<string, BadgeProps["variant"]> = {
   CANCELLED: "neutral",
   ASSIGNED: "assigned",
   ACCEPTED: "success",
+  ACTIVE: "success",
+  INACTIVE: "neutral",
+  PENDING_BIND: "warning",
 };
 
 type Props = {

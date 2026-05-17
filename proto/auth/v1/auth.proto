@@ -10,6 +10,14 @@ service AuthService {
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // Admin user management.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  rpc GetUser(GetUserRequest) returns (UserItemResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UserItemResponse);
+  rpc SetUserStatus(SetUserStatusRequest) returns (UserItemResponse);
+  rpc AssignUserRole(AssignUserRoleRequest) returns (UserItemResponse);
+  rpc ListUsersByRole(ListUsersByRoleRequest) returns (ListUsersResponse);
 }
 
 message RegisterRequest {
@@ -69,4 +77,55 @@ message UserProfile {
   string full_name = 2;
   string email = 3;
   string role = 4;
+}
+
+// ─── Admin user management ──────────────────────────────────────────────────
+
+message UserItem {
+  string id = 1;
+  string full_name = 2;
+  string email = 3;
+  string role = 4;
+  string status = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message UserItemResponse {
+  UserItem user = 1;
+}
+
+message ListUsersRequest {
+  string role_filter = 1;   // optional, empty = all roles
+  string status_filter = 2; // optional, empty = all statuses
+  string search = 3;        // optional, matches email or full_name
+}
+
+message ListUsersResponse {
+  repeated UserItem users = 1;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  string full_name = 2;
+  string email = 3;
+}
+
+message SetUserStatusRequest {
+  string user_id = 1;
+  string status = 2; // ACTIVE | INACTIVE
+}
+
+message AssignUserRoleRequest {
+  string user_id = 1;
+  string role = 2;
+  string actor_user_id = 3;
+}
+
+message ListUsersByRoleRequest {
+  string role = 1;
 }

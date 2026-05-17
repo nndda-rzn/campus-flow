@@ -34,6 +34,19 @@ service AcademicService {
   rpc RejectSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc CompleteSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc CancelSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
+
+  // Directory management (Epic 2): students, lecturers, departments.
+  rpc ListDepartments(ListDepartmentsRequest) returns (ListDepartmentsResponse);
+  rpc CreateDepartment(CreateDepartmentRequest) returns (DepartmentItemResponse);
+  rpc UpdateDepartment(UpdateDepartmentRequest) returns (DepartmentItemResponse);
+
+  rpc ListStudents(ListStudentsRequest) returns (ListStudentsResponse);
+  rpc UpsertStudent(UpsertStudentRequest) returns (StudentItemResponse);
+  rpc SetStudentStatus(SetStudentStatusRequest) returns (StudentItemResponse);
+
+  rpc ListAllLecturers(ListAllLecturersRequest) returns (ListLecturersResponse);
+  rpc UpsertLecturer(UpsertLecturerRequest) returns (LecturerItemResponse);
+  rpc SetLecturerStatus(SetLecturerStatusRequest) returns (LecturerItemResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -124,16 +137,6 @@ message ListAcademicRequestsResponse {
 
 message ListLecturersRequest {}
 
-message LecturerItem {
-  string id = 1;
-  string user_id = 2;
-  string nidn = 3;
-  string full_name = 4;
-  string email = 5;
-  string status = 6;
-  int32 max_supervisor_quota = 7;
-}
-
 message ListLecturersResponse {
   repeated LecturerItem lecturers = 1;
 }
@@ -196,4 +199,110 @@ message SupervisorRequestResponse {
 
 message ListSupervisorRequestsResponse {
   repeated SupervisorRequest requests = 1;
+}
+
+// ─── Directory: Departments, Students, Lecturers (Epic 2) ───────────────────
+
+message DepartmentItem {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string created_at = 4;
+}
+
+message DepartmentItemResponse {
+  DepartmentItem department = 1;
+}
+
+message ListDepartmentsRequest {}
+
+message ListDepartmentsResponse {
+  repeated DepartmentItem departments = 1;
+}
+
+message CreateDepartmentRequest {
+  string code = 1;
+  string name = 2;
+}
+
+message UpdateDepartmentRequest {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+}
+
+message StudentItem {
+  string id = 1;
+  string user_id = 2;
+  string nim = 3;
+  string full_name = 4;
+  string email = 5;
+  string department_id = 6;
+  string department_name = 7;
+  string status = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message StudentItemResponse {
+  StudentItem student = 1;
+}
+
+message ListStudentsRequest {
+  string status_filter = 1; // optional
+  string search = 2;        // matches NIM, name, or email
+}
+
+message ListStudentsResponse {
+  repeated StudentItem students = 1;
+}
+
+message UpsertStudentRequest {
+  string user_id = 1;       // required: link to auth user
+  string nim = 2;
+  string full_name = 3;
+  string email = 4;
+  string department_id = 5; // optional
+}
+
+message SetStudentStatusRequest {
+  string user_id = 1; // we identify by user_id since admin keys students by it
+  string status = 2;  // ACTIVE | INACTIVE | PENDING_BIND
+}
+
+message LecturerItem {
+  string id = 1;
+  string user_id = 2;
+  string nidn = 3;
+  string full_name = 4;
+  string email = 5;
+  string department_id = 6;
+  string department_name = 7;
+  string status = 8;
+  int32 max_supervisor_quota = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message LecturerItemResponse {
+  LecturerItem lecturer = 1;
+}
+
+message ListAllLecturersRequest {
+  string status_filter = 1;
+  string search = 2;
+}
+
+message UpsertLecturerRequest {
+  string user_id = 1;
+  string nidn = 2;
+  string full_name = 3;
+  string email = 4;
+  string department_id = 5;
+  int32 max_supervisor_quota = 6;
+}
+
+message SetLecturerStatusRequest {
+  string user_id = 1;
+  string status = 2;
 }

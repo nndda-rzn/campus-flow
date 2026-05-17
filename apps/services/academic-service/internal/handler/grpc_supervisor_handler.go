@@ -40,7 +40,6 @@ func (h *AcademicHandler) ListLecturers(
 		Lecturers: items,
 	}, nil
 }
-
 func (h *AcademicHandler) CreateSupervisorRequest(
 	ctx context.Context,
 	req *academicv1.CreateSupervisorRequestRequest,

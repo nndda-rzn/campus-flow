@@ -8,6 +8,7 @@ import (
 type Config struct {
 	GRPCPort        string
 	DatabaseURL     string
+	RabbitMQURL     string
 	JWTSecret       string
 	AccessTokenTTL  time.Duration
 	RefreshTokenTTL time.Duration
@@ -19,6 +20,10 @@ func Load() Config {
 		DatabaseURL: getEnv(
 			"DATABASE_URL",
 			"postgres://campusflow:campusflow_password@127.0.0.1:5432/auth_db?sslmode=disable",
+		),
+		RabbitMQURL: getEnv(
+			"RABBITMQ_URL",
+			"amqp://campusflow:campusflow_password@127.0.0.1:5672/",
 		),
 		JWTSecret:       getEnv("JWT_SECRET", "campusflow_dev_secret_change_me"),
 		AccessTokenTTL:  15 * time.Minute,
