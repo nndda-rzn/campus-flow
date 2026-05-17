@@ -2,7 +2,10 @@ package handler
 
 import (
 	"context"
+	"encoding/csv"
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"campus-flow/apps/services/api-gateway/internal/client"
@@ -43,6 +46,11 @@ func (h *ReportingHandler) GetAcademicDashboard(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	if r.URL.Query().Get("format") == "csv" {
+		writeAcademicDashboardCSV(w, res)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "get academic dashboard success",
@@ -74,6 +82,11 @@ func (h *ReportingHandler) GetSupervisorDashboard(w http.ResponseWriter, r *http
 		return
 	}
 
+	if r.URL.Query().Get("format") == "csv" {
+		writeSupervisorDashboardCSV(w, res)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "get supervisor dashboard success",
@@ -102,9 +115,83 @@ func (h *ReportingHandler) GetLecturerWorkload(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if r.URL.Query().Get("format") == "csv" {
+		writeLecturerWorkloadCSV(w, res)
+		return
+	}
+
 	writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "get lecturer workload success",
 		Data:    res,
 	})
+}
+
+// ─── CSV serializers (FR-256) ────────────────────────────────────────────────
+
+func setCSVHeader(w http.ResponseWriter, filename string) {
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.WriteHeader(http.StatusOK)
+}
+
+func writeAcademicDashboardCSV(w http.ResponseWriter, res *reportingv1.AcademicDashboardResponse) {
+	setCSVHeader(w, "academic-requests-"+time.Now().Format("20060102")+".csv")
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	_ = cw.Write([]string{"metric", "value"})
+	_ = cw.Write([]string{"total_requests", strconv.FormatInt(res.TotalRequests, 10)})
+	_ = cw.Write([]string{"submitted", strconv.FormatInt(res.SubmittedRequests, 10)})
+	_ = cw.Write([]string{"verified", strconv.FormatInt(res.VerifiedRequests, 10)})
+	_ = cw.Write([]string{"approved", strconv.FormatInt(res.ApprovedRequests, 10)})
+	_ = cw.Write([]string{"rejected", strconv.FormatInt(res.RejectedRequests, 10)})
+	_ = cw.Write([]string{"completed", strconv.FormatInt(res.CompletedRequests, 10)})
+	_ = cw.Write([]string{"", ""})
+	_ = cw.Write([]string{"status", "total"})
+	for _, s := range res.StatusCounts {
+		_ = cw.Write([]string{s.Status, strconv.FormatInt(s.Total, 10)})
+	}
+}
+
+func writeSupervisorDashboardCSV(w http.ResponseWriter, res *reportingv1.SupervisorDashboardResponse) {
+	setCSVHeader(w, "supervisor-requests-"+time.Now().Format("20060102")+".csv")
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	_ = cw.Write([]string{"metric", "value"})
+	_ = cw.Write([]string{"total_requests", strconv.FormatInt(res.TotalRequests, 10)})
+	_ = cw.Write([]string{"submitted", strconv.FormatInt(res.SubmittedRequests, 10)})
+	_ = cw.Write([]string{"verified", strconv.FormatInt(res.VerifiedRequests, 10)})
+	_ = cw.Write([]string{"assigned", strconv.FormatInt(res.AssignedRequests, 10)})
+	_ = cw.Write([]string{"accepted", strconv.FormatInt(res.AcceptedRequests, 10)})
+	_ = cw.Write([]string{"rejected", strconv.FormatInt(res.RejectedRequests, 10)})
+	_ = cw.Write([]string{"completed", strconv.FormatInt(res.CompletedRequests, 10)})
+	_ = cw.Write([]string{"", ""})
+	_ = cw.Write([]string{"status", "total"})
+	for _, s := range res.StatusCounts {
+		_ = cw.Write([]string{s.Status, strconv.FormatInt(s.Total, 10)})
+	}
+}
+
+func writeLecturerWorkloadCSV(w http.ResponseWriter, res *reportingv1.LecturerWorkloadResponse) {
+	setCSVHeader(w, "lecturer-workload-"+time.Now().Format("20060102")+".csv")
+	cw := csv.NewWriter(w)
+	defer cw.Flush()
+
+	_ = cw.Write([]string{
+		"lecturer_id", "lecturer_user_id", "lecturer_name",
+		"active", "assigned", "accepted", "completed", "rejected",
+	})
+	for _, it := range res.Items {
+		_ = cw.Write([]string{
+			it.LecturerId, it.LecturerUserId, it.LecturerName,
+			strconv.FormatInt(it.ActiveCount, 10),
+			strconv.FormatInt(it.AssignedCount, 10),
+			strconv.FormatInt(it.AcceptedCount, 10),
+			strconv.FormatInt(it.CompletedCount, 10),
+			strconv.FormatInt(it.RejectedCount, 10),
+		})
+	}
 }

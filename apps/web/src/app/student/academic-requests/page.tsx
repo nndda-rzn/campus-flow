@@ -17,6 +17,7 @@ import { ProtectedPage } from "@/components/layout/protected-page";
 import { FileSection } from "@/components/academic/file-section";
 import { RequestTimeline } from "@/components/academic/request-timeline";
 import { SLABadge } from "@/components/academic/sla-badge";
+import { CommentThread } from "@/components/academic/comment-thread";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -615,6 +616,13 @@ function RequestRow({
               Timeline
             </p>
             <RequestTimeline token={token} requestId={request.id} />
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+              Diskusi
+            </p>
+            <CommentThread requestType="ACADEMIC" requestId={request.id} />
           </div>
         </div>
       ) : null}

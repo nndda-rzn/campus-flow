@@ -45,6 +45,8 @@ func main() {
 	announcementHandler := handler.NewAnnouncementHandler(academicClient)
 	academicYearHandler := handler.NewAcademicYearHandler(academicClient)
 	scopeHandler := handler.NewScopeHandler(academicClient)
+	commentHandler := handler.NewCommentHandler(academicClient)
+	bulkVerifyHandler := handler.NewBulkVerifyHandler(academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -536,6 +538,24 @@ func main() {
 	// User department scopes (Epic 10a / FR-277).
 	registerAdmin("/api/v1/admin/users/scope", scopeHandler.GetUserScope, "SUPER_ADMIN")
 	registerAdmin("/api/v1/admin/users/scope/set", scopeHandler.SetUserScope, "SUPER_ADMIN")
+
+	// Request comments (Epic 10b / FR-260).
+	mux.Handle(
+		"/api/v1/request-comments",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(commentHandler.List)),
+		),
+	)
+	mux.Handle(
+		"/api/v1/request-comments/create",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(commentHandler.Create)),
+		),
+	)
+
+	// Bulk verify academic requests (Epic 10b / FR-255).
+	registerAdmin("/api/v1/admin/academic-requests/bulk-verify",
+		bulkVerifyHandler.BulkVerifyAcademic, "SUPER_ADMIN", "ADMIN_PRODI")
 
 	// Lecturer workload report (Epic 4).
 	mux.Handle(

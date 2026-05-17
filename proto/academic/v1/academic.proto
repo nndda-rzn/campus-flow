@@ -66,6 +66,13 @@ service AcademicService {
   // Departmental scopes (Epic 10a / FR-277).
   rpc GetUserScope(GetUserScopeRequest) returns (UserScopeResponse);
   rpc SetUserScope(SetUserScopeRequest) returns (UserScopeResponse);
+
+  // Request comments (Epic 10b / FR-260).
+  rpc ListRequestComments(ListRequestCommentsRequest) returns (ListRequestCommentsResponse);
+  rpc CreateRequestComment(CreateRequestCommentRequest) returns (RequestCommentResponse);
+
+  // Bulk verify academic requests (Epic 10b / FR-255).
+  rpc BulkVerifyAcademicRequests(BulkVerifyAcademicRequestsRequest) returns (BulkVerifyAcademicRequestsResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -468,4 +475,59 @@ message GetUserScopeRequest {
 message SetUserScopeRequest {
   string user_id = 1;
   repeated string department_ids = 2;
+}
+
+// ─── Request comments (Epic 10b / FR-260) ──────────────────────────────────
+
+message RequestCommentItem {
+  string id = 1;
+  string request_id = 2;
+  string request_type = 3;
+  string author_user_id = 4;
+  string author_name = 5;
+  string author_role = 6;
+  string body = 7;
+  string created_at = 8;
+}
+
+message RequestCommentResponse {
+  RequestCommentItem comment = 1;
+}
+
+message ListRequestCommentsRequest {
+  string request_type = 1; // ACADEMIC | SUPERVISOR
+  string request_id = 2;
+}
+
+message ListRequestCommentsResponse {
+  repeated RequestCommentItem items = 1;
+}
+
+message CreateRequestCommentRequest {
+  string request_type = 1;
+  string request_id = 2;
+  string author_user_id = 3;
+  string author_name = 4;
+  string author_role = 5;
+  string body = 6;
+}
+
+// ─── Bulk verify (Epic 10b / FR-255) ───────────────────────────────────────
+
+message BulkVerifyAcademicRequestsRequest {
+  repeated string request_ids = 1;
+  string actor_user_id = 2;
+  string note = 3;
+}
+
+message BulkVerifyResultItem {
+  string request_id = 1;
+  bool success = 2;
+  string error = 3; // populated only when success = false
+}
+
+message BulkVerifyAcademicRequestsResponse {
+  repeated BulkVerifyResultItem results = 1;
+  int32 succeeded = 2;
+  int32 failed = 3;
 }

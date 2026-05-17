@@ -10,6 +10,7 @@ import {
   ChevronUp,
   ClipboardList,
   Clock,
+  Download,
   FileText,
   RefreshCw,
   RotateCcw,
@@ -53,9 +54,11 @@ import {
   requestRevisionAcademicRequest,
   verifyAcademicRequest,
 } from "@/lib/academic-api";
+import { bulkVerifyAcademicRequests } from "@/lib/comment-bulk-api";
 import { FileSection } from "@/components/academic/file-section";
 import { RequestTimeline } from "@/components/academic/request-timeline";
 import { SLABadge } from "@/components/academic/sla-badge";
+import { CommentThread } from "@/components/academic/comment-thread";
 import { cn } from "@/lib/cn";
 
 const STATUS_OPTIONS = [
@@ -92,6 +95,25 @@ function PageContent() {
 
   // Expand row state
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Bulk selection (FR-255)
+  const [selectedIDs, setSelectedIDs] = useState<Set<string>>(new Set());
+  const [bulkNote, setBulkNote] = useState("");
+  const [isBulkVerifying, setIsBulkVerifying] = useState(false);
+
+  function toggleSelected(id: string) {
+    setSelectedIDs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIDs(new Set());
+    setBulkNote("");
+  }
 
   function toggleExpand(id: string) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -154,6 +176,7 @@ function PageContent() {
   // Reset to page 1 when filter or search changes
   useEffect(() => {
     goToFirst();
+    clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchQuery]);
 
@@ -246,6 +269,83 @@ function PageContent() {
     }
   }
 
+  async function handleBulkVerify() {
+    if (selectedIDs.size === 0) return;
+    const token = getAccessToken();
+    if (!token) return;
+
+    const ids = Array.from(selectedIDs);
+    setIsBulkVerifying(true);
+    try {
+      const res = await bulkVerifyAcademicRequests(token, {
+        request_ids: ids,
+        note: bulkNote.trim(),
+      });
+      const succeeded = res.data?.succeeded ?? 0;
+      const failed = res.data?.failed ?? 0;
+
+      if (failed === 0) {
+        toast.success(`${succeeded} pengajuan diverifikasi`, {
+          description: "Semua berhasil diteruskan ke Kaprodi.",
+        });
+      } else {
+        toast.warning(`${succeeded} berhasil, ${failed} gagal`, {
+          description: "Beberapa pengajuan tidak bisa diverifikasi. Cek alasan di hasil.",
+        });
+      }
+      clearSelection();
+      await loadRequests(statusFilter);
+    } catch (err) {
+      toast.error("Gagal bulk verifikasi", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsBulkVerifying(false);
+    }
+  }
+
+  function handleExportCSV() {
+    const params = new URLSearchParams();
+    const status = statusFilter ? statusFilter : "";
+    if (status) params.set("status", status);
+
+    // Direct link export — browser akan trigger download via Content-Disposition.
+    const token = getAccessToken();
+    if (!token) {
+      toast.error("Sesi habis");
+      return;
+    }
+    const baseURL =
+      process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+    const url = `${baseURL}/api/v1/reports/academic-requests?format=csv${params.toString() ? `&${params.toString()}` : ""}`;
+    // CSV endpoint requires Authorization header — fetch with header & save Blob.
+    fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (resp) => {
+        if (!resp.ok) {
+          throw new Error(`Export gagal (${resp.status})`);
+        }
+        const blob = await resp.blob();
+        const objectURL = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = objectURL;
+        a.download = `academic-requests-${new Date()
+          .toISOString()
+          .slice(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objectURL);
+        toast.success("Export CSV siap diunduh");
+      })
+      .catch((err) => {
+        toast.error("Gagal export CSV", {
+          description: err instanceof Error ? err.message : undefined,
+        });
+      });
+  }
+
   // Status counts (across loaded set — for the active filter)
   const submittedCount = requests.filter(
     (r) => r.status === "SUBMITTED",
@@ -292,8 +392,51 @@ function PageContent() {
                 className={cn("size-4", isLoading && "animate-spin")}
               />
             </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleExportCSV}
+              title="Export CSV"
+            >
+              <Download className="size-3.5" />
+              CSV
+            </Button>
           </div>
         </div>
+
+        {selectedIDs.size > 0 && (
+          <div className="flex flex-col gap-3 rounded-md border border-accent bg-accent-soft p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-1">
+              <p className="text-[13px] font-medium text-accent">
+                {selectedIDs.size} pengajuan dipilih
+              </p>
+              <Input
+                value={bulkNote}
+                onChange={(e) => setBulkNote(e.target.value)}
+                placeholder="Catatan opsional untuk Kaprodi…"
+                className="h-8 sm:w-72"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={clearSelection}
+                disabled={isBulkVerifying}
+              >
+                Batal
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleBulkVerify}
+                loading={isBulkVerifying}
+              >
+                <CheckCircle2 className="size-3.5" />
+                Verifikasi {selectedIDs.size}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* ── Table card ── */}
         <Card className="overflow-hidden">
@@ -328,6 +471,9 @@ function PageContent() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-9 px-3">
+                    <span className="sr-only">Pilih</span>
+                  </TableHead>
                   <TableHead>Pengajuan</TableHead>
                   <TableHead>Layanan</TableHead>
                   <TableHead>Status</TableHead>
@@ -339,6 +485,17 @@ function PageContent() {
                 {paginatedItems.map((request) => (
                   <Fragment key={request.id}>
                     <TableRow>
+                      <TableCell className="w-9 px-3">
+                        {request.status === "SUBMITTED" ? (
+                          <input
+                            type="checkbox"
+                            aria-label={`Pilih ${request.requestNumber}`}
+                            checked={selectedIDs.has(request.id)}
+                            onChange={() => toggleSelected(request.id)}
+                            className="size-4 cursor-pointer rounded border-border"
+                          />
+                        ) : null}
+                      </TableCell>
                       <TableCell className="max-w-md">
                         <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
                           {request.title}
@@ -421,7 +578,7 @@ function PageContent() {
                     </TableRow>
                     {expandedId === request.id && (
                       <TableRow className="bg-background-alt hover:bg-background-alt">
-                        <TableCell colSpan={5} className="px-5 py-4">
+                        <TableCell colSpan={6} className="px-5 py-4">
                           <div className="space-y-4">
                             <div>
                               <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
@@ -452,6 +609,15 @@ function PageContent() {
                                   requestId={request.id}
                                 />
                               </div>
+                            </div>
+                            <div>
+                              <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                Diskusi
+                              </p>
+                              <CommentThread
+                                requestType="ACADEMIC"
+                                requestId={request.id}
+                              />
                             </div>
                           </div>
                         </TableCell>
