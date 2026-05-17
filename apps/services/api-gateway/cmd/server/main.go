@@ -48,6 +48,7 @@ func main() {
 	commentHandler := handler.NewCommentHandler(academicClient)
 	bulkVerifyHandler := handler.NewBulkVerifyHandler(academicClient)
 	bulkImportHandler := handler.NewBulkImportHandler(academicClient)
+	searchHandler := handler.NewSearchHandler(authClient, academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -329,6 +330,15 @@ func main() {
 	)
 
 	mux.Handle(
+		"/api/v1/files/preview",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(fileHandler.PreviewFile),
+			),
+		),
+	)
+
+	mux.Handle(
 		"/api/v1/notifications",
 		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
 			authMiddleware.RequireAuth(
@@ -577,6 +587,14 @@ func main() {
 		bulkImportHandler.Students, "SUPER_ADMIN", "ADMIN_PRODI")
 	registerAdmin("/api/v1/admin/lecturers/bulk-import",
 		bulkImportHandler.Lecturers, "SUPER_ADMIN", "ADMIN_PRODI")
+
+	// Global search (Epic 11b / FR-257).
+	mux.Handle(
+		"/api/v1/search",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(searchHandler.Search)),
+		),
+	)
 
 	// Lecturer workload report (Epic 4).
 	mux.Handle(

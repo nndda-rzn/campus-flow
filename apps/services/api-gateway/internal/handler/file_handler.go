@@ -217,6 +217,108 @@ func (h *FileHandler) DownloadFile(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, cleanStoragePath)
 }
 
+// PreviewFile streams the file content inline (FR-269). Browsers will render
+// PDFs and images directly instead of triggering a download dialog.
+func (h *FileHandler) PreviewFile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "missing user id",
+		})
+		return
+	}
+
+	role, ok := middleware.GetRole(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "missing user role",
+		})
+		return
+	}
+
+	fileID := strings.TrimSpace(r.URL.Query().Get("file_id"))
+	if fileID == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "file_id is required",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	fileRes, err := h.fileClient.Client.GetFileMetadata(ctx, &filev1.GetFileMetadataRequest{
+		FileId: fileID,
+	})
+	if err != nil || fileRes.File == nil {
+		writeJSON(w, http.StatusNotFound, APIResponse{
+			Success: false,
+			Message: "file not found",
+		})
+		return
+	}
+
+	file := fileRes.File
+
+	allowed, err := h.canAccessFile(r.Context(), userID, role, file)
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to validate file access",
+		})
+		return
+	}
+
+	if !allowed {
+		writeJSON(w, http.StatusForbidden, APIResponse{
+			Success: false,
+			Message: "forbidden file access",
+		})
+		return
+	}
+
+	cleanStoragePath := filepath.Clean(file.StoragePath)
+
+	if !strings.HasPrefix(filepath.ToSlash(cleanStoragePath), "storage/uploads/") {
+		writeJSON(w, http.StatusForbidden, APIResponse{
+			Success: false,
+			Message: "invalid file path",
+		})
+		return
+	}
+
+	if _, err := os.Stat(cleanStoragePath); err != nil {
+		writeJSON(w, http.StatusNotFound, APIResponse{
+			Success: false,
+			Message: "physical file not found",
+		})
+		return
+	}
+
+	_, _ = h.fileClient.Client.LogFileAccess(ctx, &filev1.LogFileAccessRequest{
+		FileId:      file.Id,
+		ActorUserId: userID,
+		Action:      "PREVIEW",
+		IpAddress:   readClientIP(r),
+		UserAgent:   r.UserAgent(),
+	})
+
+	w.Header().Set("Content-Type", file.MimeType)
+	w.Header().Set("Content-Disposition", `inline; filename="`+sanitizeDownloadFileName(file.OriginalName)+`"`)
+	http.ServeFile(w, r, cleanStoragePath)
+}
+
 func (h *FileHandler) uploadAcademicFile(w http.ResponseWriter, r *http.Request, purpose string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{

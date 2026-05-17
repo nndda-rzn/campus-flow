@@ -49,6 +49,7 @@ import {
   requestRevisionSupervisorRequest,
   verifySupervisorRequest,
 } from "@/lib/supervisor-api";
+import { REVISION_TEMPLATES } from "@/lib/note-templates";
 import { cn } from "@/lib/cn";
 
 const STATUS_OPTIONS = [
@@ -529,6 +530,22 @@ function PageContent() {
               <Label htmlFor="supervisor-revision-note">
                 Catatan Revisi <span className="text-danger">*</span>
               </Label>
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {REVISION_TEMPLATES.map((tpl, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setRevisionNote(tpl);
+                      if (revisionError) setRevisionError("");
+                    }}
+                    className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-[10.5px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
+                    title={tpl}
+                  >
+                    {tpl.slice(0, 35)}…
+                  </button>
+                ))}
+              </div>
               <Textarea
                 id="supervisor-revision-note"
                 value={revisionNote}

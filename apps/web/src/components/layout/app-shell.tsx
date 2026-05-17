@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { ReactNode } from "react";
 import type { UserProfile, UserRole } from "@/types/auth";
 import { clearAuthSession } from "@/lib/auth-storage";
+import { CommandPalette } from "@/components/layout/command-palette";
 
 // ─── Navigation Definition ───────────────────────────────────────────────────
 
@@ -423,6 +424,7 @@ export function AppShell({
           </div>
 
           <div className="flex items-center gap-1.5">
+            <CommandPalette />
             <Link
               href="/notifications"
               aria-label="Notifikasi"
