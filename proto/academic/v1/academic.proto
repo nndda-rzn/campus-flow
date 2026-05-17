@@ -50,6 +50,12 @@ service AcademicService {
 
   // Audit log query (Epic 4).
   rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
+
+  // Announcements (Epic 9 / FR-252).
+  rpc ListAnnouncements(ListAnnouncementsRequest) returns (ListAnnouncementsResponse);
+  rpc CreateAnnouncement(CreateAnnouncementRequest) returns (AnnouncementItemResponse);
+  rpc UpdateAnnouncement(UpdateAnnouncementRequest) returns (AnnouncementItemResponse);
+  rpc DeactivateAnnouncement(DeactivateAnnouncementRequest) returns (AnnouncementItemResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -128,6 +134,10 @@ message AcademicRequest {
   string status = 9;
   string created_at = 10;
   string updated_at = 11;
+  string due_at = 12;       // SLA target deadline (FR-254)
+  string verified_at = 13;
+  string approved_at = 14;
+  string completed_at = 15;
 }
 
 message AcademicRequestResponse {
@@ -332,4 +342,58 @@ message AuditLogItem {
 
 message ListAuditLogsResponse {
   repeated AuditLogItem items = 1;
+}
+
+// ─── Announcements (Epic 9 / FR-252) ────────────────────────────────────────
+
+message AnnouncementItem {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+  string severity = 4;            // INFO | WARNING | CRITICAL | SUCCESS
+  string author_user_id = 5;
+  string author_name = 6;
+  repeated string target_roles = 7; // empty = visible to all roles
+  bool is_active = 8;
+  string starts_at = 9;
+  string ends_at = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message AnnouncementItemResponse {
+  AnnouncementItem announcement = 1;
+}
+
+message ListAnnouncementsRequest {
+  string viewer_role = 1;   // filter to announcements visible to this role
+  bool include_inactive = 2;
+}
+
+message ListAnnouncementsResponse {
+  repeated AnnouncementItem items = 1;
+}
+
+message CreateAnnouncementRequest {
+  string title = 1;
+  string body = 2;
+  string severity = 3;
+  string author_user_id = 4;
+  string author_name = 5;
+  repeated string target_roles = 6;
+  string starts_at = 7;
+  string ends_at = 8;
+}
+
+message UpdateAnnouncementRequest {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+  string severity = 4;
+  repeated string target_roles = 5;
+  string ends_at = 6;
+}
+
+message DeactivateAnnouncementRequest {
+  string id = 1;
 }

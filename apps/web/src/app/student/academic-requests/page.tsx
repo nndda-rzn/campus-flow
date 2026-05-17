@@ -15,6 +15,8 @@ import {
 import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { FileSection } from "@/components/academic/file-section";
+import { RequestTimeline } from "@/components/academic/request-timeline";
+import { SLABadge } from "@/components/academic/sla-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -525,16 +527,19 @@ function RequestRow({
               </p>
               <StatusBadge status={request.status} />
             </div>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11.5px] text-text-muted">
-              <span className="font-mono">{request.requestNumber}</span>
-              <span className="text-text-disabled">·</span>
-              <span>{request.serviceName}</span>
-              <span className="text-text-disabled">·</span>
-              <span className="inline-flex items-center gap-1">
-                <Clock className="size-3" />
-                {formatRelative(request.createdAt)}
-              </span>
-            </p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-[11.5px] text-text-muted">
+            <span className="font-mono">{request.requestNumber}</span>
+            <span className="text-text-disabled">·</span>
+            <span>{request.serviceName}</span>
+            <span className="text-text-disabled">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="size-3" />
+              {formatRelative(request.createdAt)}
+            </span>
+            {request.dueAt && (
+              <SLABadge dueAt={request.dueAt} status={request.status} />
+            )}
+          </p>
           </div>
           <ChevronDown
             className={cn(
@@ -603,6 +608,13 @@ function RequestRow({
               requestId={request.id}
               canUploadSupporting
             />
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+              Timeline
+            </p>
+            <RequestTimeline token={token} requestId={request.id} />
           </div>
         </div>
       ) : null}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 
 	"campus-flow/apps/services/academic-service/internal/model"
 	"campus-flow/apps/services/academic-service/internal/service"
@@ -149,6 +150,12 @@ func (h *AcademicHandler) ListAllAcademicRequests(
 }
 
 func toProtoAcademicRequest(req *model.AcademicRequest) *academicv1.AcademicRequest {
+	formatPtr := func(t *time.Time) string {
+		if t == nil {
+			return ""
+		}
+		return t.Format("2006-01-02 15:04:05")
+	}
 	return &academicv1.AcademicRequest{
 		Id:                req.ID,
 		RequestNumber:     req.RequestNumber,
@@ -161,6 +168,10 @@ func toProtoAcademicRequest(req *model.AcademicRequest) *academicv1.AcademicRequ
 		Status:            req.Status,
 		CreatedAt:         req.CreatedAt.Format("2006-01-02 15:04:05"),
 		UpdatedAt:         req.UpdatedAt.Format("2006-01-02 15:04:05"),
+		DueAt:             formatPtr(req.DueAt),
+		VerifiedAt:        formatPtr(req.VerifiedAt),
+		ApprovedAt:        formatPtr(req.ApprovedAt),
+		CompletedAt:       formatPtr(req.CompletedAt),
 	}
 }
 

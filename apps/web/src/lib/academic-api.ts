@@ -21,6 +21,10 @@ export type AcademicRequest = {
   status: string;
   createdAt: string;
   updatedAt: string;
+  dueAt?: string;
+  verifiedAt?: string;
+  approvedAt?: string;
+  completedAt?: string;
 };
 
 export type ListAcademicServicesData = {
@@ -158,6 +162,56 @@ export async function updateAcademicRequest(
     "/api/v1/student/academic-requests/update",
     { method: "POST", token, body: payload },
   );
+}
+
+// ─── Status history (for timeline, FR-259) ───────────────────────────────────
+
+export type RequestStatusHistoryItem = {
+  id: string;
+  requestId: string;
+  oldStatus: string;
+  newStatus: string;
+  actorUserId: string;
+  note: string;
+  createdAt: string;
+};
+
+type RawHistory = {
+  id?: string;
+  request_id?: string;
+  old_status?: string;
+  new_status?: string;
+  actor_user_id?: string;
+  note?: string;
+  created_at?: string;
+};
+
+export type AcademicRequestHistoryData = {
+  histories: RequestStatusHistoryItem[];
+};
+
+export async function getAcademicRequestHistory(
+  token: string,
+  requestId: string,
+) {
+  const response = await apiFetch<
+    ApiResponse<{ histories?: RawHistory[] }>
+  >(`/api/v1/academic-requests/${encodeURIComponent(requestId)}/history`, {
+    token,
+  });
+
+  const raw = response.data?.histories ?? [];
+  const histories: RequestStatusHistoryItem[] = raw.map((h) => ({
+    id: h.id ?? "",
+    requestId: h.request_id ?? "",
+    oldStatus: h.old_status ?? "",
+    newStatus: h.new_status ?? "",
+    actorUserId: h.actor_user_id ?? "",
+    note: h.note ?? "",
+    createdAt: h.created_at ?? "",
+  }));
+
+  return { ...response, data: { histories } };
 }
 
 // ─── Admin: list semua pengajuan (pakai endpoint yang sama, filter di FE) ────

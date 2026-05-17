@@ -81,6 +81,7 @@ function getNavigation(role: UserRole): NavGroup[] {
         {
           title: "Lainnya",
           items: [
+            { label: "Pengumuman", href: "/admin/announcements", icon: <IconMegaphone /> },
             { label: "Reporting", href: "/reports", icon: <IconChart /> },
             {
               label: "Notifikasi",
@@ -233,6 +234,7 @@ function getNavigation(role: UserRole): NavGroup[] {
         {
           title: "Lainnya",
           items: [
+            { label: "Pengumuman", href: "/admin/announcements", icon: <IconMegaphone /> },
             { label: "Reporting", href: "/reports", icon: <IconChart /> },
             {
               label: "Notifikasi",
@@ -621,6 +623,25 @@ function IconBuilding() {
       <rect x="4" y="2" width="16" height="20" rx="2" />
       <path d="M9 22v-4h6v4" />
       <path d="M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01M8 14h.01M16 14h.01M12 14h.01" />
+    </svg>
+  );
+}
+
+function IconMegaphone() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 11v3a4 4 0 0 0 4 4l4 4 4-12-4-4H7a4 4 0 0 0-4 4z" />
+      <path d="M11 8v8" />
+      <path d="M19 8v8" />
     </svg>
   );
 }

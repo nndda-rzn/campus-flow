@@ -22,6 +22,10 @@ type AcademicRequest struct {
 	Status            string
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+	DueAt             *time.Time
+	VerifiedAt        *time.Time
+	ApprovedAt        *time.Time
+	CompletedAt       *time.Time
 }
 
 type RequestStatusHistory struct {
@@ -32,4 +36,20 @@ type RequestStatusHistory struct {
 	ActorUserID string
 	Note        string
 	CreatedAt   time.Time
+}
+
+// Announcement (FR-252).
+type Announcement struct {
+	ID           string
+	Title        string
+	Body         string
+	Severity     string
+	AuthorUserID string
+	AuthorName   string
+	TargetRoles  []string
+	IsActive     bool
+	StartsAt     time.Time
+	EndsAt       *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

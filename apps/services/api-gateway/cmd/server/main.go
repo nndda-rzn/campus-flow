@@ -42,6 +42,7 @@ func main() {
 	supervisorHandler := handler.NewSupervisorHandler(academicClient)
 	adminHandler := handler.NewAdminHandler(authClient, academicClient)
 	auditHandler := handler.NewAuditHandler(authClient, academicClient)
+	announcementHandler := handler.NewAnnouncementHandler(academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -498,6 +499,20 @@ func main() {
 
 	// Audit log aggregator (Epic 4) — SUPER_ADMIN only.
 	registerAdmin("/api/v1/admin/audit-logs", auditHandler.ListAuditLogs, "SUPER_ADMIN")
+
+	// Announcements (FR-252).
+	mux.Handle(
+		"/api/v1/announcements",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(announcementHandler.List)),
+		),
+	)
+	registerAdmin("/api/v1/admin/announcements/create", announcementHandler.Create,
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+	registerAdmin("/api/v1/admin/announcements/update", announcementHandler.Update,
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+	registerAdmin("/api/v1/admin/announcements/deactivate", announcementHandler.Deactivate,
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
 
 	// Lecturer workload report (Epic 4).
 	mux.Handle(

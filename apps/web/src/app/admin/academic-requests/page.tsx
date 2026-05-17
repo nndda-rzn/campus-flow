@@ -54,6 +54,8 @@ import {
   verifyAcademicRequest,
 } from "@/lib/academic-api";
 import { FileSection } from "@/components/academic/file-section";
+import { RequestTimeline } from "@/components/academic/request-timeline";
+import { SLABadge } from "@/components/academic/sla-badge";
 import { cn } from "@/lib/cn";
 
 const STATUS_OPTIONS = [
@@ -358,6 +360,14 @@ function PageContent() {
                           <Clock className="size-3" />
                           {formatRelativeDate(request.createdAt)}
                         </span>
+                        {request.dueAt && (
+                          <div className="mt-1">
+                            <SLABadge
+                              dueAt={request.dueAt}
+                              status={request.status}
+                            />
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="inline-flex items-center justify-end gap-1.5">
@@ -423,14 +433,25 @@ function PageContent() {
                                   : "Tidak ada deskripsi"}
                               </p>
                             </div>
-                            <div>
-                              <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
-                                File Terlampir
-                              </p>
-                              <FileSection
-                                requestId={request.id}
-                                token={getAccessToken() ?? ""}
-                              />
+                            <div className="grid gap-4 lg:grid-cols-[1fr_280px]">
+                              <div>
+                                <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                  File Terlampir
+                                </p>
+                                <FileSection
+                                  requestId={request.id}
+                                  token={getAccessToken() ?? ""}
+                                />
+                              </div>
+                              <div>
+                                <p className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
+                                  Timeline
+                                </p>
+                                <RequestTimeline
+                                  token={getAccessToken() ?? ""}
+                                  requestId={request.id}
+                                />
+                              </div>
                             </div>
                           </div>
                         </TableCell>

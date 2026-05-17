@@ -124,9 +124,10 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			title,
 			description,
 			status,
-			submitted_at
+			submitted_at,
+			due_at
 		)
-		VALUES ($1, $2::uuid, $3::uuid, $4, $5, 'SUBMITTED', NOW())
+		VALUES ($1, $2::uuid, $3::uuid, $4, $5, 'SUBMITTED', NOW(), NOW() + INTERVAL '5 days')
 		RETURNING 
 			id::text,
 			request_number,
@@ -136,7 +137,11 @@ func (r *AcademicRepository) CreateAcademicRequest(
 			description,
 			status,
 			created_at,
-			updated_at
+			updated_at,
+			due_at,
+			verified_at,
+			approved_at,
+			completed_at
 	`, requestNumber, studentUserID, svc.ID, title, description,
 	).Scan(
 		&req.ID,
@@ -148,6 +153,10 @@ func (r *AcademicRepository) CreateAcademicRequest(
 		&req.Status,
 		&req.CreatedAt,
 		&req.UpdatedAt,
+		&req.DueAt,
+		&req.VerifiedAt,
+		&req.ApprovedAt,
+		&req.CompletedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -248,7 +257,11 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 			sr.description,
 			sr.status,
 			sr.created_at,
-			sr.updated_at
+			sr.updated_at,
+			sr.due_at,
+			sr.verified_at,
+			sr.approved_at,
+			sr.completed_at
 		FROM service_requests sr
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
 		WHERE sr.id = $1::uuid
@@ -266,6 +279,10 @@ func (r *AcademicRepository) GetAcademicRequestByID(
 		&req.Status,
 		&req.CreatedAt,
 		&req.UpdatedAt,
+		&req.DueAt,
+		&req.VerifiedAt,
+		&req.ApprovedAt,
+		&req.CompletedAt,
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -296,7 +313,11 @@ func (r *AcademicRepository) ListByStudentUserID(
 			sr.description,
 			sr.status,
 			sr.created_at,
-			sr.updated_at
+			sr.updated_at,
+			sr.due_at,
+			sr.verified_at,
+			sr.approved_at,
+			sr.completed_at
 		FROM service_requests sr
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
 		WHERE sr.student_user_id = $1::uuid
@@ -325,6 +346,10 @@ func (r *AcademicRepository) ListByStudentUserID(
 			&req.Status,
 			&req.CreatedAt,
 			&req.UpdatedAt,
+			&req.DueAt,
+			&req.VerifiedAt,
+			&req.ApprovedAt,
+			&req.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -355,7 +380,11 @@ func (r *AcademicRepository) ListAllAcademicRequests(
 			sr.description,
 			sr.status,
 			sr.created_at,
-			sr.updated_at
+			sr.updated_at,
+			sr.due_at,
+			sr.verified_at,
+			sr.approved_at,
+			sr.completed_at
 		FROM service_requests sr
 		JOIN academic_services acs ON acs.id = sr.academic_service_id
 	`
@@ -392,6 +421,10 @@ func (r *AcademicRepository) ListAllAcademicRequests(
 			&req.Status,
 			&req.CreatedAt,
 			&req.UpdatedAt,
+			&req.DueAt,
+			&req.VerifiedAt,
+			&req.ApprovedAt,
+			&req.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -465,6 +498,8 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 		SET 
 			status = $1,
 			updated_at = NOW(),
+			verified_at = CASE WHEN $1 = 'VERIFIED' THEN NOW() ELSE verified_at END,
+			approved_at = CASE WHEN $1 = 'APPROVED' THEN NOW() ELSE approved_at END,
 			completed_at = CASE WHEN $1 = 'COMPLETED' THEN NOW() ELSE completed_at END
 		WHERE id = $2::uuid
 	`, targetStatus, requestID,
