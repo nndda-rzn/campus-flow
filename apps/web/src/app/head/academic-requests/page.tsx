@@ -1,8 +1,6 @@
 "use client";
 
-/* eslint-disable react-hooks/set-state-in-effect */
-
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -71,7 +69,9 @@ export default function HeadAcademicRequestsPage() {
       description="Setujui atau tolak pengajuan yang sudah diverifikasi oleh Admin Prodi."
       allowedRoles={["KAPRODI", "SUPER_ADMIN"]}
     >
-      <PageContent />
+      <Suspense fallback={null}>
+        <PageContent />
+      </Suspense>
     </ProtectedPage>
   );
 }

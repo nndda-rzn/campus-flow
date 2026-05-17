@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -74,7 +74,9 @@ export default function HeadSupervisorRequestsPage() {
       description="Tetapkan dosen pembimbing untuk pengajuan yang sudah diverifikasi Admin Prodi."
       allowedRoles={["KAPRODI", "SUPER_ADMIN"]}
     >
-      <PageContent />
+      <Suspense fallback={null}>
+        <PageContent />
+      </Suspense>
     </ProtectedPage>
   );
 }

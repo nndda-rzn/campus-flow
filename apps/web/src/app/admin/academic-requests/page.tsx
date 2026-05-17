@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -78,7 +78,9 @@ export default function AdminAcademicRequestsPage() {
       description="Tinjau dan verifikasi pengajuan layanan akademik dari mahasiswa sebelum diteruskan ke Kaprodi."
       allowedRoles={["ADMIN_PRODI", "SUPER_ADMIN"]}
     >
-      <PageContent />
+      <Suspense fallback={null}>
+        <PageContent />
+      </Suspense>
     </ProtectedPage>
   );
 }
