@@ -265,6 +265,88 @@ func (h *AcademicHandler) CancelAcademicRequest(w http.ResponseWriter, r *http.R
 	h.workflowAction(w, r, "cancel")
 }
 
+func (h *AcademicHandler) RequestRevisionAcademicRequest(w http.ResponseWriter, r *http.Request) {
+	h.workflowAction(w, r, "request-revision")
+}
+
+func (h *AcademicHandler) SubmitAcademicRequest(w http.ResponseWriter, r *http.Request) {
+	h.workflowAction(w, r, "submit")
+}
+
+type UpdateAcademicRequestHTTPBody struct {
+	RequestID   string `json:"request_id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+func (h *AcademicHandler) UpdateAcademicRequest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "missing user id",
+		})
+		return
+	}
+
+	var body UpdateAcademicRequestHTTPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid request body",
+		})
+		return
+	}
+
+	body.RequestID = strings.TrimSpace(body.RequestID)
+	body.Title = strings.TrimSpace(body.Title)
+	body.Description = strings.TrimSpace(body.Description)
+
+	if body.RequestID == "" || body.Title == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "request_id and title are required",
+		})
+		return
+	}
+
+	if len([]rune(body.Title)) > 255 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "judul pengajuan maksimal 255 karakter",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.academicClient.Client.UpdateAcademicRequest(ctx, &academicv1.UpdateAcademicRequestRequest{
+		RequestId:   body.RequestID,
+		ActorUserId: userID,
+		Title:       body.Title,
+		Description: body.Description,
+	})
+	if err != nil {
+		writeWorkflowError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "update academic request success",
+		Data:    res,
+	})
+}
+
 func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request, action string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
@@ -301,6 +383,16 @@ func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
+	// Note enforcement at the gateway: revision must include a note. Backend
+	// enforces this too, but failing fast at the edge gives a clearer 400.
+	if (action == "request-revision" || action == "reject") && strings.TrimSpace(body.Note) == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "note is required for this action",
+		})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
@@ -326,6 +418,10 @@ func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request,
 		res, err = h.academicClient.Client.CompleteAcademicRequest(ctx, grpcReq)
 	case "cancel":
 		res, err = h.academicClient.Client.CancelAcademicRequest(ctx, grpcReq)
+	case "submit":
+		res, err = h.academicClient.Client.SubmitAcademicRequest(ctx, grpcReq)
+	case "request-revision":
+		res, err = h.academicClient.Client.RequestRevisionAcademicRequest(ctx, grpcReq)
 	default:
 		writeJSON(w, http.StatusBadRequest, APIResponse{
 			Success: false,
@@ -335,10 +431,7 @@ func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request,
 	}
 
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, APIResponse{
-			Success: false,
-			Message: "failed to process workflow action",
-		})
+		writeWorkflowError(w, err)
 		return
 	}
 
@@ -347,6 +440,35 @@ func (h *AcademicHandler) workflowAction(w http.ResponseWriter, r *http.Request,
 		Message: "workflow action success",
 		Data:    res,
 	})
+}
+
+// writeWorkflowError translates gRPC status codes from the academic service
+// into appropriate HTTP responses.
+func writeWorkflowError(w http.ResponseWriter, err error) {
+	st, ok := status.FromError(err)
+	if !ok {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to process workflow action",
+		})
+		return
+	}
+
+	switch st.Code() {
+	case codes.InvalidArgument:
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: st.Message()})
+	case codes.NotFound:
+		writeJSON(w, http.StatusNotFound, APIResponse{Success: false, Message: st.Message()})
+	case codes.PermissionDenied:
+		writeJSON(w, http.StatusForbidden, APIResponse{Success: false, Message: st.Message()})
+	case codes.FailedPrecondition:
+		writeJSON(w, http.StatusConflict, APIResponse{Success: false, Message: st.Message()})
+	default:
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to process workflow action",
+		})
+	}
 }
 
 func (h *AcademicHandler) createNotificationSilently(

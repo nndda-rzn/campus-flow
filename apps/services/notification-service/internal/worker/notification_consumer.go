@@ -14,18 +14,20 @@ import (
 )
 
 type RequestEventPayload struct {
-	RequestID     string `json:"request_id"`
-	RequestNumber string `json:"request_number"`
-	StudentUserID string `json:"student_user_id"`
-	OldStatus     string `json:"old_status"`
-	Status        string `json:"status"`
-	ServiceCode   string `json:"service_code"`
-	ServiceName   string `json:"service_name"`
-	Title         string `json:"title"`
-	TopicTitle    string `json:"topic_title"`
-	ActorUserID   string `json:"actor_user_id"`
-	ActorRole     string `json:"actor_role"`
-	Note          string `json:"note"`
+	RequestID      string `json:"request_id"`
+	RequestNumber  string `json:"request_number"`
+	StudentUserID  string `json:"student_user_id"`
+	OldStatus      string `json:"old_status"`
+	Status         string `json:"status"`
+	ServiceCode    string `json:"service_code"`
+	ServiceName    string `json:"service_name"`
+	Title          string `json:"title"`
+	TopicTitle     string `json:"topic_title"`
+	ActorUserID    string `json:"actor_user_id"`
+	ActorRole      string `json:"actor_role"`
+	Note           string `json:"note"`
+	LecturerID     string `json:"lecturer_id"`
+	LecturerUserID string `json:"lecturer_user_id"`
 }
 
 func StartNotificationConsumer(
@@ -117,6 +119,11 @@ func createNotificationFromEvent(
 		return err
 	}
 
+	// Some events do not produce a notification.
+	if isSilentEvent(eventType) {
+		return nil
+	}
+
 	title, message, notificationType := buildNotificationContent(eventType, payload)
 
 	entityType := "ACADEMIC_REQUEST"
@@ -124,17 +131,63 @@ func createNotificationFromEvent(
 		entityType = "SUPERVISOR_REQUEST"
 	}
 
-	_, err := notificationService.CreateNotification(
-		ctx,
-		payload.StudentUserID,
-		title,
-		message,
-		notificationType,
-		entityType,
-		payload.RequestID,
-	)
+	// Determine recipients per event type.
+	recipients := resolveRecipients(eventType, payload)
+	if len(recipients) == 0 {
+		return nil
+	}
 
-	return err
+	for _, recipient := range recipients {
+		if recipient == "" {
+			continue
+		}
+		if _, err := notificationService.CreateNotification(
+			ctx,
+			recipient,
+			title,
+			message,
+			notificationType,
+			entityType,
+			payload.RequestID,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// isSilentEvent returns true for events that should NOT produce a notification.
+// We don't notify the student about their own cancellation, and we don't notify
+// anyone for a transient ACCEPTED state since COMPLETED follows immediately.
+func isSilentEvent(eventType string) bool {
+	switch eventType {
+	case "academic_request.cancelled", "supervisor_request.cancelled":
+		return true
+	case "supervisor_request.accepted":
+		// ACCEPTED is followed immediately by supervisor_request.completed in
+		// the same transaction. We notify on completed, not accepted.
+		return true
+	default:
+		return false
+	}
+}
+
+// resolveRecipients returns the list of user IDs that should receive a
+// notification for the given event.
+func resolveRecipients(eventType string, payload RequestEventPayload) []string {
+	switch eventType {
+	case "supervisor_request.assigned":
+		// Notify both the student (so they can track) and the lecturer
+		// (so they can act on the assignment).
+		recipients := []string{payload.StudentUserID}
+		if payload.LecturerUserID != "" {
+			recipients = append(recipients, payload.LecturerUserID)
+		}
+		return recipients
+	default:
+		return []string{payload.StudentUserID}
+	}
 }
 
 func buildNotificationContent(
@@ -159,13 +212,18 @@ func buildNotificationContent(
 
 	case "academic_request.rejected":
 		return "Pengajuan ditolak",
-			"Pengajuan layanan akademik Anda ditolak. Silakan periksa catatan pengajuan.",
+			rejectionMessage("Pengajuan layanan akademik Anda ditolak.", payload.Note),
 			"WARNING"
 
 	case "academic_request.completed":
 		return "Pengajuan selesai",
 			"Pengajuan layanan akademik Anda sudah selesai diproses.",
 			"SUCCESS"
+
+	case "academic_request.revision_required":
+		return "Pengajuan perlu revisi",
+			revisionMessage("Admin Prodi meminta revisi terhadap pengajuan layanan akademik Anda.", payload.Note),
+			"WARNING"
 
 	case "supervisor_request.created":
 		return "Pengajuan pembimbing berhasil dibuat",
@@ -178,23 +236,42 @@ func buildNotificationContent(
 			"INFO"
 
 	case "supervisor_request.assigned":
-		return "Dosen pembimbing ditetapkan",
-			"Kaprodi sudah menetapkan dosen pembimbing untuk pengajuan Anda.",
-			"SUCCESS"
-
-	case "supervisor_request.accepted":
-		return "Dosen menerima penetapan",
-			"Dosen yang ditetapkan telah menerima pengajuan pembimbing Anda.",
-			"SUCCESS"
+		return "Penetapan dosen pembimbing",
+			"Kaprodi sudah menetapkan dosen pembimbing untuk pengajuan ini. Mohon ditindaklanjuti.",
+			"INFO"
 
 	case "supervisor_request.rejected":
 		return "Dosen menolak penetapan",
-			"Dosen yang ditetapkan menolak pengajuan pembimbing Anda.",
+			rejectionMessage("Dosen yang ditetapkan menolak pengajuan pembimbing Anda.", payload.Note),
 			"WARNING"
+
+	case "supervisor_request.revision_required":
+		return "Pengajuan pembimbing perlu revisi",
+			revisionMessage("Admin Prodi meminta revisi terhadap pengajuan pembimbing Anda.", payload.Note),
+			"WARNING"
+
+	case "supervisor_request.completed":
+		return "Penetapan pembimbing selesai",
+			"Dosen telah menerima penetapan. Pengajuan dosen pembimbing Anda selesai diproses.",
+			"SUCCESS"
 
 	default:
 		return "Status pengajuan diperbarui",
 			"Status pengajuan Anda berubah menjadi " + payload.Status + ".",
 			"INFO"
 	}
+}
+
+func revisionMessage(prefix, note string) string {
+	if note == "" {
+		return prefix + " Silakan periksa detail pengajuan."
+	}
+	return prefix + " Catatan: " + note
+}
+
+func rejectionMessage(prefix, note string) string {
+	if note == "" {
+		return prefix + " Silakan periksa detail pengajuan."
+	}
+	return prefix + " Alasan: " + note
 }

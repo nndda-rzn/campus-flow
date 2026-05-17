@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"campus-flow/apps/services/api-gateway/internal/client"
 	"campus-flow/apps/services/api-gateway/internal/middleware"
 	academicv1 "campus-flow/proto/gen/academic/v1"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type SupervisorHandler struct {
@@ -251,6 +255,14 @@ func (h *SupervisorHandler) CancelSupervisorRequest(w http.ResponseWriter, r *ht
 	h.supervisorAction(w, r, "cancel")
 }
 
+func (h *SupervisorHandler) RequestRevisionSupervisorRequest(w http.ResponseWriter, r *http.Request) {
+	h.supervisorAction(w, r, "request-revision")
+}
+
+func (h *SupervisorHandler) CompleteSupervisorRequest(w http.ResponseWriter, r *http.Request) {
+	h.supervisorAction(w, r, "complete")
+}
+
 func (h *SupervisorHandler) supervisorAction(w http.ResponseWriter, r *http.Request, action string) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
@@ -271,6 +283,14 @@ func (h *SupervisorHandler) supervisorAction(w http.ResponseWriter, r *http.Requ
 
 	if body.RequestID == "" {
 		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "request_id is required"})
+		return
+	}
+
+	if (action == "request-revision" || action == "reject") && strings.TrimSpace(body.Note) == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "note is required for this action",
+		})
 		return
 	}
 
@@ -297,14 +317,50 @@ func (h *SupervisorHandler) supervisorAction(w http.ResponseWriter, r *http.Requ
 		res, err = h.academicClient.Client.RejectSupervisorRequest(ctx, grpcReq)
 	case "cancel":
 		res, err = h.academicClient.Client.CancelSupervisorRequest(ctx, grpcReq)
+	case "request-revision":
+		res, err = h.academicClient.Client.RequestRevisionSupervisorRequest(ctx, grpcReq)
+	case "complete":
+		res, err = h.academicClient.Client.CompleteSupervisorRequest(ctx, grpcReq)
+	default:
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "invalid supervisor action"})
+		return
 	}
 
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to process supervisor action"})
+		writeSupervisorError(w, err)
 		return
 	}
 
 	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "supervisor action success", Data: res})
+}
+
+// writeSupervisorError translates gRPC status codes from the academic service
+// into appropriate HTTP responses for supervisor flows.
+func writeSupervisorError(w http.ResponseWriter, err error) {
+	st, ok := status.FromError(err)
+	if !ok {
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to process supervisor action",
+		})
+		return
+	}
+
+	switch st.Code() {
+	case codes.InvalidArgument:
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: st.Message()})
+	case codes.NotFound:
+		writeJSON(w, http.StatusNotFound, APIResponse{Success: false, Message: st.Message()})
+	case codes.PermissionDenied:
+		writeJSON(w, http.StatusForbidden, APIResponse{Success: false, Message: st.Message()})
+	case codes.FailedPrecondition:
+		writeJSON(w, http.StatusConflict, APIResponse{Success: false, Message: st.Message()})
+	default:
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to process supervisor action",
+		})
+	}
 }
 
 func (h *SupervisorHandler) AssignSupervisor(w http.ResponseWriter, r *http.Request) {
@@ -342,7 +398,7 @@ func (h *SupervisorHandler) AssignSupervisor(w http.ResponseWriter, r *http.Requ
 		},
 	)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to assign supervisor"})
+		writeSupervisorError(w, err)
 		return
 	}
 

@@ -18,6 +18,7 @@ var (
 	ErrSupervisorRequestNotFound = errors.New("supervisor request not found")
 	ErrLecturerNotFound          = errors.New("lecturer not found")
 	ErrLecturerNotAssigned       = errors.New("lecturer not assigned to request")
+	ErrLecturerQuotaExceeded     = errors.New("lecturer supervisor quota exceeded")
 )
 
 type SupervisorRepository struct {
@@ -394,6 +395,43 @@ func (r *SupervisorRepository) VerifySupervisorRequest(
 		"SUPERVISOR_REQUEST_VERIFIED",
 		"VERIFIED",
 		[]string{"SUBMITTED"},
+		"supervisor_request.verified",
+		note,
+	)
+}
+
+func (r *SupervisorRepository) RequestRevisionSupervisorRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	return r.updateSupervisorStatus(
+		ctx,
+		requestID,
+		actorUserID,
+		"SUPERVISOR_REQUEST_REVISION_REQUIRED",
+		"REVISION_REQUIRED",
+		[]string{"SUBMITTED"},
+		"supervisor_request.revision_required",
+		note,
+	)
+}
+
+func (r *SupervisorRepository) CompleteSupervisorRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	return r.updateSupervisorStatus(
+		ctx,
+		requestID,
+		actorUserID,
+		"SUPERVISOR_REQUEST_COMPLETED",
+		"COMPLETED",
+		[]string{"ACCEPTED"},
+		"supervisor_request.completed",
 		note,
 	)
 }
@@ -410,7 +448,8 @@ func (r *SupervisorRepository) CancelSupervisorRequest(
 		studentUserID,
 		"SUPERVISOR_REQUEST_CANCELLED",
 		"CANCELLED",
-		[]string{"SUBMITTED"},
+		[]string{"SUBMITTED", "REVISION_REQUIRED"},
+		"supervisor_request.cancelled",
 		note,
 	)
 }
@@ -452,22 +491,53 @@ func (r *SupervisorRepository) AssignSupervisor(
 		return nil, ErrInvalidStatusTransition
 	}
 
-	var lecturerExists bool
+	// Lock the lecturer row to make the quota check race-safe.
+	var maxQuota int
+	var lecturerStatus string
+	var lecturerUserID string
+
 	err = tx.QueryRow(
 		ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM lecturers
-			WHERE id = $1::uuid
-			  AND status = 'ACTIVE'
-		)
+		SELECT
+			max_supervisor_quota,
+			status,
+			COALESCE(user_id::text, '')
+		FROM lecturers
+		WHERE id = $1::uuid
+		FOR UPDATE
 	`, lecturerID,
-	).Scan(&lecturerExists)
+	).Scan(&maxQuota, &lecturerStatus, &lecturerUserID)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrLecturerNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	if !lecturerExists {
+	if lecturerStatus != "ACTIVE" {
 		return nil, ErrLecturerNotFound
+	}
+
+	// Count active assignments for this lecturer (ASSIGNED + ACCEPTED).
+	// REJECTED, CANCELLED, COMPLETED do not consume quota.
+	var activeCount int
+	err = tx.QueryRow(
+		ctx, `
+		SELECT COUNT(*)
+		FROM supervisor_assignments sa
+		JOIN supervisor_requests sr ON sr.id = sa.request_id
+		WHERE sa.lecturer_id = $1::uuid
+		  AND sa.status IN ('PENDING', 'ACCEPTED')
+		  AND sr.status IN ('ASSIGNED', 'ACCEPTED', 'COMPLETED')
+	`, lecturerID,
+	).Scan(&activeCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if activeCount >= maxQuota {
+		return nil, ErrLecturerQuotaExceeded
 	}
 
 	_, err = tx.Exec(
@@ -503,7 +573,7 @@ func (r *SupervisorRepository) AssignSupervisor(
 		return nil, err
 	}
 
-	if err := r.insertSupervisorOutbox(
+	if err := r.insertSupervisorOutboxWithLecturer(
 		ctx,
 		tx,
 		requestID,
@@ -513,6 +583,8 @@ func (r *SupervisorRepository) AssignSupervisor(
 		"ASSIGNED",
 		actorUserID,
 		note,
+		lecturerID,
+		lecturerUserID,
 	); err != nil {
 		return nil, err
 	}
@@ -560,6 +632,7 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 	var studentUserID string
 	var requestNumber string
 	var assignmentID string
+	var lecturerID string
 
 	err = tx.QueryRow(
 		ctx, `
@@ -567,7 +640,8 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 			sr.status,
 			sr.student_user_id::text,
 			sr.request_number,
-			sa.id::text
+			sa.id::text,
+			l.id::text
 		FROM supervisor_requests sr
 		JOIN supervisor_assignments sa ON sa.request_id = sr.id
 		JOIN lecturers l ON l.id = sa.lecturer_id
@@ -578,7 +652,7 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 		LIMIT 1
 		FOR UPDATE
 	`, requestID, lecturerUserID,
-	).Scan(&currentStatus, &studentUserID, &requestNumber, &assignmentID)
+	).Scan(&currentStatus, &studentUserID, &requestNumber, &assignmentID, &lecturerID)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrLecturerNotAssigned
@@ -630,7 +704,7 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 		return nil, err
 	}
 
-	if err := r.insertSupervisorOutbox(
+	if err := r.insertSupervisorOutboxWithLecturer(
 		ctx,
 		tx,
 		requestID,
@@ -640,8 +714,56 @@ func (r *SupervisorRepository) respondSupervisorAssignment(
 		targetStatus,
 		lecturerUserID,
 		note,
+		lecturerID,
+		lecturerUserID,
 	); err != nil {
 		return nil, err
+	}
+
+	// Auto-completion: when a lecturer accepts an assignment, immediately
+	// transition the request to COMPLETED in the same transaction so the
+	// workflow ends without an extra manual step.
+	if targetStatus == "ACCEPTED" {
+		_, err = tx.Exec(
+			ctx, `
+			UPDATE supervisor_requests
+			SET status = 'COMPLETED',
+			    completed_at = NOW(),
+			    updated_at = NOW()
+			WHERE id = $1::uuid
+		`, requestID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := r.insertSupervisorHistory(
+			ctx,
+			tx,
+			requestID,
+			"ACCEPTED",
+			"COMPLETED",
+			lecturerUserID,
+			"Auto-completed after lecturer acceptance",
+		); err != nil {
+			return nil, err
+		}
+
+		if err := r.insertSupervisorOutboxWithLecturer(
+			ctx,
+			tx,
+			requestID,
+			requestNumber,
+			studentUserID,
+			"supervisor_request.completed",
+			"COMPLETED",
+			lecturerUserID,
+			"",
+			lecturerID,
+			lecturerUserID,
+		); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -658,6 +780,7 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 	action string,
 	targetStatus string,
 	allowedStatuses []string,
+	eventType string,
 	note string,
 ) (*model.SupervisorRequest, error) {
 	tx, err := r.db.Begin(ctx)
@@ -695,6 +818,7 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 		UPDATE supervisor_requests
 		SET status = $1,
 		    verified_at = CASE WHEN $1 = 'VERIFIED' THEN NOW() ELSE verified_at END,
+		    completed_at = CASE WHEN $1 = 'COMPLETED' THEN NOW() ELSE completed_at END,
 		    updated_at = NOW()
 		WHERE id = $2::uuid
 	`, targetStatus, requestID,
@@ -707,7 +831,6 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 		return nil, err
 	}
 
-	eventType := "supervisor_request.verified"
 	if err := r.insertSupervisorOutbox(
 		ctx,
 		tx,
@@ -719,6 +842,32 @@ func (r *SupervisorRepository) updateSupervisorStatus(
 		actorUserID,
 		note,
 	); err != nil {
+		return nil, err
+	}
+
+	// Audit log entry per workflow action.
+	_, err = tx.Exec(
+		ctx, `
+		INSERT INTO audit_logs (
+			actor_user_id,
+			action,
+			entity_type,
+			entity_id,
+			metadata
+		)
+		VALUES (
+			$1::uuid,
+			$2,
+			'supervisor_requests',
+			$3::uuid,
+			jsonb_build_object(
+				'old_status', $4::text,
+				'new_status', $5::text
+			)
+		)
+	`, actorUserID, action, requestID, currentStatus, targetStatus,
+	)
+	if err != nil {
 		return nil, err
 	}
 
@@ -823,6 +972,48 @@ func (r *SupervisorRepository) insertSupervisorOutbox(
 			)
 		)
 	`, requestID, eventType, requestNumber, studentUserID, status, actorUserID, note,
+	)
+
+	return err
+}
+
+func (r *SupervisorRepository) insertSupervisorOutboxWithLecturer(
+	ctx context.Context,
+	tx txExecutor,
+	requestID string,
+	requestNumber string,
+	studentUserID string,
+	eventType string,
+	status string,
+	actorUserID string,
+	note string,
+	lecturerID string,
+	lecturerUserID string,
+) error {
+	_, err := tx.Exec(
+		ctx, `
+		INSERT INTO outbox_events (
+			aggregate_id,
+			aggregate_type,
+			event_type,
+			payload
+		)
+		VALUES (
+			$1::uuid,
+			'supervisor_requests',
+			$2,
+			jsonb_build_object(
+				'request_id', $1::text,
+				'request_number', $3,
+				'student_user_id', $4,
+				'status', $5,
+				'actor_user_id', $6,
+				'note', $7,
+				'lecturer_id', $8,
+				'lecturer_user_id', $9
+			)
+		)
+	`, requestID, eventType, requestNumber, studentUserID, status, actorUserID, note, lecturerID, lecturerUserID,
 	)
 
 	return err

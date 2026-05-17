@@ -166,6 +166,39 @@ func main() {
 	)
 
 	mux.Handle(
+		"/api/v1/admin/academic-requests/request-revision",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(academicHandler.RequestRevisionAcademicRequest),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/student/academic-requests/submit",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(academicHandler.SubmitAcademicRequest),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/student/academic-requests/update",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(academicHandler.UpdateAcademicRequest),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
 		"/api/v1/head/academic-requests/approve",
 		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
 			authMiddleware.RequireAuth(
@@ -336,6 +369,17 @@ func main() {
 			authMiddleware.RequireAuth(
 				authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
 					http.HandlerFunc(supervisorHandler.VerifySupervisorRequest),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/admin/supervisor-requests/request-revision",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("ADMIN_PRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(supervisorHandler.RequestRevisionSupervisorRequest),
 				),
 			),
 		),

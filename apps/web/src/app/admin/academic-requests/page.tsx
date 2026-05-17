@@ -12,6 +12,7 @@ import {
   Clock,
   FileText,
   RefreshCw,
+  RotateCcw,
   Search,
 } from "lucide-react";
 import { usePagination } from "@/lib/use-pagination";
@@ -49,6 +50,7 @@ import { getAccessToken } from "@/lib/auth-storage";
 import {
   AcademicRequest,
   listAllAcademicRequests,
+  requestRevisionAcademicRequest,
   verifyAcademicRequest,
 } from "@/lib/academic-api";
 import { FileSection } from "@/components/academic/file-section";
@@ -59,6 +61,7 @@ const STATUS_OPTIONS = [
   { value: "VERIFIED", label: "Diverifikasi" },
   { value: "APPROVED", label: "Disetujui" },
   { value: "COMPLETED", label: "Selesai" },
+  { value: "REVISION_REQUIRED", label: "Revisi" },
   { value: "REJECTED", label: "Ditolak" },
   { value: "", label: "Semua" },
 ];
@@ -98,6 +101,13 @@ function PageContent() {
   );
   const [verifyNote, setVerifyNote] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // Revision dialog state
+  const [revisionTarget, setRevisionTarget] =
+    useState<AcademicRequest | null>(null);
+  const [revisionNote, setRevisionNote] = useState("");
+  const [revisionError, setRevisionError] = useState("");
+  const [isRequestingRevision, setIsRequestingRevision] = useState(false);
 
   async function loadRequests(filter: string) {
     const token = getAccessToken();
@@ -180,6 +190,57 @@ function PageContent() {
       });
     } finally {
       setIsVerifying(false);
+    }
+  }
+
+  function openRevisionDialog(request: AcademicRequest) {
+    setRevisionTarget(request);
+    setRevisionNote("");
+    setRevisionError("");
+  }
+
+  function closeRevisionDialog() {
+    setRevisionTarget(null);
+    setRevisionNote("");
+    setRevisionError("");
+  }
+
+  async function handleRequestRevision() {
+    if (!revisionTarget) return;
+    const note = revisionNote.trim();
+    if (note === "") {
+      setRevisionError("Catatan revisi wajib diisi.");
+      return;
+    }
+    if (note.length > 2000) {
+      setRevisionError("Catatan maksimal 2000 karakter.");
+      return;
+    }
+
+    const token = getAccessToken();
+    if (!token) return;
+
+    setIsRequestingRevision(true);
+    setRevisionError("");
+    try {
+      await requestRevisionAcademicRequest(token, {
+        request_id: revisionTarget.id,
+        note,
+      });
+      toast.success("Pengajuan dikembalikan untuk revisi", {
+        description: `${revisionTarget.requestNumber} dikembalikan ke mahasiswa.`,
+      });
+      closeRevisionDialog();
+      await loadRequests(statusFilter);
+    } catch (err) {
+      toast.error("Gagal meminta revisi", {
+        description:
+          err instanceof Error
+            ? err.message
+            : "Terjadi kesalahan saat memproses revisi",
+      });
+    } finally {
+      setIsRequestingRevision(false);
     }
   }
 
@@ -323,13 +384,23 @@ function PageContent() {
                             Detail
                           </Button>
                           {request.status === "SUBMITTED" ? (
-                            <Button
-                              size="sm"
-                              onClick={() => openVerifyDialog(request)}
-                            >
-                              <CheckCircle2 className="size-3.5" />
-                              Verifikasi
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => openRevisionDialog(request)}
+                              >
+                                <RotateCcw className="size-3.5" />
+                                Minta Revisi
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => openVerifyDialog(request)}
+                              >
+                                <CheckCircle2 className="size-3.5" />
+                                Verifikasi
+                              </Button>
+                            </>
                           ) : (
                             <Button size="sm" variant="ghost" disabled>
                               —
@@ -442,6 +513,90 @@ function PageContent() {
             <Button onClick={handleVerify} loading={isVerifying}>
               <CheckCircle2 className="size-3.5" />
               Verifikasi Pengajuan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Revision Dialog ── */}
+      <Dialog
+        open={revisionTarget !== null}
+        onOpenChange={(open) => !open && closeRevisionDialog()}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Minta Revisi Pengajuan</DialogTitle>
+            <DialogDescription>
+              Pengajuan akan dikembalikan ke mahasiswa dengan status{" "}
+              <span className="font-medium text-text-primary">
+                Perlu Revisi
+              </span>
+              . Mahasiswa dapat memperbaiki dan mengirim ulang.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogBody className="space-y-4">
+            {revisionTarget ? (
+              <div className="rounded-md border border-border bg-background-alt p-3">
+                <p className="font-mono text-[11.5px] text-text-muted">
+                  {revisionTarget.requestNumber}
+                </p>
+                <p className="mt-1 text-[14px] font-medium text-text-primary">
+                  {revisionTarget.title}
+                </p>
+                <p className="mt-1 text-[12.5px] text-text-secondary">
+                  {revisionTarget.serviceName}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="revision-note">
+                Catatan Revisi{" "}
+                <span className="text-danger">*</span>
+              </Label>
+              <Textarea
+                id="revision-note"
+                value={revisionNote}
+                onChange={(e) => {
+                  setRevisionNote(e.target.value);
+                  if (revisionError) setRevisionError("");
+                }}
+                placeholder="Jelaskan apa yang perlu diperbaiki mahasiswa..."
+                className="min-h-24"
+                aria-invalid={revisionError ? true : undefined}
+                aria-describedby={
+                  revisionError ? "revision-note-error" : undefined
+                }
+                required
+              />
+              {revisionError ? (
+                <p
+                  id="revision-note-error"
+                  className="text-[12px] text-danger"
+                >
+                  {revisionError}
+                </p>
+              ) : (
+                <p className="text-[11.5px] text-text-muted">
+                  Catatan akan dikirim ke mahasiswa sebagai panduan revisi.
+                </p>
+              )}
+            </div>
+          </DialogBody>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" disabled={isRequestingRevision}>
+                Batal
+              </Button>
+            </DialogClose>
+            <Button
+              onClick={handleRequestRevision}
+              loading={isRequestingRevision}
+            >
+              <RotateCcw className="size-3.5" />
+              Minta Revisi
             </Button>
           </DialogFooter>
         </DialogContent>

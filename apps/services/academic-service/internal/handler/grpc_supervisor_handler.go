@@ -157,9 +157,41 @@ func (h *AcademicHandler) CancelSupervisorRequest(
 	return &academicv1.SupervisorRequestResponse{Request: toProtoSupervisorRequest(updated)}, nil
 }
 
+func (h *AcademicHandler) RequestRevisionSupervisorRequest(
+	ctx context.Context,
+	req *academicv1.SupervisorWorkflowActionRequest,
+) (*academicv1.SupervisorRequestResponse, error) {
+	updated, err := h.academicService.RequestRevisionSupervisorRequest(ctx, req.RequestId, req.ActorUserId, req.Note)
+	if err != nil {
+		return nil, mapSupervisorError(err)
+	}
+
+	return &academicv1.SupervisorRequestResponse{Request: toProtoSupervisorRequest(updated)}, nil
+}
+
+func (h *AcademicHandler) CompleteSupervisorRequest(
+	ctx context.Context,
+	req *academicv1.SupervisorWorkflowActionRequest,
+) (*academicv1.SupervisorRequestResponse, error) {
+	updated, err := h.academicService.CompleteSupervisorRequest(ctx, req.RequestId, req.ActorUserId, req.Note)
+	if err != nil {
+		return nil, mapSupervisorError(err)
+	}
+
+	return &academicv1.SupervisorRequestResponse{Request: toProtoSupervisorRequest(updated)}, nil
+}
+
 func mapSupervisorError(err error) error {
 	if errors.Is(err, service.ErrInvalidInput) {
 		return status.Error(codes.InvalidArgument, "invalid supervisor request input")
+	}
+
+	if errors.Is(err, service.ErrNoteRequired) {
+		return status.Error(codes.InvalidArgument, "revision note is required")
+	}
+
+	if errors.Is(err, service.ErrNoteTooLong) {
+		return status.Error(codes.InvalidArgument, "note exceeds maximum length of 2000 characters")
 	}
 
 	if errors.Is(err, service.ErrAcademicRequestNotFound) {
@@ -168,6 +200,10 @@ func mapSupervisorError(err error) error {
 
 	if errors.Is(err, service.ErrInvalidStatusTransition) {
 		return status.Error(codes.FailedPrecondition, "invalid supervisor status transition")
+	}
+
+	if errors.Is(err, service.ErrQuotaExceeded) {
+		return status.Error(codes.FailedPrecondition, "lecturer supervisor quota exceeded")
 	}
 
 	return status.Error(codes.Internal, err.Error())

@@ -259,9 +259,75 @@ func (h *AcademicHandler) CancelAcademicRequest(
 	}, nil
 }
 
+func (h *AcademicHandler) RequestRevisionAcademicRequest(
+	ctx context.Context,
+	req *academicv1.WorkflowActionRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.RequestRevisionAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
+func (h *AcademicHandler) SubmitAcademicRequest(
+	ctx context.Context,
+	req *academicv1.WorkflowActionRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.SubmitAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
+func (h *AcademicHandler) UpdateAcademicRequest(
+	ctx context.Context,
+	req *academicv1.UpdateAcademicRequestRequest,
+) (*academicv1.AcademicRequestResponse, error) {
+	updated, err := h.academicService.UpdateAcademicRequest(
+		ctx,
+		req.RequestId,
+		req.ActorUserId,
+		req.Title,
+		req.Description,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	return &academicv1.AcademicRequestResponse{
+		Request: toProtoAcademicRequest(updated),
+	}, nil
+}
+
 func mapWorkflowError(err error) error {
 	if errors.Is(err, service.ErrInvalidInput) {
 		return status.Error(codes.InvalidArgument, "request_id and actor_user_id are required")
+	}
+
+	if errors.Is(err, service.ErrNoteRequired) {
+		return status.Error(codes.InvalidArgument, "revision note is required")
+	}
+
+	if errors.Is(err, service.ErrNoteTooLong) {
+		return status.Error(codes.InvalidArgument, "note exceeds maximum length of 2000 characters")
 	}
 
 	if errors.Is(err, service.ErrAcademicRequestNotFound) {
@@ -270,6 +336,14 @@ func mapWorkflowError(err error) error {
 
 	if errors.Is(err, service.ErrInvalidStatusTransition) {
 		return status.Error(codes.FailedPrecondition, "invalid status transition")
+	}
+
+	if errors.Is(err, service.ErrForbidden) {
+		return status.Error(codes.PermissionDenied, "forbidden: insufficient permissions")
+	}
+
+	if errors.Is(err, service.ErrQuotaExceeded) {
+		return status.Error(codes.FailedPrecondition, "lecturer supervisor quota exceeded")
 	}
 
 	return status.Error(codes.Internal, err.Error())

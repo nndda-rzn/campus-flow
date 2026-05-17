@@ -16,6 +16,7 @@ var (
 	ErrAcademicServiceNotFound = errors.New("academic service not found")
 	ErrAcademicRequestNotFound = errors.New("academic request not found")
 	ErrInvalidStatusTransition = errors.New("invalid status transition")
+	ErrForbidden               = errors.New("forbidden: insufficient permissions")
 )
 
 type AcademicRepository struct {
@@ -568,6 +569,143 @@ func (r *AcademicRepository) UpdateAcademicRequestStatus(
 	return r.GetAcademicRequestByID(ctx, requestID)
 }
 
+func (r *AcademicRepository) SubmitAcademicRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+	allowedCurrentStatuses []string,
+) (*model.AcademicRequest, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var currentStatus string
+	var studentUserID string
+	var requestNumber string
+
+	err = tx.QueryRow(
+		ctx, `
+		SELECT 
+			status,
+			student_user_id::text,
+			request_number
+		FROM service_requests
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, requestID,
+	).Scan(&currentStatus, &studentUserID, &requestNumber)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrAcademicRequestNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !isStatusAllowed(currentStatus, allowedCurrentStatuses) {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	if studentUserID != actorUserID {
+		return nil, ErrForbidden
+	}
+
+	_, err = tx.Exec(
+		ctx, `
+		UPDATE service_requests
+		SET 
+			status = 'SUBMITTED',
+			submitted_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $1::uuid
+	`, requestID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		ctx, `
+		INSERT INTO request_status_histories (
+			request_id,
+			old_status,
+			new_status,
+			actor_user_id,
+			note
+		)
+		VALUES ($1::uuid, $2, 'SUBMITTED', $3::uuid, $4)
+	`, requestID, currentStatus, actorUserID, note,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		ctx, `
+		INSERT INTO audit_logs (
+			actor_user_id,
+			action,
+			entity_type,
+			entity_id,
+			metadata
+		)
+		VALUES (
+			$1::uuid,
+			'ACADEMIC_REQUEST_SUBMITTED',
+			'service_requests',
+			$2::uuid,
+			jsonb_build_object(
+				'old_status', $3::text,
+				'new_status', 'SUBMITTED',
+				'actor_role', 'MAHASISWA'
+			)
+		)
+	`, actorUserID, requestID, currentStatus,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		ctx, `
+		INSERT INTO outbox_events (
+			aggregate_id,
+			aggregate_type,
+			event_type,
+			payload
+		)
+		VALUES (
+			$1::uuid,
+			'service_requests',
+			'academic_request.submitted',
+			jsonb_build_object(
+				'request_id', $1::text,
+				'request_number', $2::text,
+				'student_user_id', $3::text,
+				'old_status', $4::text,
+				'status', 'SUBMITTED',
+				'actor_user_id', $5::text,
+				'actor_role', 'MAHASISWA',
+				'note', $6::text
+			)
+		)
+	`, requestID, requestNumber, studentUserID, currentStatus, actorUserID, note,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return r.GetAcademicRequestByID(ctx, requestID)
+}
+
 func isStatusAllowed(currentStatus string, allowedStatuses []string) bool {
 	for _, status := range allowedStatuses {
 		if currentStatus == status {
@@ -588,9 +726,95 @@ func academicRequestEventType(status string) string {
 		return "academic_request.rejected"
 	case "COMPLETED":
 		return "academic_request.completed"
+	case "REVISION_REQUIRED":
+		return "academic_request.revision_required"
+	case "CANCELLED":
+		return "academic_request.cancelled"
 	default:
 		return "academic_request.updated"
 	}
+}
+
+func (r *AcademicRepository) UpdateAcademicRequestFields(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	title string,
+	description string,
+	allowedStatuses []string,
+) (*model.AcademicRequest, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var currentStatus string
+	var studentUserID string
+
+	err = tx.QueryRow(
+		ctx, `
+		SELECT status, student_user_id::text
+		FROM service_requests
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, requestID,
+	).Scan(&currentStatus, &studentUserID)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrAcademicRequestNotFound
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !isStatusAllowed(currentStatus, allowedStatuses) {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	if studentUserID != actorUserID {
+		return nil, ErrForbidden
+	}
+
+	_, err = tx.Exec(
+		ctx, `
+		UPDATE service_requests
+		SET title = $1, description = $2, updated_at = NOW()
+		WHERE id = $3::uuid
+	`, title, description, requestID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = tx.Exec(
+		ctx, `
+		INSERT INTO audit_logs (
+			actor_user_id,
+			action,
+			entity_type,
+			entity_id,
+			metadata
+		)
+		VALUES (
+			$1::uuid,
+			'ACADEMIC_REQUEST_EDITED',
+			'service_requests',
+			$2::uuid,
+			jsonb_build_object('title', $3::text, 'description', $4::text)
+		)
+	`, actorUserID, requestID, title, description,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return r.GetAcademicRequestByID(ctx, requestID)
 }
 
 func (r *AcademicRepository) GetRequestStatusHistories(

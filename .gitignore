@@ -27,6 +27,7 @@ vendor/
 # IDE
 .vscode/
 .idea/
+.opencode/
 
 # Kiro
 .kiro/

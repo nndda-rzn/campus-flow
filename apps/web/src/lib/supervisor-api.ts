@@ -296,3 +296,14 @@ export async function listAllSupervisorRequests(
 
   return normalizeListResponse(response);
 }
+
+export async function requestRevisionSupervisorRequest(
+  token: string,
+  payload: { request_id: string; note: string },
+) {
+  const response = await apiFetch<ApiResponse<RawRecord>>(
+    "/api/v1/admin/supervisor-requests/request-revision",
+    { method: "POST", token, body: payload },
+  );
+  return normalizeSingleResponse(response);
+}

@@ -130,6 +130,36 @@ export async function completeAcademicRequest(
   );
 }
 
+export async function requestRevisionAcademicRequest(
+  token: string,
+  payload: WorkflowPayload,
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/admin/academic-requests/request-revision",
+    { method: "POST", token, body: payload },
+  );
+}
+
+export async function submitAcademicRequest(
+  token: string,
+  payload: WorkflowPayload,
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/student/academic-requests/submit",
+    { method: "POST", token, body: payload },
+  );
+}
+
+export async function updateAcademicRequest(
+  token: string,
+  payload: { request_id: string; title: string; description: string },
+) {
+  return apiFetch<ApiResponse<AcademicRequestResponseData>>(
+    "/api/v1/student/academic-requests/update",
+    { method: "POST", token, body: payload },
+  );
+}
+
 // ─── Admin: list semua pengajuan (pakai endpoint yang sama, filter di FE) ────
 
 export type PaginationMeta = {

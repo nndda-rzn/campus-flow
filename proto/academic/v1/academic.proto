@@ -17,6 +17,9 @@ service AcademicService {
   rpc RejectAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
   rpc CompleteAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
   rpc CancelAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+  rpc SubmitAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+  rpc RequestRevisionAcademicRequest(WorkflowActionRequest) returns (AcademicRequestResponse);
+  rpc UpdateAcademicRequest(UpdateAcademicRequestRequest) returns (AcademicRequestResponse);
 
 
   rpc ListLecturers(ListLecturersRequest) returns (ListLecturersResponse);
@@ -25,9 +28,12 @@ service AcademicService {
   rpc ListAllSupervisorRequests(ListAllSupervisorRequestsRequest) returns (ListSupervisorRequestsResponse);
   rpc ListLecturerSupervisorRequests(ListLecturerSupervisorRequestsRequest) returns (ListSupervisorRequestsResponse);
   rpc VerifySupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
+  rpc RequestRevisionSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc AssignSupervisor(AssignSupervisorRequest) returns (SupervisorRequestResponse);
   rpc AcceptSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc RejectSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
+  rpc CompleteSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
+  rpc CancelSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -85,6 +91,13 @@ message WorkflowActionRequest {
   string request_id = 1;
   string actor_user_id = 2;
   string note = 3;
+}
+
+message UpdateAcademicRequestRequest {
+  string request_id = 1;
+  string actor_user_id = 2;
+  string title = 3;
+  string description = 4;
 }
 
 message AcademicRequest {

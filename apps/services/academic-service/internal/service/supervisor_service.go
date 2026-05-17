@@ -155,6 +155,48 @@ func (s *AcademicService) CancelSupervisorRequest(
 	return mapSupervisorRepoError(req, err)
 }
 
+func (s *AcademicService) RequestRevisionSupervisorRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	requestID = strings.TrimSpace(requestID)
+	actorUserID = strings.TrimSpace(actorUserID)
+	note = strings.TrimSpace(note)
+
+	if requestID == "" || actorUserID == "" {
+		return nil, ErrInvalidInput
+	}
+	if note == "" {
+		return nil, ErrNoteRequired
+	}
+	if len(note) > maxNoteLength {
+		return nil, ErrNoteTooLong
+	}
+
+	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
+
+	req, err := supervisorRepo.RequestRevisionSupervisorRequest(ctx, requestID, actorUserID, note)
+	return mapSupervisorRepoError(req, err)
+}
+
+func (s *AcademicService) CompleteSupervisorRequest(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	if strings.TrimSpace(requestID) == "" || strings.TrimSpace(actorUserID) == "" {
+		return nil, ErrInvalidInput
+	}
+
+	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
+
+	req, err := supervisorRepo.CompleteSupervisorRequest(ctx, requestID, actorUserID, note)
+	return mapSupervisorRepoError(req, err)
+}
+
 func mapSupervisorRepoError(
 	req *model.SupervisorRequest,
 	err error,
@@ -177,6 +219,10 @@ func mapSupervisorRepoError(
 
 	if errors.Is(err, repository.ErrLecturerNotAssigned) {
 		return nil, ErrInvalidStatusTransition
+	}
+
+	if errors.Is(err, repository.ErrLecturerQuotaExceeded) {
+		return nil, ErrQuotaExceeded
 	}
 
 	return nil, err
