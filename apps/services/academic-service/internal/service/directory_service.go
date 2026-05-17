@@ -184,3 +184,15 @@ func (s *AcademicService) AutoStubFromUserRegistered(
 		return nil // no stub for SUPER_ADMIN, ADMIN_PRODI, KAPRODI, TATA_USAHA
 	}
 }
+
+// ListAuditLogs returns audit log entries from academic_db (Epic 4).
+func (s *AcademicService) ListAuditLogs(
+	ctx context.Context,
+	actorUserID string,
+	action string,
+	entityType string,
+	limit int,
+) ([]repository.AuditLogItem, error) {
+	auditRepo := repository.NewAuditRepository(s.repo.DB())
+	return auditRepo.ListAuditLogs(ctx, actorUserID, action, entityType, limit)
+}

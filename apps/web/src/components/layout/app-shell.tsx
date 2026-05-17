@@ -208,6 +208,11 @@ function getNavigation(role: UserRole): NavGroup[] {
               href: "/admin/departments",
               icon: <IconBuilding />,
             },
+            {
+              label: "Audit Log",
+              href: "/admin/audit-logs",
+              icon: <IconChart />,
+            },
           ],
         },
         {

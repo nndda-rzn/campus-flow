@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 
+	"campus-flow/apps/services/reporting-service/internal/model"
 	"campus-flow/apps/services/reporting-service/internal/service"
 	reportingv1 "campus-flow/proto/gen/reporting/v1"
 
@@ -25,7 +26,12 @@ func (h *ReportingHandler) GetAcademicDashboard(
 	ctx context.Context,
 	req *reportingv1.GetAcademicDashboardRequest,
 ) (*reportingv1.AcademicDashboardResponse, error) {
-	dashboard, err := h.reportingService.GetAcademicDashboard(ctx)
+	filter := model.DashboardFilter{
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+	}
+
+	dashboard, err := h.reportingService.GetAcademicDashboard(ctx, filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -53,7 +59,12 @@ func (h *ReportingHandler) GetSupervisorDashboard(
 	ctx context.Context,
 	req *reportingv1.GetSupervisorDashboardRequest,
 ) (*reportingv1.SupervisorDashboardResponse, error) {
-	dashboard, err := h.reportingService.GetSupervisorDashboard(ctx)
+	filter := model.DashboardFilter{
+		StartDate: req.StartDate,
+		EndDate:   req.EndDate,
+	}
+
+	dashboard, err := h.reportingService.GetSupervisorDashboard(ctx, filter)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -76,4 +87,30 @@ func (h *ReportingHandler) GetSupervisorDashboard(
 		CompletedRequests: dashboard.CompletedRequests,
 		StatusCounts:      statusCounts,
 	}, nil
+}
+
+func (h *ReportingHandler) GetLecturerWorkload(
+	ctx context.Context,
+	_ *reportingv1.GetLecturerWorkloadRequest,
+) (*reportingv1.LecturerWorkloadResponse, error) {
+	items, err := h.reportingService.GetLecturerWorkload(ctx)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	out := make([]*reportingv1.LecturerWorkloadItem, 0, len(items))
+	for _, it := range items {
+		out = append(out, &reportingv1.LecturerWorkloadItem{
+			LecturerId:     it.LecturerID,
+			LecturerUserId: it.LecturerUserID,
+			LecturerName:   it.LecturerName,
+			ActiveCount:    it.ActiveCount,
+			AssignedCount:  it.AssignedCount,
+			AcceptedCount:  it.AcceptedCount,
+			CompletedCount: it.CompletedCount,
+			RejectedCount:  it.RejectedCount,
+		})
+	}
+
+	return &reportingv1.LecturerWorkloadResponse{Items: out}, nil
 }

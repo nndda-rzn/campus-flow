@@ -19,12 +19,20 @@ func NewReportingService(repo *repository.ReportingRepository) *ReportingService
 
 func (s *ReportingService) GetAcademicDashboard(
 	ctx context.Context,
+	filter model.DashboardFilter,
 ) (*model.AcademicDashboard, error) {
-	return s.repo.GetAcademicDashboard(ctx)
+	return s.repo.GetAcademicDashboard(ctx, filter)
 }
 
 func (s *ReportingService) GetSupervisorDashboard(
 	ctx context.Context,
+	filter model.DashboardFilter,
 ) (*model.SupervisorDashboard, error) {
-	return s.repo.GetSupervisorDashboard(ctx)
+	return s.repo.GetSupervisorDashboard(ctx, filter)
+}
+
+func (s *ReportingService) GetLecturerWorkload(
+	ctx context.Context,
+) ([]model.LecturerWorkloadItem, error) {
+	return s.repo.GetLecturerWorkload(ctx)
 }

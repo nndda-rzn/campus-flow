@@ -119,3 +119,34 @@ func (h *AuthHandler) AssignUserRole(
 	}
 	return &authv1.UserItemResponse{User: toUserItem(user)}, nil
 }
+
+func (h *AuthHandler) ListAuditLogs(
+	ctx context.Context,
+	req *authv1.ListAuditLogsRequest,
+) (*authv1.ListAuditLogsResponse, error) {
+	items, err := h.authService.ListAuditLogs(
+		ctx,
+		req.ActorUserId,
+		req.Action,
+		req.EntityType,
+		int(req.Limit),
+	)
+	if err != nil {
+		return nil, mapUserError(err)
+	}
+
+	out := make([]*authv1.AuditLogItem, 0, len(items))
+	for _, it := range items {
+		out = append(out, &authv1.AuditLogItem{
+			Id:            it.ID,
+			ActorUserId:   it.ActorUserID,
+			Action:        it.Action,
+			EntityType:    it.EntityType,
+			EntityId:      it.EntityID,
+			MetadataJson:  it.MetadataJSON,
+			CreatedAt:     it.CreatedAt,
+			SourceService: "auth",
+		})
+	}
+	return &authv1.ListAuditLogsResponse{Items: out}, nil
+}

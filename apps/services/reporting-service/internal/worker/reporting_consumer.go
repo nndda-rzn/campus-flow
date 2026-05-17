@@ -14,18 +14,20 @@ import (
 )
 
 type RequestEventPayload struct {
-	RequestID     string `json:"request_id"`
-	RequestNumber string `json:"request_number"`
-	StudentUserID string `json:"student_user_id"`
-	OldStatus     string `json:"old_status"`
-	Status        string `json:"status"`
-	ServiceCode   string `json:"service_code"`
-	ServiceName   string `json:"service_name"`
-	Title         string `json:"title"`
-	TopicTitle    string `json:"topic_title"`
-	ActorUserID   string `json:"actor_user_id"`
-	ActorRole     string `json:"actor_role"`
-	Note          string `json:"note"`
+	RequestID      string `json:"request_id"`
+	RequestNumber  string `json:"request_number"`
+	StudentUserID  string `json:"student_user_id"`
+	OldStatus      string `json:"old_status"`
+	Status         string `json:"status"`
+	ServiceCode    string `json:"service_code"`
+	ServiceName    string `json:"service_name"`
+	Title          string `json:"title"`
+	TopicTitle     string `json:"topic_title"`
+	ActorUserID    string `json:"actor_user_id"`
+	ActorRole      string `json:"actor_role"`
+	Note           string `json:"note"`
+	LecturerID     string `json:"lecturer_id"`
+	LecturerUserID string `json:"lecturer_user_id"`
 }
 
 func StartReportingConsumer(
@@ -189,6 +191,8 @@ func projectSupervisorRequestEvent(
 		StudentUserID:   payload.StudentUserID,
 		TopicTitle:      payload.TopicTitle,
 		Status:          status,
+		LecturerID:      payload.LecturerID,
+		LecturerUserID:  payload.LecturerUserID,
 		SourceEventID:   eventID,
 		SourceEventType: eventType,
 	}

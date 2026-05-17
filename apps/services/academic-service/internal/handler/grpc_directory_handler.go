@@ -201,3 +201,35 @@ func (h *AcademicHandler) SetLecturerStatus(
 	}
 	return &academicv1.LecturerItemResponse{Lecturer: toProtoLecturerProfile(l)}, nil
 }
+
+// ListAuditLogs returns academic_db audit log entries (Epic 4).
+func (h *AcademicHandler) ListAuditLogs(
+	ctx context.Context,
+	req *academicv1.ListAuditLogsRequest,
+) (*academicv1.ListAuditLogsResponse, error) {
+	items, err := h.academicService.ListAuditLogs(
+		ctx,
+		req.ActorUserId,
+		req.Action,
+		req.EntityType,
+		int(req.Limit),
+	)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	out := make([]*academicv1.AuditLogItem, 0, len(items))
+	for _, it := range items {
+		out = append(out, &academicv1.AuditLogItem{
+			Id:            it.ID,
+			ActorUserId:   it.ActorUserID,
+			Action:        it.Action,
+			EntityType:    it.EntityType,
+			EntityId:      it.EntityID,
+			MetadataJson:  it.MetadataJSON,
+			CreatedAt:     it.CreatedAt,
+			SourceService: "academic",
+		})
+	}
+	return &academicv1.ListAuditLogsResponse{Items: out}, nil
+}

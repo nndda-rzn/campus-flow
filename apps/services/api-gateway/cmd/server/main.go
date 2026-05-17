@@ -36,6 +36,7 @@ func main() {
 	reportingHandler := handler.NewReportingHandler(reportingClient)
 	supervisorHandler := handler.NewSupervisorHandler(academicClient)
 	adminHandler := handler.NewAdminHandler(authClient, academicClient)
+	auditHandler := handler.NewAuditHandler(authClient, academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -481,6 +482,21 @@ func main() {
 	registerAdmin("/api/v1/admin/lecturers", adminHandler.ListAllLecturers, "SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
 	registerAdmin("/api/v1/admin/lecturers/upsert", adminHandler.UpsertLecturer, "SUPER_ADMIN", "ADMIN_PRODI")
 	registerAdmin("/api/v1/admin/lecturers/status", adminHandler.SetLecturerStatus, "SUPER_ADMIN", "ADMIN_PRODI")
+
+	// Audit log aggregator (Epic 4) — SUPER_ADMIN only.
+	registerAdmin("/api/v1/admin/audit-logs", auditHandler.ListAuditLogs, "SUPER_ADMIN")
+
+	// Lecturer workload report (Epic 4).
+	mux.Handle(
+		"/api/v1/reports/lecturer-workload",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("SUPER_ADMIN", "KAPRODI", "ADMIN_PRODI")(
+					http.HandlerFunc(reportingHandler.GetLecturerWorkload),
+				),
+			),
+		),
+	)
 
 	fmt.Println("API Gateway running on port 8080")
 	fmt.Println("Auth Service target: localhost:50051")

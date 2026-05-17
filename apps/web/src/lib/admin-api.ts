@@ -325,3 +325,66 @@ export async function setLecturerStatus(
   const raw = (response.data?.lecturer ?? {}) as RawRecord;
   return { ...response, data: { lecturer: normalizeLecturer(raw) } };
 }
+
+// ─── API: Audit Logs ─────────────────────────────────────────────────────────
+
+export type AuditLogItem = {
+  id: string;
+  actorUserId: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  metadataJson: string;
+  createdAt: string;
+  sourceService: string;
+};
+
+function normalizeAuditLog(raw: RawRecord): AuditLogItem {
+  return {
+    id: getString(raw, "id"),
+    actorUserId: getString(raw, "actorUserId", "actor_user_id"),
+    action: getString(raw, "action"),
+    entityType: getString(raw, "entityType", "entity_type"),
+    entityId: getString(raw, "entityId", "entity_id"),
+    metadataJson: getString(raw, "metadataJson", "metadata_json"),
+    createdAt: getString(raw, "createdAt", "created_at"),
+    sourceService: getString(raw, "sourceService", "source_service"),
+  };
+}
+
+export async function listAuditLogs(
+  token: string,
+  filters?: {
+    actor_user_id?: string;
+    action?: string;
+    entity_type?: string;
+    limit?: number;
+  },
+) {
+  const params = new URLSearchParams();
+  if (filters?.actor_user_id) params.set("actor_user_id", filters.actor_user_id);
+  if (filters?.action) params.set("action", filters.action);
+  if (filters?.entity_type) params.set("entity_type", filters.entity_type);
+  if (filters?.limit) params.set("limit", String(filters.limit));
+  const query = params.toString() ? `?${params.toString()}` : "";
+
+  const response = await apiFetch<ApiResponse<RawRecord>>(
+    `/api/v1/admin/audit-logs${query}`,
+    { token },
+  );
+
+  const rawItems = getArray(response.data ?? {}, "items");
+
+  return {
+    ...response,
+    data: {
+      items: rawItems.map((it) => normalizeAuditLog(it as RawRecord)),
+      authError: getString(response.data ?? {}, "authError", "auth_error"),
+      academicError: getString(
+        response.data ?? {},
+        "academicError",
+        "academic_error",
+      ),
+    },
+  };
+}

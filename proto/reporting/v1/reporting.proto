@@ -7,11 +7,20 @@ option go_package = "campus-flow/proto/gen/reporting/v1;reportingv1";
 service ReportingService {
   rpc GetAcademicDashboard(GetAcademicDashboardRequest) returns (AcademicDashboardResponse);
   rpc GetSupervisorDashboard(GetSupervisorDashboardRequest) returns (SupervisorDashboardResponse);
+  rpc GetLecturerWorkload(GetLecturerWorkloadRequest) returns (LecturerWorkloadResponse);
 }
 
-message GetAcademicDashboardRequest {}
+message GetAcademicDashboardRequest {
+  string start_date = 1; // optional ISO date (YYYY-MM-DD)
+  string end_date = 2;   // optional ISO date
+}
 
-message GetSupervisorDashboardRequest {}
+message GetSupervisorDashboardRequest {
+  string start_date = 1;
+  string end_date = 2;
+}
+
+message GetLecturerWorkloadRequest {}
 
 message StatusCount {
   string status = 1;
@@ -37,4 +46,19 @@ message SupervisorDashboardResponse {
   int64 rejected_requests = 6;
   int64 completed_requests = 7;
   repeated StatusCount status_counts = 8;
+}
+
+message LecturerWorkloadItem {
+  string lecturer_id = 1;
+  string lecturer_user_id = 2;
+  string lecturer_name = 3;
+  int64 active_count = 4;     // ASSIGNED + ACCEPTED + COMPLETED
+  int64 assigned_count = 5;
+  int64 accepted_count = 6;
+  int64 completed_count = 7;
+  int64 rejected_count = 8;
+}
+
+message LecturerWorkloadResponse {
+  repeated LecturerWorkloadItem items = 1;
 }

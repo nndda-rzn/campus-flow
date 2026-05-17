@@ -18,6 +18,9 @@ service AuthService {
   rpc SetUserStatus(SetUserStatusRequest) returns (UserItemResponse);
   rpc AssignUserRole(AssignUserRoleRequest) returns (UserItemResponse);
   rpc ListUsersByRole(ListUsersByRoleRequest) returns (ListUsersResponse);
+
+  // Audit log query (Epic 4).
+  rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
 }
 
 message RegisterRequest {
@@ -128,4 +131,26 @@ message AssignUserRoleRequest {
 
 message ListUsersByRoleRequest {
   string role = 1;
+}
+
+message ListAuditLogsRequest {
+  string actor_user_id = 1; // optional filter
+  string action = 2;        // optional filter
+  string entity_type = 3;   // optional filter
+  int32 limit = 4;          // default 100, max 500
+}
+
+message AuditLogItem {
+  string id = 1;
+  string actor_user_id = 2;
+  string action = 3;
+  string entity_type = 4;
+  string entity_id = 5;
+  string metadata_json = 6;
+  string created_at = 7;
+  string source_service = 8; // 'auth' or 'academic'
+}
+
+message ListAuditLogsResponse {
+  repeated AuditLogItem items = 1;
 }

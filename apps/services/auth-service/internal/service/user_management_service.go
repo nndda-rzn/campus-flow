@@ -130,3 +130,13 @@ func (s *AuthService) AssignUserRole(
 	}
 	return user, nil
 }
+
+func (s *AuthService) ListAuditLogs(
+	ctx context.Context,
+	actorUserID string,
+	action string,
+	entityType string,
+	limit int,
+) ([]repository.AuditLogItem, error) {
+	return s.userRepo.ListAuditLogs(ctx, actorUserID, action, entityType, limit)
+}
