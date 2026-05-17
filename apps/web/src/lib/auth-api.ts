@@ -64,3 +64,14 @@ export async function getMe(token: string) {
     token,
   });
 }
+
+export async function changePassword(
+  token: string,
+  payload: { current_password: string; new_password: string },
+) {
+  return apiFetch<ApiResponse<null>>("/api/v1/me/change-password", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+}

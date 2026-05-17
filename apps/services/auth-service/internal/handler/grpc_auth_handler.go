@@ -137,3 +137,35 @@ func (h *AuthHandler) Logout(ctx context.Context, req *authv1.LogoutRequest) (*a
 		Success: true,
 	}, nil
 }
+
+func (h *AuthHandler) ChangePassword(
+	ctx context.Context,
+	req *authv1.ChangePasswordRequest,
+) (*authv1.ChangePasswordResponse, error) {
+	err := h.authService.ChangePassword(
+		ctx,
+		req.UserId,
+		req.CurrentPassword,
+		req.NewPassword,
+	)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidCredential) {
+			return nil, status.Error(codes.Unauthenticated, "current password incorrect")
+		}
+		if errors.Is(err, service.ErrPasswordTooShort) {
+			return nil, status.Error(codes.InvalidArgument, "new password must be at least 8 characters")
+		}
+		if errors.Is(err, service.ErrSamePassword) {
+			return nil, status.Error(codes.InvalidArgument, "new password must differ from current")
+		}
+		if errors.Is(err, service.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		if errors.Is(err, service.ErrUserInactive) {
+			return nil, status.Error(codes.PermissionDenied, "user inactive")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	return &authv1.ChangePasswordResponse{Success: true}, nil
+}

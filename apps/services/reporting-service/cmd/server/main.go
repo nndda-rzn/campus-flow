@@ -2,9 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	"os/signal"
+	"sync/atomic"
+	"syscall"
+	"time"
 
 	"campus-flow/apps/services/reporting-service/internal/config"
 	"campus-flow/apps/services/reporting-service/internal/handler"
@@ -49,11 +55,11 @@ func main() {
 	}
 	defer rabbitConsumer.Close()
 
-	workerCtx, cancelWorker := context.WithCancel(context.Background())
-	defer cancelWorker()
+	rootCtx, cancelRoot := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancelRoot()
 
 	go worker.StartReportingConsumer(
-		workerCtx,
+		rootCtx,
 		deliveries,
 		reportingRepo,
 	)
@@ -66,10 +72,69 @@ func main() {
 	grpcServer := grpc.NewServer()
 	reportingv1.RegisterReportingServiceServer(grpcServer, reportingHandler)
 
-	fmt.Println("Reporting Service gRPC running on port", cfg.GRPCPort)
-	fmt.Println("Reporting Service connected to reporting_db")
+	var ready atomic.Bool
+	ready.Store(true)
+	healthServer := startHealthServer(":50065", dbpool, &ready)
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = healthServer.Shutdown(shutdownCtx)
+	}()
 
-	if err := grpcServer.Serve(listener); err != nil {
-		log.Fatalf("failed to serve grpc: %v", err)
+	go func() {
+		fmt.Println("Reporting Service gRPC running on port", cfg.GRPCPort)
+		fmt.Println("Reporting Service health on :50065")
+		if err := grpcServer.Serve(listener); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			log.Fatalf("failed to serve grpc: %v", err)
+		}
+	}()
+
+	<-rootCtx.Done()
+	ready.Store(false)
+	log.Println("Reporting Service: shutdown signal received, draining...")
+
+	stopped := make(chan struct{})
+	go func() {
+		grpcServer.GracefulStop()
+		close(stopped)
+	}()
+
+	select {
+	case <-stopped:
+		log.Println("Reporting Service: gRPC drained cleanly")
+	case <-time.After(15 * time.Second):
+		log.Println("Reporting Service: drain timeout, forcing stop")
+		grpcServer.Stop()
 	}
+}
+
+func startHealthServer(addr string, db *pgxpool.Pool, ready *atomic.Bool) *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if !ready.Load() {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("draining"))
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+		defer cancel()
+		if err := db.Ping(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte("db unhealthy"))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ready"))
+	})
+	srv := &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("reporting-service health server: %v", err)
+		}
+	}()
+	return srv
 }

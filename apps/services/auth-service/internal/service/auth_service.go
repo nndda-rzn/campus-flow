@@ -19,6 +19,8 @@ var (
 	ErrEmailDuplicate    = errors.New("email already registered")
 	ErrUserInactive      = errors.New("user inactive")
 	ErrInvalidToken      = errors.New("invalid token")
+	ErrPasswordTooShort  = errors.New("password too short")
+	ErrSamePassword      = errors.New("new password must differ from current")
 )
 
 type AuthService struct {
@@ -132,6 +134,12 @@ func (s *AuthService) Login(
 		return nil, "", "", err
 	}
 
+	// Best-effort login audit. We never block authentication on audit failure.
+	if err := s.userRepo.LogLogin(ctx, user.ID, "", ""); err != nil {
+		// log but do not return — audit must never break sign-in
+		_ = err
+	}
+
 	return user, accessToken, refreshToken, nil
 }
 
@@ -226,6 +234,59 @@ func (s *AuthService) Logout(
 	refreshTokenHash := tokenutil.HashRefreshToken(refreshToken)
 
 	return s.tokenRepo.RevokeRefreshTokenByHash(ctx, refreshTokenHash)
+}
+
+// ChangePassword verifies the current password then updates to the new one.
+// All existing refresh tokens for the user are revoked so other sessions are
+// invalidated.
+func (s *AuthService) ChangePassword(
+	ctx context.Context,
+	userID string,
+	currentPassword string,
+	newPassword string,
+) error {
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return errors.New("user_id is required")
+	}
+	if len(newPassword) < 8 {
+		return ErrPasswordTooShort
+	}
+	if currentPassword == newPassword {
+		return ErrSamePassword
+	}
+
+	user, err := s.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return ErrUserNotFound
+		}
+		return err
+	}
+
+	if user.Status != "ACTIVE" {
+		return ErrUserInactive
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(currentPassword)); err != nil {
+		return ErrInvalidCredential
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	if err := s.userRepo.UpdatePassword(ctx, userID, string(hashed)); err != nil {
+		return err
+	}
+
+	if err := s.tokenRepo.RevokeAllForUser(ctx, userID); err != nil {
+		// Non-fatal: at worst, old sessions stay alive until expiry.
+		_ = err
+	}
+
+	return nil
 }
 
 func normalizeRole(role string) string {

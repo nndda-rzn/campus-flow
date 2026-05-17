@@ -422,10 +422,38 @@ func (r *UserRepository) SetStatus(
 	return r.FindByID(ctx, userID)
 }
 
-// AssignRole replaces the user's role. user_roles is a many-to-many table but
-// MVP enforces a single role per user (per FR-029 "satu pengguna dapat memiliki
-// role sesuai kebutuhan sistem"). We delete existing user_roles and insert a
-// new one in the same transaction.
+// LogLogin records a login event in audit_logs and outbox so other services
+// can react if needed. Failures are non-fatal — they should never block a
+// successful authentication.
+func (r *UserRepository) LogLogin(
+	ctx context.Context,
+	userID string,
+	ipAddress string,
+	userAgent string,
+) error {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := writeAuditLogTx(ctx, tx, userID, "USER_LOGIN", "users", userID, map[string]string{
+		"ip_address": ipAddress,
+		"user_agent": userAgent,
+	}); err != nil {
+		return err
+	}
+
+	if err := writeOutboxTx(ctx, tx, userID, "user.login", map[string]string{
+		"user_id":    userID,
+		"ip_address": ipAddress,
+		"user_agent": userAgent,
+	}); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
 func (r *UserRepository) AssignRole(
 	ctx context.Context,
 	userID string,
@@ -486,4 +514,24 @@ func (r *UserRepository) AssignRole(
 	}
 
 	return r.FindByID(ctx, userID)
+}
+
+// UpdatePassword swaps the bcrypt hash for the given user. Caller is
+// expected to have already verified the current password where applicable.
+func (r *UserRepository) UpdatePassword(
+	ctx context.Context,
+	userID string,
+	passwordHash string,
+) error {
+	cmd, err := r.db.Exec(ctx, `
+		UPDATE users SET password_hash = $1, updated_at = NOW()
+		WHERE id = $2::uuid
+	`, passwordHash, userID)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+	return nil
 }

@@ -1,8 +1,13 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"campus-flow/apps/services/api-gateway/internal/client"
@@ -27,7 +32,7 @@ func main() {
 	defer reportingClient.Close()
 
 	authHandler := handler.NewAuthHandler(authClient)
-	meHandler := handler.NewMeHandler()
+	meHandler := handler.NewMeHandler(authClient)
 	roleTestHandler := handler.NewRoleTestHandler()
 	academicHandler := handler.NewAcademicHandler(academicClient, notificationClient)
 	fileHandler := handler.NewFileHandler(fileClient, academicClient)
@@ -88,6 +93,13 @@ func main() {
 		"/api/v1/me",
 		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
 			authMiddleware.RequireAuth(http.HandlerFunc(meHandler.GetMe)),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/me/change-password",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(http.HandlerFunc(meHandler.ChangePassword)),
 		),
 	)
 
@@ -502,11 +514,35 @@ func main() {
 	fmt.Println("API Gateway running on port 8080")
 	fmt.Println("Auth Service target: localhost:50051")
 
-	// Apply middleware chain: Security Headers -> CORS -> Rate Limiting -> Main Handler
+	// Apply middleware chain: Request ID -> Security Headers -> CORS -> Rate Limiting -> Main Handler
 	handlerWithSecurity := middleware.SecurityHeadersMiddleware(mux)
 	handlerWithCORS := middleware.CORSMiddleware(handlerWithSecurity)
+	handlerWithRequestID := middleware.RequestIDMiddleware(handlerWithCORS)
+	handlerWithLogging := middleware.LoggingMiddleware(handlerWithRequestID)
 
-	if err := http.ListenAndServe(":8080", handlerWithCORS); err != nil {
-		panic(err)
+	rootCtx, cancelRoot := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancelRoot()
+
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           handlerWithLogging,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("api-gateway: %v", err)
+		}
+	}()
+
+	<-rootCtx.Done()
+	log.Println("API Gateway: shutdown signal received, draining...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Printf("API Gateway: forced shutdown: %v", err)
+	} else {
+		log.Println("API Gateway: drained cleanly")
 	}
 }

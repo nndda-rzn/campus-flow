@@ -87,3 +87,18 @@ func (r *TokenRepository) RevokeRefreshTokenByHash(
 
 	return err
 }
+
+// RevokeAllForUser revokes every active refresh token for a user. Used by
+// password change so other sessions are invalidated immediately.
+func (r *TokenRepository) RevokeAllForUser(
+	ctx context.Context,
+	userID string,
+) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE refresh_tokens
+		SET is_revoked = TRUE
+		WHERE user_id = $1::uuid AND is_revoked = FALSE
+	`, userID)
+
+	return err
+}

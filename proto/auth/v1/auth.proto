@@ -21,6 +21,9 @@ service AuthService {
 
   // Audit log query (Epic 4).
   rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
+
+  // Self-service password change (Epic 8).
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
 }
 
 message RegisterRequest {
@@ -153,4 +156,14 @@ message AuditLogItem {
 
 message ListAuditLogsResponse {
   repeated AuditLogItem items = 1;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string current_password = 2;
+  string new_password = 3;
+}
+
+message ChangePasswordResponse {
+  bool success = 1;
 }
