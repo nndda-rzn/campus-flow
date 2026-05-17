@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useMemo, useState } from "react";
-import { GraduationCap, Pencil, Search, UserCheck } from "lucide-react";
+import { GraduationCap, Pencil, Search, Upload, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { Card } from "@/components/ui/card";
@@ -46,6 +46,7 @@ import {
   setStudentStatus,
   upsertStudent,
 } from "@/lib/admin-api";
+import { BulkImportDialog } from "@/components/academic/bulk-import-dialog";
 
 export default function AdminStudentsPage() {
   return (
@@ -65,6 +66,7 @@ function PageContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const [editTarget, setEditTarget] = useState<DirectoryStudent | null>(null);
   const [nim, setNim] = useState("");
@@ -193,6 +195,10 @@ function PageContent() {
               <SelectItem value="INACTIVE">Nonaktif</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="secondary" onClick={() => setBulkOpen(true)}>
+            <Upload className="size-3.5" />
+            Import CSV
+          </Button>
         </div>
 
         <Card className="overflow-hidden">
@@ -336,6 +342,13 @@ function PageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkImportDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        type="student"
+        onSuccess={() => load()}
+      />
     </>
   );
 }

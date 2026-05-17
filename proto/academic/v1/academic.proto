@@ -43,10 +43,12 @@ service AcademicService {
   rpc ListStudents(ListStudentsRequest) returns (ListStudentsResponse);
   rpc UpsertStudent(UpsertStudentRequest) returns (StudentItemResponse);
   rpc SetStudentStatus(SetStudentStatusRequest) returns (StudentItemResponse);
+  rpc BulkImportStudents(BulkImportStudentsRequest) returns (BulkImportStudentsResponse);
 
   rpc ListAllLecturers(ListAllLecturersRequest) returns (ListLecturersResponse);
   rpc UpsertLecturer(UpsertLecturerRequest) returns (LecturerItemResponse);
   rpc SetLecturerStatus(SetLecturerStatusRequest) returns (LecturerItemResponse);
+  rpc BulkImportLecturers(BulkImportLecturersRequest) returns (BulkImportLecturersResponse);
 
   // Audit log query (Epic 4).
   rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
@@ -337,6 +339,58 @@ message UpsertLecturerRequest {
 message SetLecturerStatusRequest {
   string user_id = 1;
   string status = 2;
+}
+
+// ─── Bulk import (Epic 11a / FR-275, FR-276) ────────────────────────────────
+
+message StudentImportRow {
+  string user_id = 1;
+  string email = 2;
+  string nim = 3;
+  string full_name = 4;
+  string department_code = 5;
+}
+
+message LecturerImportRow {
+  string user_id = 1;
+  string email = 2;
+  string nidn = 3;
+  string full_name = 4;
+  string department_code = 5;
+  int32 max_supervisor_quota = 6;
+}
+
+message BulkImportResultRow {
+  int32 row_number = 1;
+  string identifier = 2;     // email or NIM/NIDN — for display
+  string outcome = 3;        // CREATED | UPDATED | SKIPPED | ERROR
+  string error = 4;          // populated only when outcome = ERROR
+}
+
+message BulkImportStudentsRequest {
+  repeated StudentImportRow rows = 1;
+  bool dry_run = 2;
+}
+
+message BulkImportStudentsResponse {
+  repeated BulkImportResultRow results = 1;
+  int32 created = 2;
+  int32 updated = 3;
+  int32 skipped = 4;
+  int32 errors = 5;
+}
+
+message BulkImportLecturersRequest {
+  repeated LecturerImportRow rows = 1;
+  bool dry_run = 2;
+}
+
+message BulkImportLecturersResponse {
+  repeated BulkImportResultRow results = 1;
+  int32 created = 2;
+  int32 updated = 3;
+  int32 skipped = 4;
+  int32 errors = 5;
 }
 
 // ─── Audit logs (Epic 4) ────────────────────────────────────────────────────

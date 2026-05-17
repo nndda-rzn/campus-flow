@@ -47,6 +47,7 @@ func main() {
 	scopeHandler := handler.NewScopeHandler(academicClient)
 	commentHandler := handler.NewCommentHandler(academicClient)
 	bulkVerifyHandler := handler.NewBulkVerifyHandler(academicClient)
+	bulkImportHandler := handler.NewBulkImportHandler(academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -570,6 +571,12 @@ func main() {
 	// Bulk verify academic requests (Epic 10b / FR-255).
 	registerAdmin("/api/v1/admin/academic-requests/bulk-verify",
 		bulkVerifyHandler.BulkVerifyAcademic, "SUPER_ADMIN", "ADMIN_PRODI")
+
+	// Bulk import students & lecturers (Epic 11a / FR-275, FR-276).
+	registerAdmin("/api/v1/admin/students/bulk-import",
+		bulkImportHandler.Students, "SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/lecturers/bulk-import",
+		bulkImportHandler.Lecturers, "SUPER_ADMIN", "ADMIN_PRODI")
 
 	// Lecturer workload report (Epic 4).
 	mux.Handle(

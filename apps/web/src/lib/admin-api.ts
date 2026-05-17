@@ -342,6 +342,60 @@ export async function setLecturerStatus(
   return { ...response, data: { lecturer: normalizeLecturer(raw) } };
 }
 
+// ─── API: Bulk Import (Epic 11a / FR-275, FR-276) ────────────────────────────
+
+export type BulkImportResultRow = {
+  row_number: number;
+  identifier: string;
+  outcome: "CREATED" | "UPDATED" | "SKIPPED" | "ERROR";
+  error: string;
+};
+
+export type BulkImportResult = {
+  results: BulkImportResultRow[];
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+};
+
+export type BulkStudentRow = {
+  user_id: string;
+  email?: string;
+  nim?: string;
+  full_name: string;
+  department_code?: string;
+};
+
+export type BulkLecturerRow = {
+  user_id: string;
+  email?: string;
+  nidn?: string;
+  full_name: string;
+  department_code?: string;
+  max_supervisor_quota?: number;
+};
+
+export async function bulkImportStudents(
+  token: string,
+  payload: { rows: BulkStudentRow[]; dry_run: boolean },
+) {
+  return apiFetch<ApiResponse<BulkImportResult>>(
+    "/api/v1/admin/students/bulk-import",
+    { method: "POST", token, body: payload },
+  );
+}
+
+export async function bulkImportLecturers(
+  token: string,
+  payload: { rows: BulkLecturerRow[]; dry_run: boolean },
+) {
+  return apiFetch<ApiResponse<BulkImportResult>>(
+    "/api/v1/admin/lecturers/bulk-import",
+    { method: "POST", token, body: payload },
+  );
+}
+
 // ─── API: Audit Logs ─────────────────────────────────────────────────────────
 
 export type AuditLogItem = {
