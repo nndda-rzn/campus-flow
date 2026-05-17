@@ -24,6 +24,10 @@ service AuthService {
 
   // Self-service password change (Epic 8).
   rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+
+  // Forgot / reset password (Epic 10c / FR-271).
+  rpc ForgotPassword(ForgotPasswordRequest) returns (ForgotPasswordResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
 }
 
 message RegisterRequest {
@@ -165,5 +169,23 @@ message ChangePasswordRequest {
 }
 
 message ChangePasswordResponse {
+  bool success = 1;
+}
+
+message ForgotPasswordRequest {
+  string email = 1;
+  string reset_url_base = 2; // e.g. https://campusflow.example.com/reset-password
+}
+
+message ForgotPasswordResponse {
+  bool success = 1;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ResetPasswordResponse {
   bool success = 1;
 }

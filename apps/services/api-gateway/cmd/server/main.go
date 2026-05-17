@@ -93,6 +93,20 @@ func main() {
 		),
 	)
 
+	mux.Handle(
+		"/api/v1/auth/forgot-password",
+		middleware.RateLimitMiddleware(publicRateLimiter)(
+			http.HandlerFunc(authHandler.ForgotPassword),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/auth/reset-password",
+		middleware.RateLimitMiddleware(publicRateLimiter)(
+			http.HandlerFunc(authHandler.ResetPassword),
+		),
+	)
+
 	// Protected routes (rate limited + authenticated)
 	mux.Handle(
 		"/api/v1/me",

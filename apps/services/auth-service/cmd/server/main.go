@@ -15,6 +15,7 @@ import (
 
 	"campus-flow/apps/services/auth-service/internal/config"
 	"campus-flow/apps/services/auth-service/internal/handler"
+	"campus-flow/apps/services/auth-service/internal/mail"
 	"campus-flow/apps/services/auth-service/internal/messaging"
 	"campus-flow/apps/services/auth-service/internal/repository"
 	"campus-flow/apps/services/auth-service/internal/service"
@@ -41,6 +42,7 @@ func main() {
 	userRepo := repository.NewUserRepository(dbpool)
 	tokenRepo := repository.NewTokenRepository(dbpool)
 	outboxRepo := repository.NewOutboxRepository(dbpool)
+	resetRepo := repository.NewPasswordResetRepository(dbpool)
 
 	authService := service.NewAuthService(
 		userRepo,
@@ -49,6 +51,9 @@ func main() {
 		cfg.AccessTokenTTL,
 		cfg.RefreshTokenTTL,
 	)
+
+	mailSender := mail.NewFromEnv()
+	authService.SetPasswordResetDeps(resetRepo, mailSender)
 
 	authHandler := handler.NewAuthHandler(authService)
 

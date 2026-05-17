@@ -26,9 +26,17 @@ var (
 type AuthService struct {
 	userRepo        *repository.UserRepository
 	tokenRepo       *repository.TokenRepository
+	resetRepo       *repository.PasswordResetRepository
+	mailer          mailSender
 	jwtSecret       string
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
+}
+
+// mailSender is a tiny interface so we don't have to import the mail package
+// here; the password_reset_service.go file uses the mail.Sender directly.
+type mailSender interface {
+	Send(ctx context.Context, to, subject, body string) error
 }
 
 func NewAuthService(

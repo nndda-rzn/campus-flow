@@ -367,3 +367,88 @@ func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
 		Data:    res,
 	})
 }
+
+// ─── Forgot / Reset password (Epic 10c / FR-271) ────────────────────────────
+
+type ForgotPasswordHTTPBody struct {
+	Email        string `json:"email"`
+	ResetURLBase string `json:"reset_url_base"`
+}
+
+type ResetPasswordHTTPBody struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"new_password"`
+}
+
+func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var body ForgotPasswordHTTPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "invalid request body"})
+		return
+	}
+
+	body.Email = strings.ToLower(strings.TrimSpace(body.Email))
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	// Always 200 — enumeration-safe.
+	_, _ = h.authClient.Client.ForgotPassword(ctx, &authv1.ForgotPasswordRequest{
+		Email:        body.Email,
+		ResetUrlBase: body.ResetURLBase,
+	})
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "Jika email terdaftar, instruksi reset password akan dikirim ke email tersebut.",
+	})
+}
+
+func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var body ResetPasswordHTTPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "invalid request body"})
+		return
+	}
+	if strings.TrimSpace(body.Token) == "" || body.NewPassword == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "token dan new_password wajib diisi"})
+		return
+	}
+	if len(body.NewPassword) < 8 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "new password minimal 8 karakter"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	_, err := h.authClient.Client.ResetPassword(ctx, &authv1.ResetPasswordRequest{
+		Token:       body.Token,
+		NewPassword: body.NewPassword,
+	})
+	if err != nil {
+		st, _ := status.FromError(err)
+		switch st.Code() {
+		case codes.Unauthenticated:
+			writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: st.Message()})
+		case codes.InvalidArgument:
+			writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: st.Message()})
+		case codes.PermissionDenied:
+			writeJSON(w, http.StatusForbidden, APIResponse{Success: false, Message: st.Message()})
+		default:
+			writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to reset password"})
+		}
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "password reset success"})
+}

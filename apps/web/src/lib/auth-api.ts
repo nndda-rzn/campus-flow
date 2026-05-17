@@ -75,3 +75,23 @@ export async function changePassword(
     body: payload,
   });
 }
+
+export async function forgotPassword(payload: {
+  email: string;
+  reset_url_base?: string;
+}) {
+  return apiFetch<ApiResponse<null>>("/api/v1/auth/forgot-password", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export async function resetPassword(payload: {
+  token: string;
+  new_password: string;
+}) {
+  return apiFetch<ApiResponse<null>>("/api/v1/auth/reset-password", {
+    method: "POST",
+    body: payload,
+  });
+}

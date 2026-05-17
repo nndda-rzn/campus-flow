@@ -83,6 +83,10 @@ func main() {
 		fmt.Println("Academic Service user-registered consumer started")
 	}
 
+	// SLA reminder worker (FR-266) — scans service_requests setiap jam.
+	go worker.StartSLAReminderWorker(rootCtx, dbpool, 1*time.Hour)
+	fmt.Println("Academic Service SLA reminder worker started (tick=1h)")
+
 	listener, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)

@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -246,6 +247,14 @@ func buildNotificationContent(
 	case "academic_request.revision_required":
 		return "Pengajuan perlu revisi",
 			revisionMessage("Admin Prodi meminta revisi terhadap pengajuan layanan akademik Anda.", payload.Note),
+			"WARNING"
+
+	case "academic_request.sla_warning":
+		return "Pengajuan mendekati batas waktu",
+			fmt.Sprintf(
+				"Pengajuan %s sudah hampir mencapai batas SLA. Status saat ini: %s.",
+				payload.RequestNumber, payload.Status,
+			),
 			"WARNING"
 
 	case "supervisor_request.created":

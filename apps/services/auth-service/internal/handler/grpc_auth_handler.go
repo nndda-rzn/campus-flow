@@ -169,3 +169,35 @@ func (h *AuthHandler) ChangePassword(
 
 	return &authv1.ChangePasswordResponse{Success: true}, nil
 }
+
+func (h *AuthHandler) ForgotPassword(
+	ctx context.Context,
+	req *authv1.ForgotPasswordRequest,
+) (*authv1.ForgotPasswordResponse, error) {
+	// Always returns success (enumeration-safe).
+	if err := h.authService.ForgotPassword(ctx, req.Email, req.ResetUrlBase); err != nil {
+		// Best effort: still respond success but log internally.
+		_ = err
+	}
+	return &authv1.ForgotPasswordResponse{Success: true}, nil
+}
+
+func (h *AuthHandler) ResetPassword(
+	ctx context.Context,
+	req *authv1.ResetPasswordRequest,
+) (*authv1.ResetPasswordResponse, error) {
+	err := h.authService.ResetPassword(ctx, req.Token, req.NewPassword)
+	if err != nil {
+		if errors.Is(err, service.ErrResetTokenInvalid) {
+			return nil, status.Error(codes.Unauthenticated, "invalid or expired reset token")
+		}
+		if errors.Is(err, service.ErrPasswordTooShort) {
+			return nil, status.Error(codes.InvalidArgument, "new password must be at least 8 characters")
+		}
+		if errors.Is(err, service.ErrUserInactive) {
+			return nil, status.Error(codes.PermissionDenied, "user inactive")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &authv1.ResetPasswordResponse{Success: true}, nil
+}

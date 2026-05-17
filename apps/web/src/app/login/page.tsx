@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Activity,
   ArrowRight,
@@ -252,6 +253,14 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 required
               />
+              <div className="flex justify-end">
+                <Link
+                  href="/forgot-password"
+                  className="text-[12px] text-text-muted hover:text-accent transition-colors"
+                >
+                  Lupa password?
+                </Link>
+              </div>
             </div>
 
             <Button
