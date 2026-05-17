@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"campus-flow/apps/services/notification-service/internal/client"
 	"campus-flow/apps/services/notification-service/internal/repository"
 	"campus-flow/apps/services/notification-service/internal/service"
 
@@ -35,6 +36,7 @@ func StartNotificationConsumer(
 	deliveries <-chan amqp.Delivery,
 	eventRepo *repository.EventRepository,
 	notificationService *service.NotificationService,
+	authClient *client.AuthClient,
 ) {
 	log.Println("Notification consumer started")
 
@@ -50,7 +52,7 @@ func StartNotificationConsumer(
 				return
 			}
 
-			handleDelivery(ctx, delivery, eventRepo, notificationService)
+			handleDelivery(ctx, delivery, eventRepo, notificationService, authClient)
 		}
 	}
 }
@@ -60,6 +62,7 @@ func handleDelivery(
 	delivery amqp.Delivery,
 	eventRepo *repository.EventRepository,
 	notificationService *service.NotificationService,
+	authClient *client.AuthClient,
 ) {
 	eventID := delivery.MessageId
 	eventType := delivery.RoutingKey
@@ -91,7 +94,7 @@ func handleDelivery(
 		return
 	}
 
-	if err := createNotificationFromEvent(processCtx, notificationService, eventType, delivery.Body); err != nil {
+	if err := createNotificationFromEvent(processCtx, notificationService, authClient, eventType, delivery.Body); err != nil {
 		log.Printf("failed to process event %s: %v", eventID, err)
 		_ = delivery.Nack(false, false)
 		return
@@ -110,6 +113,7 @@ func handleDelivery(
 func createNotificationFromEvent(
 	ctx context.Context,
 	notificationService *service.NotificationService,
+	authClient *client.AuthClient,
 	eventType string,
 	body []byte,
 ) error {
@@ -132,15 +136,18 @@ func createNotificationFromEvent(
 	}
 
 	// Determine recipients per event type.
-	recipients := resolveRecipients(eventType, payload)
+	recipients := resolveRecipients(ctx, eventType, payload, authClient)
 	if len(recipients) == 0 {
 		return nil
 	}
 
+	seen := make(map[string]bool, len(recipients))
 	for _, recipient := range recipients {
-		if recipient == "" {
+		if recipient == "" || seen[recipient] {
 			continue
 		}
+		seen[recipient] = true
+
 		if _, err := notificationService.CreateNotification(
 			ctx,
 			recipient,
@@ -175,7 +182,12 @@ func isSilentEvent(eventType string) bool {
 
 // resolveRecipients returns the list of user IDs that should receive a
 // notification for the given event.
-func resolveRecipients(eventType string, payload RequestEventPayload) []string {
+func resolveRecipients(
+	ctx context.Context,
+	eventType string,
+	payload RequestEventPayload,
+	authClient *client.AuthClient,
+) []string {
 	switch eventType {
 	case "supervisor_request.assigned":
 		// Notify both the student (so they can track) and the lecturer
@@ -185,6 +197,17 @@ func resolveRecipients(eventType string, payload RequestEventPayload) []string {
 			recipients = append(recipients, payload.LecturerUserID)
 		}
 		return recipients
+
+	case "supervisor_request.completed", "supervisor_request.rejected":
+		// FR-130: notify mahasiswa AND every active Kaprodi when the
+		// lecturer accepts (auto-completed) or rejects the assignment.
+		recipients := []string{payload.StudentUserID}
+		if authClient != nil {
+			kaprodiIDs := authClient.ListUserIDsByRole(ctx, "KAPRODI")
+			recipients = append(recipients, kaprodiIDs...)
+		}
+		return recipients
+
 	default:
 		return []string{payload.StudentUserID}
 	}

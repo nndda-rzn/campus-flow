@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useMemo, useState } from "react";
-import { Pencil, Power, Search, ShieldCheck, Users } from "lucide-react";
+import { Pencil, Plus, Power, Search, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { Card } from "@/components/ui/card";
@@ -41,6 +41,7 @@ import { getAccessToken } from "@/lib/auth-storage";
 import {
   AdminUser,
   assignUserRole,
+  createUser,
   listUsers,
   setUserStatus,
   updateUser,
@@ -82,6 +83,15 @@ function PageContent() {
   const [roleTarget, setRoleTarget] = useState<AdminUser | null>(null);
   const [roleValue, setRoleValue] = useState("");
   const [isSavingRole, setIsSavingRole] = useState(false);
+
+  // Create user dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPassword, setCreatePassword] = useState("");
+  const [createRole, setCreateRole] = useState("MAHASISWA");
+  const [createError, setCreateError] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   async function load() {
     const token = getAccessToken();
@@ -191,6 +201,65 @@ function PageContent() {
     }
   }
 
+  function openCreate() {
+    setCreateOpen(true);
+    setCreateName("");
+    setCreateEmail("");
+    setCreatePassword("");
+    setCreateRole("MAHASISWA");
+    setCreateError("");
+  }
+
+  function closeCreate() {
+    setCreateOpen(false);
+    setCreateName("");
+    setCreateEmail("");
+    setCreatePassword("");
+    setCreateError("");
+  }
+
+  async function handleCreate() {
+    const name = createName.trim();
+    const email = createEmail.trim();
+    if (name === "" || email === "" || createPassword === "") {
+      setCreateError("Nama, email, dan password wajib diisi.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setCreateError("Format email tidak valid.");
+      return;
+    }
+    if (createPassword.length < 8) {
+      setCreateError("Password minimal 8 karakter.");
+      return;
+    }
+
+    const token = getAccessToken();
+    if (!token) return;
+
+    setIsCreating(true);
+    setCreateError("");
+    try {
+      await createUser(token, {
+        full_name: name,
+        email,
+        password: createPassword,
+        role: createRole,
+      });
+      toast.success("Pengguna berhasil dibuat", {
+        description: `${name} (${createRole.replace("_", " ")}) ditambahkan.`,
+      });
+      closeCreate();
+      await load();
+    } catch (err) {
+      toast.error("Gagal membuat pengguna", {
+        description: err instanceof Error ? err.message : "Coba lagi",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
   return (
     <>
       <div className="space-y-4">
@@ -227,6 +296,10 @@ function PageContent() {
               <SelectItem value="INACTIVE">Nonaktif</SelectItem>
             </SelectContent>
           </Select>
+          <Button onClick={openCreate}>
+            <Plus className="size-3.5" />
+            Tambah Pengguna
+          </Button>
         </div>
 
         <Card className="overflow-hidden">
@@ -396,6 +469,102 @@ function PageContent() {
             <Button onClick={handleSaveRole} loading={isSavingRole}>
               <ShieldCheck className="size-3.5" />
               Simpan Role
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create user dialog */}
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => !open && closeCreate()}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tambah Pengguna Baru</DialogTitle>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="create-name">Nama Lengkap</Label>
+              <Input
+                id="create-name"
+                value={createName}
+                onChange={(e) => {
+                  setCreateName(e.target.value);
+                  if (createError) setCreateError("");
+                }}
+                placeholder="Contoh: Andi Pratama"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-email">Email</Label>
+              <Input
+                id="create-email"
+                type="email"
+                value={createEmail}
+                onChange={(e) => {
+                  setCreateEmail(e.target.value);
+                  if (createError) setCreateError("");
+                }}
+                placeholder="andi@kampus.id"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-password">
+                Password{" "}
+                <span className="font-normal text-text-muted">
+                  (min. 8 karakter)
+                </span>
+              </Label>
+              <Input
+                id="create-password"
+                type="password"
+                value={createPassword}
+                onChange={(e) => {
+                  setCreatePassword(e.target.value);
+                  if (createError) setCreateError("");
+                }}
+                placeholder="••••••••"
+                required
+                minLength={8}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-role">Role</Label>
+              <Select value={createRole} onValueChange={setCreateRole}>
+                <SelectTrigger id="create-role">
+                  <SelectValue placeholder="Pilih role..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {ROLES.map((r) => (
+                    <SelectItem key={r} value={r}>
+                      {r.replace("_", " ")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {createError ? (
+              <p className="text-[12.5px] text-danger">{createError}</p>
+            ) : (
+              <p className="text-[11.5px] text-text-muted">
+                Akun MAHASISWA / DOSEN otomatis dibuatkan baris stub di
+                directory dengan status PENDING_BIND. Admin Prodi perlu
+                meng-isi NIM / NIDN sebelum bisa dipakai.
+              </p>
+            )}
+          </DialogBody>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary" disabled={isCreating}>
+                Batal
+              </Button>
+            </DialogClose>
+            <Button onClick={handleCreate} loading={isCreating}>
+              <Plus className="size-3.5" />
+              Tambah Pengguna
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -183,6 +183,22 @@ export async function assignUserRole(
   return { ...response, data: { user: normalizeUser(rawUser) } };
 }
 
+export async function createUser(
+  token: string,
+  payload: {
+    full_name: string;
+    email: string;
+    password: string;
+    role: string;
+  },
+) {
+  return apiFetch<ApiResponse<RawRecord>>("/api/v1/admin/users/create", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+}
+
 // ─── API: Departments ────────────────────────────────────────────────────────
 
 export async function listDepartments(token: string) {

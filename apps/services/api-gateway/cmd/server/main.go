@@ -467,6 +467,7 @@ func main() {
 	}
 
 	registerAdmin("/api/v1/admin/users", adminHandler.ListUsers, "SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/users/create", adminHandler.CreateUser, "SUPER_ADMIN")
 	registerAdmin("/api/v1/admin/users/update", adminHandler.UpdateUser, "SUPER_ADMIN")
 	registerAdmin("/api/v1/admin/users/status", adminHandler.SetUserStatus, "SUPER_ADMIN")
 	registerAdmin("/api/v1/admin/users/role", adminHandler.AssignUserRole, "SUPER_ADMIN")

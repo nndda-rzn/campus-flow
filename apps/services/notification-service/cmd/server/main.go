@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 
+	"campus-flow/apps/services/notification-service/internal/client"
 	"campus-flow/apps/services/notification-service/internal/config"
 	"campus-flow/apps/services/notification-service/internal/handler"
 	"campus-flow/apps/services/notification-service/internal/messaging"
@@ -37,6 +38,16 @@ func main() {
 
 	eventRepo := repository.NewEventRepository(dbpool)
 
+	// auth-service client used to broadcast Kaprodi notifications (FR-130).
+	// Failure to dial is non-fatal: the consumer just degrades to single-recipient.
+	authClient, err := client.NewAuthClient(cfg.AuthServiceAddr)
+	if err != nil {
+		log.Printf("WARNING: failed to dial auth-service at %s: %v", cfg.AuthServiceAddr, err)
+		authClient = nil
+	} else {
+		defer authClient.Close()
+	}
+
 	rabbitConsumer, deliveries, err := messaging.NewRabbitMQConsumer(
 		cfg.RabbitMQURL,
 		"campusflow.events",
@@ -59,6 +70,7 @@ func main() {
 		deliveries,
 		eventRepo,
 		notificationService,
+		authClient,
 	)
 
 	listener, err := net.Listen("tcp", cfg.GRPCPort)

@@ -3,9 +3,10 @@ package config
 import "os"
 
 type Config struct {
-	GRPCPort    string
-	DatabaseURL string
-	RabbitMQURL string
+	GRPCPort        string
+	DatabaseURL     string
+	RabbitMQURL     string
+	AuthServiceAddr string
 }
 
 func Load() Config {
@@ -19,6 +20,7 @@ func Load() Config {
 			"RABBITMQ_URL",
 			"amqp://campusflow:campusflow_password@127.0.0.1:5672/",
 		),
+		AuthServiceAddr: getEnv("AUTH_SERVICE_ADDR", "127.0.0.1:50051"),
 	}
 }
 

@@ -159,6 +159,65 @@ type AssignUserRoleHTTPBody struct {
 	Role   string `json:"role"`
 }
 
+type CreateUserHTTPBody struct {
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Role     string `json:"role"`
+}
+
+func (h *AdminHandler) CreateUser(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	var body CreateUserHTTPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "invalid request body"})
+		return
+	}
+
+	body.FullName = strings.TrimSpace(body.FullName)
+	body.Email = strings.TrimSpace(body.Email)
+	body.Role = strings.TrimSpace(body.Role)
+
+	if body.FullName == "" || body.Email == "" || body.Password == "" || body.Role == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "full_name, email, password, dan role wajib diisi",
+		})
+		return
+	}
+	if len(body.Password) < 8 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "password minimal 8 karakter",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.authClient.Client.Register(ctx, &authv1.RegisterRequest{
+		FullName: body.FullName,
+		Email:    body.Email,
+		Password: body.Password,
+		Role:     body.Role,
+	})
+	if err != nil {
+		writeAdminError(w, err, "failed to create user")
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, APIResponse{
+		Success: true,
+		Message: "create user success",
+		Data:    res,
+	})
+}
+
 func (h *AdminHandler) AssignUserRole(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})

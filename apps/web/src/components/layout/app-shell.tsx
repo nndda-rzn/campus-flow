@@ -107,6 +107,11 @@ function getNavigation(role: UserRole): NavGroup[] {
               href: "/head/supervisor-requests",
               icon: <IconUsers />,
             },
+            {
+              label: "Kuota Dosen",
+              href: "/head/lecturer-quotas",
+              icon: <IconChart />,
+            },
           ],
         },
         {
