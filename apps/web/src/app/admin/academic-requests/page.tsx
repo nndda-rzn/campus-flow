@@ -2,7 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -335,8 +335,8 @@ function PageContent() {
               </TableHeader>
               <TableBody>
                 {paginatedItems.map((request) => (
-                  <>
-                    <TableRow key={request.id}>
+                  <Fragment key={request.id}>
+                    <TableRow>
                       <TableCell className="max-w-md">
                         <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
                           {request.title}
@@ -410,10 +410,7 @@ function PageContent() {
                       </TableCell>
                     </TableRow>
                     {expandedId === request.id && (
-                      <TableRow
-                        key={`${request.id}-detail`}
-                        className="bg-background-alt hover:bg-background-alt"
-                      >
+                      <TableRow className="bg-background-alt hover:bg-background-alt">
                         <TableCell colSpan={5} className="px-5 py-4">
                           <div className="space-y-4">
                             <div>
@@ -439,7 +436,7 @@ function PageContent() {
                         </TableCell>
                       </TableRow>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

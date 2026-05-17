@@ -183,7 +183,7 @@ function DashboardContent() {
                 </div>
                 <p className="mt-1.5 text-[11.5px] text-text-muted">
                   {isLoading ? (
-                    <Skeleton className="inline-block h-3 w-20" />
+                    <Skeleton className="h-3 w-20" />
                   ) : (
                     `${pct}% dari total ${total} pengajuan`
                   )}
