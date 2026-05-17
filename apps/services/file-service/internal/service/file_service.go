@@ -10,17 +10,33 @@ import (
 )
 
 var (
-	ErrInvalidInput = errors.New("invalid input")
-	ErrFileNotFound = errors.New("file not found")
+	ErrInvalidInput  = errors.New("invalid input")
+	ErrFileNotFound  = errors.New("file not found")
+	ErrMimeRejected  = errors.New("mime type not allowed")
+	ErrSizeRejected  = errors.New("file size exceeds limit")
+	ErrEmptyMime     = errors.New("mime type is required")
+	ErrEmptyFileSize = errors.New("file size must be greater than zero")
 )
 
-type FileService struct {
-	repo *repository.FileRepository
+// ValidationConfig holds the validation rules used by FileService. It is
+// populated from config.Config at construction time.
+type ValidationConfig struct {
+	MaxSizeBytes    int64
+	AllowedMimeType map[string]bool
 }
 
-func NewFileService(repo *repository.FileRepository) *FileService {
+type FileService struct {
+	repo       *repository.FileRepository
+	validation ValidationConfig
+}
+
+func NewFileService(
+	repo *repository.FileRepository,
+	validation ValidationConfig,
+) *FileService {
 	return &FileService{
-		repo: repo,
+		repo:       repo,
+		validation: validation,
 	}
 }
 
@@ -31,7 +47,7 @@ func (s *FileService) RegisterUploadedFile(
 	file.OriginalName = strings.TrimSpace(file.OriginalName)
 	file.StoredName = strings.TrimSpace(file.StoredName)
 	file.StoragePath = strings.TrimSpace(file.StoragePath)
-	file.MimeType = strings.TrimSpace(file.MimeType)
+	file.MimeType = strings.ToLower(strings.TrimSpace(file.MimeType))
 	file.UploadedByUserID = strings.TrimSpace(file.UploadedByUserID)
 	file.OwnerType = strings.ToUpper(strings.TrimSpace(file.OwnerType))
 	file.OwnerID = strings.TrimSpace(file.OwnerID)
@@ -40,8 +56,6 @@ func (s *FileService) RegisterUploadedFile(
 	if file.OriginalName == "" ||
 		file.StoredName == "" ||
 		file.StoragePath == "" ||
-		file.MimeType == "" ||
-		file.SizeBytes <= 0 ||
 		file.UploadedByUserID == "" ||
 		file.OwnerType == "" ||
 		file.OwnerID == "" ||
@@ -49,7 +63,46 @@ func (s *FileService) RegisterUploadedFile(
 		return nil, ErrInvalidInput
 	}
 
+	if file.MimeType == "" {
+		return nil, ErrEmptyMime
+	}
+	if file.SizeBytes <= 0 {
+		return nil, ErrEmptyFileSize
+	}
+
+	if err := s.validate(file); err != nil {
+		return nil, err
+	}
+
 	return s.repo.RegisterUploadedFile(ctx, file)
+}
+
+// validate enforces mime + size policy. Returns ErrMimeRejected /
+// ErrSizeRejected for clear translation to gRPC status codes upstream.
+func (s *FileService) validate(file model.File) error {
+	if s.validation.MaxSizeBytes > 0 && file.SizeBytes > s.validation.MaxSizeBytes {
+		return ErrSizeRejected
+	}
+	if len(s.validation.AllowedMimeType) > 0 &&
+		!s.validation.AllowedMimeType[file.MimeType] {
+		return ErrMimeRejected
+	}
+	return nil
+}
+
+// MaxSizeBytes exposes the configured size cap so callers (e.g. gateway)
+// can echo it back in error messages.
+func (s *FileService) MaxSizeBytes() int64 {
+	return s.validation.MaxSizeBytes
+}
+
+// AllowedMimeTypes returns a sorted list of allowed mime types.
+func (s *FileService) AllowedMimeTypes() []string {
+	out := make([]string, 0, len(s.validation.AllowedMimeType))
+	for k := range s.validation.AllowedMimeType {
+		out = append(out, k)
+	}
+	return out
 }
 
 func (s *FileService) GetFileMetadata(ctx context.Context, fileID string) (*model.File, error) {

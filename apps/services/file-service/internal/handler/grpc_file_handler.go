@@ -42,6 +42,18 @@ func (h *FileHandler) RegisterUploadedFile(
 		if errors.Is(err, service.ErrInvalidInput) {
 			return nil, status.Error(codes.InvalidArgument, "invalid file metadata")
 		}
+		if errors.Is(err, service.ErrEmptyMime) {
+			return nil, status.Error(codes.InvalidArgument, "mime type is required")
+		}
+		if errors.Is(err, service.ErrEmptyFileSize) {
+			return nil, status.Error(codes.InvalidArgument, "file size must be greater than zero")
+		}
+		if errors.Is(err, service.ErrMimeRejected) {
+			return nil, status.Error(codes.FailedPrecondition, "mime type not allowed")
+		}
+		if errors.Is(err, service.ErrSizeRejected) {
+			return nil, status.Error(codes.FailedPrecondition, "file size exceeds limit")
+		}
 
 		return nil, status.Error(codes.Internal, err.Error())
 	}

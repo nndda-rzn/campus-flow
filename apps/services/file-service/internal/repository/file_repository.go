@@ -109,12 +109,44 @@ func (r *FileRepository) RegisterUploadedFile(
 			'file.uploaded',
 			jsonb_build_object(
 				'file_id', $1::text,
+				'original_name', $5::text,
+				'mime_type', $6::text,
+				'size_bytes', $7::bigint,
+				'uploaded_by_user_id', $8::text,
 				'owner_type', $2::text,
 				'owner_id', $3::text,
 				'purpose', $4::text
 			)
 		)
-	`, created.ID, file.OwnerType, file.OwnerID, file.Purpose)
+	`, created.ID, file.OwnerType, file.OwnerID, file.Purpose,
+		file.OriginalName, file.MimeType, file.SizeBytes, file.UploadedByUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// file.attached signals the file is now linked to a domain entity (an
+	// academic_request, supervisor_request, etc.) so downstream services like
+	// reporting can react to attachment specifically.
+	_, err = tx.Exec(ctx, `
+		INSERT INTO outbox_events (
+			aggregate_id,
+			aggregate_type,
+			event_type,
+			payload
+		)
+		VALUES (
+			$1::uuid,
+			'files',
+			'file.attached',
+			jsonb_build_object(
+				'file_id', $1::text,
+				'owner_type', $2::text,
+				'owner_id', $3::text,
+				'purpose', $4::text,
+				'uploaded_by_user_id', $5::text
+			)
+		)
+	`, created.ID, file.OwnerType, file.OwnerID, file.Purpose, file.UploadedByUserID)
 	if err != nil {
 		return nil, err
 	}

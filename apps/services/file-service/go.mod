@@ -4,6 +4,7 @@ go 1.25.3
 
 require (
 	github.com/jackc/pgx/v5 v5.9.2
+	github.com/rabbitmq/amqp091-go v1.11.0
 	google.golang.org/grpc v1.81.0
 )
 
