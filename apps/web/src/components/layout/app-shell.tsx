@@ -283,26 +283,31 @@ export function AppShell({
       {/* ─── Sidebar ─── */}
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface lg:flex">
         {/* Brand */}
-        <div className="flex h-14 items-center gap-2.5 border-b border-border px-5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-text-inverse text-[11px] font-bold tracking-tight">
-            CF
+        <div className="flex h-16 items-center gap-3 border-b border-border px-5">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-text-inverse shadow-[inset_0_-1px_0_rgba(255,255,255,0.08)]"
+            aria-hidden
+          >
+            <span className="font-display text-[15px] font-semibold tracking-tight">
+              CF
+            </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[14px] font-semibold leading-none text-text-primary tracking-tight">
+            <p className="font-display text-[15.5px] font-semibold leading-none tracking-tight text-text-primary">
               CampusFlow
             </p>
-            <p className="mt-1 text-[11px] leading-none text-text-muted">
-              Academic System
+            <p className="mt-1 text-[10.5px] uppercase tracking-[0.14em] leading-none text-text-muted">
+              Academic Service Suite
             </p>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <nav className="flex-1 overflow-y-auto px-2.5 py-4">
           {navigation.map((group, idx) => (
-            <div key={idx} className={idx > 0 ? "mt-5" : ""}>
+            <div key={idx} className={idx > 0 ? "mt-6" : ""}>
               {group.title ? (
-                <p className="px-3 pb-1.5 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-text-disabled">
+                <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-disabled">
                   {group.title}
                 </p>
               ) : null}
@@ -318,14 +323,20 @@ export function AppShell({
                         href={item.href}
                         className={`group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] transition-colors ${
                           isActive
-                            ? "bg-primary-soft text-primary font-medium"
+                            ? "bg-accent-soft text-accent font-semibold"
                             : "text-text-secondary hover:bg-background-alt hover:text-text-primary"
                         }`}
                       >
+                        {isActive ? (
+                          <span
+                            aria-hidden
+                            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent"
+                          />
+                        ) : null}
                         <span
                           className={`flex h-4 w-4 shrink-0 items-center justify-center transition-colors ${
                             isActive
-                              ? "text-primary"
+                              ? "text-accent"
                               : "text-text-muted group-hover:text-text-secondary"
                           }`}
                         >
@@ -348,28 +359,35 @@ export function AppShell({
 
         {/* User card */}
         <div className="border-t border-border p-2.5">
-          <div className="group flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors hover:bg-background-alt">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[11.5px] font-semibold text-primary">
+          <Link
+            href="/profile"
+            className="group flex items-center gap-2.5 rounded-md px-2.5 py-2 transition-colors hover:bg-background-alt"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-[12px] font-semibold text-text-inverse">
               {getInitials(user.fullName)}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[13px] font-medium leading-tight text-text-primary">
                 {user.fullName}
               </p>
-              <p className="mt-0.5 truncate text-[11.5px] leading-tight text-text-muted">
+              <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.08em] leading-tight text-text-muted">
                 {ROLE_LABELS[user.role]}
               </p>
             </div>
             <button
               type="button"
-              onClick={handleLogout}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleLogout();
+              }}
               title="Logout"
               aria-label="Logout"
               className="shrink-0 rounded-md p-1.5 text-text-muted transition-colors hover:bg-surface hover:text-danger"
             >
               <IconLogout />
             </button>
-          </div>
+          </Link>
         </div>
       </aside>
 
@@ -381,12 +399,12 @@ export function AppShell({
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-text-inverse text-[11px] font-bold">
               CF
             </div>
-            <span className="text-[14px] font-semibold tracking-tight text-text-primary">
+            <span className="font-display text-[15px] font-semibold tracking-tight text-text-primary">
               CampusFlow
             </span>
           </div>
 
-          <div className="hidden lg:flex lg:items-center lg:gap-2 text-[13px]">
+          <div className="hidden lg:flex lg:items-center lg:gap-2 text-[12.5px]">
             <span className="text-text-muted">{ROLE_LABELS[user.role]}</span>
             <span className="text-text-disabled">/</span>
             <span className="font-medium text-text-primary">{title}</span>
@@ -407,10 +425,10 @@ export function AppShell({
         </header>
 
         {/* Page header (desktop + mobile) */}
-        <div className="border-b border-border bg-surface px-5 py-5 lg:px-8 lg:py-6">
+        <div className="border-b border-border bg-surface px-5 py-6 lg:px-8 lg:py-7">
           <h1 className="heading-page">{title}</h1>
           {description ? (
-            <p className="mt-1 text-[13.5px] text-text-muted leading-relaxed max-w-3xl">
+            <p className="mt-2 text-[14px] text-text-muted leading-relaxed max-w-3xl">
               {description}
             </p>
           ) : null}

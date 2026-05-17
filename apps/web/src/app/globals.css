@@ -3,80 +3,95 @@
 
 /* ─────────────────────────────────────────────────────────────────────────
  * CampusFlow Design Tokens
- * Style: Clean Academic Dashboard · Enterprise Admin Panel · SaaS Mgmt
- * Theme: Navy Blue · Slate · White · Cyan Accent
+ * Style: Trust & Authority · Academic Editorial · Enterprise Admin
+ * Palette: Deep Navy · Slate · Cream Surface · Royal Blue Accent
+ * Typography: Crimson Pro (display) + Atkinson Hyperlegible (body)
  * ───────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* ── Brand Color ── */
-  --color-primary: #1e3a8a;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-soft: #dbeafe;
+  /* ── Brand Color (Trust & Authority navy) ── */
+  --color-primary: #0f172a;
+  --color-primary-hover: #1e293b;
+  --color-primary-soft: #e2e8f0;
 
   --color-secondary: #334155;
   --color-secondary-hover: #1e293b;
   --color-secondary-soft: #e2e8f0;
 
-  --color-accent: #0ea5e9;
-  --color-accent-hover: #0284c7;
+  /* CTA accent — confident royal blue, well-contrasted on cream surface */
+  --color-accent: #0369a1;
+  --color-accent-hover: #075985;
   --color-accent-soft: #e0f2fe;
 
-  /* ── Surface ── */
-  --color-background: #f8fafc;
-  --color-background-alt: #f1f5f9;
+  /* ── Surface (cream-leaning to feel editorial, not stark) ── */
+  --color-background: #f6f5f1;
+  --color-background-alt: #efece4;
   --color-surface: #ffffff;
-  --color-surface-muted: #f8fafc;
+  --color-surface-muted: #faf9f5;
 
   /* ── Border ── */
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
+  --color-border: #e6e1d5;
+  --color-border-strong: #cdc5b3;
 
-  /* ── Typography ── */
-  --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-muted: #64748b;
+  /* ── Typography colors ── */
+  --color-text-primary: #0b1220;
+  --color-text-secondary: #334155;
+  --color-text-muted: #5b6471;
   --color-text-disabled: #94a3b8;
   --color-text-inverse: #ffffff;
 
-  /* ── Status ── */
-  --color-success: #16a34a;
+  /* ── Status (kept readable on cream) ── */
+  --color-success: #15803d;
   --color-success-soft: #dcfce7;
-  --color-success-text: #166534;
+  --color-success-text: #14532d;
 
-  --color-warning: #d97706;
+  --color-warning: #b45309;
   --color-warning-soft: #fef3c7;
-  --color-warning-text: #92400e;
+  --color-warning-text: #78350f;
 
-  --color-danger: #dc2626;
+  --color-danger: #b91c1c;
   --color-danger-soft: #fee2e2;
-  --color-danger-text: #991b1b;
+  --color-danger-text: #7f1d1d;
 
-  --color-info: #0891b2;
-  --color-info-soft: #cffafe;
-  --color-info-text: #155e75;
+  --color-info: #075985;
+  --color-info-soft: #e0f2fe;
+  --color-info-text: #0c4a6e;
 
-  --color-neutral: #64748b;
-  --color-neutral-soft: #f1f5f9;
-  --color-neutral-text: #334155;
+  --color-neutral: #5b6471;
+  --color-neutral-soft: #efece4;
+  --color-neutral-text: #1e293b;
 
-  /* ── Radius ── */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
+  /* ── Radius (slightly tightened for editorial feel) ── */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
 
-  /* ── Shadow (refined: subtle, layered) ── */
+  /* ── Shadow (subtle ink-stroke layering) ── */
   --shadow-card:
-    0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 1px rgba(15, 23, 42, 0.03);
+    0 1px 0 rgba(11, 18, 32, 0.04), 0 1px 2px rgba(11, 18, 32, 0.04);
   --shadow-card-hover:
-    0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+    0 6px 16px rgba(11, 18, 32, 0.08), 0 2px 4px rgba(11, 18, 32, 0.04);
   --shadow-dropdown:
-    0 8px 24px rgba(15, 23, 42, 0.1), 0 2px 6px rgba(15, 23, 42, 0.04);
+    0 10px 24px rgba(11, 18, 32, 0.10), 0 2px 6px rgba(11, 18, 32, 0.05);
   --shadow-modal:
-    0 24px 48px rgba(15, 23, 42, 0.18), 0 8px 16px rgba(15, 23, 42, 0.08);
-  --shadow-focus: 0 0 0 3px rgba(30, 58, 138, 0.12);
-  --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.12);
+    0 28px 56px rgba(11, 18, 32, 0.18), 0 8px 16px rgba(11, 18, 32, 0.08);
+  --shadow-focus: 0 0 0 3px rgba(3, 105, 161, 0.18);
+  --shadow-focus-danger: 0 0 0 3px rgba(185, 28, 28, 0.16);
+
+  /* ── Font family tokens ── */
+  --font-sans:
+    var(--font-atkinson, "Atkinson Hyperlegible"), "Inter",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-display:
+    var(--font-crimson, "Crimson Pro"), "EB Garamond", "Iowan Old Style",
+    Georgia, "Times New Roman", serif;
+  --font-mono:
+    var(--font-jetbrains-mono, "JetBrains Mono"), "Fira Code", ui-monospace,
+    SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -87,35 +102,43 @@ html,
 body {
   background-color: var(--color-background);
   color: var(--color-text-primary);
-  font-family:
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
-  font-size: 14px;
-  line-height: 1.5;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-family: var(--font-sans);
+  font-size: 14.5px;
+  line-height: 1.55;
+  font-feature-settings: "ss01", "ss02", "kern", "liga";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
+/* Subtle ruled paper texture on the background — gives the academic feel
+ * without sacrificing readability. */
+body {
+  background-image:
+    radial-gradient(
+      circle at 1px 1px,
+      rgba(11, 18, 32, 0.035) 1px,
+      transparent 0
+    );
+  background-size: 22px 22px;
+}
+
 /* Mono font for IDs, codes, request numbers */
 .font-mono {
-  font-family:
-    "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco,
-    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-variant-ligatures: none;
   font-feature-settings: "calt" 0;
 }
 
+/* Display font utility for editorial headings */
+.font-display {
+  font-family: var(--font-display);
+  font-feature-settings: "kern", "liga", "onum";
+}
+
 /* Selection */
 ::selection {
-  background-color: rgba(14, 165, 233, 0.2);
+  background-color: rgba(3, 105, 161, 0.18);
   color: var(--color-text-primary);
 }
 
@@ -127,31 +150,34 @@ body {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
- * Typography utilities (Better Stack inspired hierarchy)
+ * Typography utilities — Editorial hierarchy
  * ───────────────────────────────────────────────────────────────────────── */
 
 .heading-page {
-  font-size: 22px;
+  font-family: var(--font-display);
+  font-size: 26px;
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+  line-height: 1.18;
+}
+
+.heading-section {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--color-text-primary);
   line-height: 1.25;
 }
 
-.heading-section {
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  color: var(--color-text-primary);
-  line-height: 1.3;
-}
-
 .text-eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--color-text-muted);
+  font-feature-settings: "tnum";
 }
 
 .text-meta {
@@ -344,14 +370,14 @@ body {
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
+  background-color: var(--color-accent);
   color: var(--color-text-inverse);
-  border-color: var(--color-primary);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  border-color: var(--color-accent);
+  box-shadow: 0 1px 2px rgba(3, 105, 161, 0.18);
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--color-primary-hover);
-  border-color: var(--color-primary-hover);
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
 }
 
 .btn-secondary {

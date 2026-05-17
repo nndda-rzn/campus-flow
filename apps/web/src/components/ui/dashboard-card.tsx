@@ -10,11 +10,11 @@ type Props = {
 };
 
 const ACCENT_STYLES: Record<NonNullable<Props["accent"]>, string> = {
-  primary: "bg-primary-soft text-primary",
-  accent: "bg-accent-soft text-accent",
-  success: "bg-success-soft text-success",
-  warning: "bg-warning-soft text-warning",
-  info: "bg-info-soft text-info",
+  primary: "bg-primary text-text-inverse",
+  accent: "bg-accent text-text-inverse",
+  success: "bg-success text-text-inverse",
+  warning: "bg-warning text-text-inverse",
+  info: "bg-info text-text-inverse",
 };
 
 export function DashboardCard({
@@ -27,11 +27,11 @@ export function DashboardCard({
   return (
     <Link
       href={href}
-      className="card card-padded card-interactive group relative flex flex-col gap-4 overflow-hidden"
+      className="card card-padded card-interactive group relative flex flex-col gap-5 overflow-hidden cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${ACCENT_STYLES[accent]}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ring-1 ring-black/5 ${ACCENT_STYLES[accent]}`}
         >
           {icon}
         </div>
@@ -39,10 +39,10 @@ export function DashboardCard({
       </div>
 
       <div>
-        <h2 className="text-[14.5px] font-semibold leading-tight tracking-tight text-text-primary group-hover:text-primary transition-colors">
+        <h2 className="font-display text-[17px] font-semibold leading-tight tracking-tight text-text-primary transition-colors group-hover:text-accent">
           {title}
         </h2>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-text-secondary line-clamp-2">
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-text-secondary line-clamp-2">
           {description}
         </p>
       </div>
@@ -61,7 +61,7 @@ function ArrowIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="shrink-0 text-text-disabled transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary"
+      className="shrink-0 text-text-disabled transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-accent"
     >
       <line x1="7" y1="17" x2="17" y2="7" />
       <polyline points="7 7 17 7 17 17" />
