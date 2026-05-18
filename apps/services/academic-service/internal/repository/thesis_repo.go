@@ -52,6 +52,74 @@ func (r *ThesisRepository) GetMilestonesByDepartment(ctx context.Context, depart
 	return milestones, nil
 }
 
+func (r *ThesisRepository) CreateMilestone(ctx context.Context, m *model.ThesisMilestone) (*model.ThesisMilestone, error) {
+	query, args, err := squirrel.Insert("thesis_milestones").
+		Columns("department_id", "code", "name", "description", "sequence_order").
+		Values(m.DepartmentID, m.Code, m.Name, m.Description, m.SequenceOrder).
+		Suffix("RETURNING id, created_at, updated_at").
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.db.QueryRow(ctx, query, args...).Scan(&m.ID, &m.CreatedAt, &m.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (r *ThesisRepository) UpdateMilestone(ctx context.Context, m *model.ThesisMilestone) error {
+	query, args, err := squirrel.Update("thesis_milestones").
+		Set("name", m.Name).
+		Set("description", m.Description).
+		Set("sequence_order", m.SequenceOrder).
+		Set("is_active", m.IsActive).
+		Set("updated_at", time.Now()).
+		Where(squirrel.Eq{"id": m.ID}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *ThesisRepository) DeleteMilestone(ctx context.Context, id string) error {
+	query, args, err := squirrel.Delete("thesis_milestones").
+		Where(squirrel.Eq{"id": id}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+
 // --- Progress ---
 
 func (r *ThesisRepository) GetProgressByStudent(ctx context.Context, studentUserID string) ([]model.ThesisProgress, error) {

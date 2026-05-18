@@ -614,6 +614,15 @@ func main() {
 
 	// ─── Student Features (New) ────────────────────────────────────────────────
 
+	registerAdmin("/api/v1/admin/academic-calendar", calendarHandler.RouteAdminEvents, "SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+	registerAdmin("/api/v1/admin/academic-calendar/", calendarHandler.RouteAdminEventByID, "SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+
+	registerAdmin("/api/v1/admin/faqs", faqHandler.RouteAdminFAQs, "SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/faqs/", faqHandler.RouteAdminFAQByID, "SUPER_ADMIN", "ADMIN_PRODI")
+
+	registerAdmin("/api/v1/admin/thesis-milestones", thesisHandler.RouteAdminMilestones, "SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/thesis-milestones/", thesisHandler.RouteAdminMilestoneByID, "SUPER_ADMIN", "ADMIN_PRODI")
+
 	// Thesis Progress
 	mux.Handle(
 		"/api/v1/student/thesis-progress",

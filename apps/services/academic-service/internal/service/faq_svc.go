@@ -21,3 +21,15 @@ func (s *FAQService) GetCategories(ctx context.Context) ([]model.FAQCategory, er
 func (s *FAQService) GetFAQs(ctx context.Context, categoryID string) ([]model.FAQ, error) {
 	return s.repo.GetFAQs(ctx, categoryID)
 }
+
+func (s *FAQService) CreateFAQ(ctx context.Context, f *model.FAQ) (*model.FAQ, error) {
+	return s.repo.CreateFAQ(ctx, f)
+}
+
+func (s *FAQService) UpdateFAQ(ctx context.Context, f *model.FAQ) error {
+	return s.repo.UpdateFAQ(ctx, f)
+}
+
+func (s *FAQService) DeleteFAQ(ctx context.Context, id string) error {
+	return s.repo.DeleteFAQ(ctx, id)
+}

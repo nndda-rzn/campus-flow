@@ -88,3 +88,72 @@ func (r *FAQRepository) GetFAQs(ctx context.Context, categoryID string) ([]model
 	}
 	return faqs, nil
 }
+
+func (r *FAQRepository) CreateFAQ(ctx context.Context, f *model.FAQ) (*model.FAQ, error) {
+	query, args, err := squirrel.Insert("faqs").
+		Columns("category_id", "question", "answer", "sequence_order").
+		Values(f.CategoryID, f.Question, f.Answer, f.SequenceOrder).
+		Suffix("RETURNING id, created_at, updated_at").
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.db.QueryRow(ctx, query, args...).Scan(&f.ID, &f.CreatedAt, &f.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (r *FAQRepository) UpdateFAQ(ctx context.Context, f *model.FAQ) error {
+	query, args, err := squirrel.Update("faqs").
+		Set("category_id", f.CategoryID).
+		Set("question", f.Question).
+		Set("answer", f.Answer).
+		Set("sequence_order", f.SequenceOrder).
+		Set("is_active", f.IsActive).
+		Set("updated_at", time.Now()).
+		Where(squirrel.Eq{"id": f.ID}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *FAQRepository) DeleteFAQ(ctx context.Context, id string) error {
+	query, args, err := squirrel.Delete("faqs").
+		Where(squirrel.Eq{"id": id}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}

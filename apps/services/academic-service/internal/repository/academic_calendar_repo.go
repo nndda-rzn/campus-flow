@@ -74,5 +74,83 @@ func (r *AcademicCalendarRepository) GetEvents(ctx context.Context, startDate, e
 		e.TargetRoles = targetRoles
 		events = append(events, e)
 	}
-	return events, nil
+func (r *AcademicCalendarRepository) CreateEvent(ctx context.Context, e *model.AcademicCalendar) (*model.AcademicCalendar, error) {
+	query, args, err := squirrel.Insert("academic_calendar").
+		Columns(
+			"academic_year_id", "department_id", "title", "description",
+			"event_type", "start_date", "end_date", "is_all_day", "target_roles",
+			"is_active", "created_by_user_id",
+		).
+		Values(
+			e.AcademicYearID, e.DepartmentID, e.Title, e.Description,
+			e.EventType, e.StartDate, e.EndDate, e.IsAllDay, pq.Array(e.TargetRoles),
+			e.IsActive, e.CreatedByUserID,
+		).
+		Suffix("RETURNING id, created_at, updated_at").
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.db.QueryRow(ctx, query, args...).Scan(&e.ID, &e.CreatedAt, &e.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
 }
+
+func (r *AcademicCalendarRepository) UpdateEvent(ctx context.Context, e *model.AcademicCalendar) error {
+	query, args, err := squirrel.Update("academic_calendar").
+		Set("title", e.Title).
+		Set("description", e.Description).
+		Set("event_type", e.EventType).
+		Set("start_date", e.StartDate).
+		Set("end_date", e.EndDate).
+		Set("is_all_day", e.IsAllDay).
+		Set("target_roles", pq.Array(e.TargetRoles)).
+		Set("is_active", e.IsActive).
+		Set("updated_at", time.Now()).
+		Where(squirrel.Eq{"id": e.ID}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *AcademicCalendarRepository) DeleteEvent(ctx context.Context, id string) error {
+	query, args, err := squirrel.Delete("academic_calendar").
+		Where(squirrel.Eq{"id": id}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+

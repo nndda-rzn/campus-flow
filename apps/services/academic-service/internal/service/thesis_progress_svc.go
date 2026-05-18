@@ -18,6 +18,18 @@ func (s *ThesisService) GetMilestonesByDepartment(ctx context.Context, departmen
 	return s.repo.GetMilestonesByDepartment(ctx, departmentID)
 }
 
+func (s *ThesisService) CreateMilestone(ctx context.Context, m *model.ThesisMilestone) (*model.ThesisMilestone, error) {
+	return s.repo.CreateMilestone(ctx, m)
+}
+
+func (s *ThesisService) UpdateMilestone(ctx context.Context, m *model.ThesisMilestone) error {
+	return s.repo.UpdateMilestone(ctx, m)
+}
+
+func (s *ThesisService) DeleteMilestone(ctx context.Context, id string) error {
+	return s.repo.DeleteMilestone(ctx, id)
+}
+
 func (s *ThesisService) GetProgressByStudent(ctx context.Context, studentUserID string) ([]model.ThesisProgress, error) {
 	return s.repo.GetProgressByStudent(ctx, studentUserID)
 }

@@ -265,6 +265,21 @@ function getNavigation(role: UserRole): NavGroup[] {
               href: "/admin/academic-years",
               icon: <IconCalendar />,
             },
+            {
+              label: "Kalender Akademik",
+              href: "/admin/calendar",
+              icon: <IconCalendar />,
+            },
+            {
+              label: "FAQ & Panduan",
+              href: "/admin/faqs",
+              icon: <IconHelpCircle />,
+            },
+            {
+              label: "Milestone Skripsi",
+              href: "/admin/thesis-milestones",
+              icon: <IconTarget />,
+            },
           ],
         },
         {

@@ -37,3 +37,41 @@ export async function getFAQs(token: string, categoryId?: string) {
   
   return apiFetch<ApiResponse<{ items: FAQItem[] }>>(url, { token });
 }
+
+export type CreateFAQPayload = {
+  category_id: string;
+  question: string;
+  answer: string;
+  sequence_order?: number;
+};
+
+export async function createFAQ(token: string, payload: CreateFAQPayload) {
+  return apiFetch<ApiResponse<{ faq: FAQItem }>>("/api/v1/admin/faqs", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+}
+
+export type UpdateFAQPayload = {
+  category_id: string;
+  question: string;
+  answer: string;
+  sequence_order?: number;
+  is_active?: boolean;
+};
+
+export async function updateFAQ(token: string, id: string, payload: UpdateFAQPayload) {
+  return apiFetch<ApiResponse<{ faq: FAQItem }>>(`/api/v1/admin/faqs/${id}`, {
+    method: "PUT",
+    token,
+    body: payload,
+  });
+}
+
+export async function deleteFAQ(token: string, id: string) {
+  return apiFetch<ApiResponse<null>>(`/api/v1/admin/faqs/${id}`, {
+    method: "DELETE",
+    token,
+  });
+}

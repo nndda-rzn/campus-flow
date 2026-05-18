@@ -42,9 +42,47 @@ export async function updateThesisProgress(
   id: string, 
   payload: { notes: string; target_date?: string; status: ThesisProgressStatus }
 ) {
-  return apiFetch<ApiResponse<ThesisProgressItem>>(`/api/v1/student/thesis-progress/${id}`, {
+  return apiFetch<ApiResponse<{ progress: ThesisProgressItem }>>(`/api/v1/student/thesis-progress/${id}`, {
     method: "PUT",
     token,
     body: payload,
+  });
+}
+
+export type CreateMilestonePayload = {
+  department_id: string;
+  code: string;
+  name: string;
+  description?: string;
+  sequence_order: number;
+};
+
+export async function createThesisMilestone(token: string, payload: CreateMilestonePayload) {
+  return apiFetch<ApiResponse<{ milestone: ThesisMilestoneItem }>>("/api/v1/admin/thesis-milestones", {
+    method: "POST",
+    token,
+    body: payload,
+  });
+}
+
+export type UpdateMilestonePayload = {
+  name: string;
+  description?: string;
+  sequence_order: number;
+  is_active?: boolean;
+};
+
+export async function updateThesisMilestone(token: string, id: string, payload: UpdateMilestonePayload) {
+  return apiFetch<ApiResponse<{ milestone: ThesisMilestoneItem }>>(`/api/v1/admin/thesis-milestones/${id}`, {
+    method: "PUT",
+    token,
+    body: payload,
+  });
+}
+
+export async function deleteThesisMilestone(token: string, id: string) {
+  return apiFetch<ApiResponse<null>>(`/api/v1/admin/thesis-milestones/${id}`, {
+    method: "DELETE",
+    token,
   });
 }

@@ -98,5 +98,62 @@ func (h *ThesisHandler) UpdateProgress(ctx context.Context, req *academicv1.Upda
 		item.CompletedAt = p.CompletedAt.Format(time.RFC3339)
 	}
 
-	return &academicv1.ThesisProgressResponse{Progress: item}, nil
+func (h *ThesisHandler) CreateMilestone(ctx context.Context, req *academicv1.CreateMilestoneRequest) (*academicv1.MilestoneResponse, error) {
+	milestone := &model.ThesisMilestone{
+		DepartmentID:  req.DepartmentId,
+		Code:          req.Code,
+		Name:          req.Name,
+		Description:   req.Description,
+		SequenceOrder: int(req.SequenceOrder),
+		IsActive:      true,
+	}
+
+	createdMilestone, err := h.svc.CreateMilestone(ctx, milestone)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to create milestone: %v", err)
+	}
+
+	return &academicv1.MilestoneResponse{Milestone: &academicv1.ThesisMilestoneItem{
+		Id:            createdMilestone.ID,
+		DepartmentId:  createdMilestone.DepartmentID,
+		Code:          createdMilestone.Code,
+		Name:          createdMilestone.Name,
+		Description:   createdMilestone.Description,
+		SequenceOrder: int32(createdMilestone.SequenceOrder),
+		IsActive:      createdMilestone.IsActive,
+		CreatedAt:     createdMilestone.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:     createdMilestone.UpdatedAt.Format(time.RFC3339),
+	}}, nil
+}
+
+func (h *ThesisHandler) UpdateMilestone(ctx context.Context, req *academicv1.UpdateMilestoneRequest) (*academicv1.MilestoneResponse, error) {
+	milestone := &model.ThesisMilestone{
+		ID:            req.Id,
+		Name:          req.Name,
+		Description:   req.Description,
+		SequenceOrder: int(req.SequenceOrder),
+		IsActive:      req.IsActive,
+	}
+
+	err := h.svc.UpdateMilestone(ctx, milestone)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to update milestone: %v", err)
+	}
+
+	return &academicv1.MilestoneResponse{Milestone: &academicv1.ThesisMilestoneItem{
+		Id:            milestone.ID,
+		Name:          milestone.Name,
+		Description:   milestone.Description,
+		SequenceOrder: int32(milestone.SequenceOrder),
+		IsActive:      milestone.IsActive,
+	}}, nil
+}
+
+func (h *ThesisHandler) DeleteMilestone(ctx context.Context, req *academicv1.DeleteMilestoneRequest) (*academicv1.DeleteMilestoneResponse, error) {
+	err := h.svc.DeleteMilestone(ctx, req.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to delete milestone: %v", err)
+	}
+
+	return &academicv1.DeleteMilestoneResponse{Success: true}, nil
 }
