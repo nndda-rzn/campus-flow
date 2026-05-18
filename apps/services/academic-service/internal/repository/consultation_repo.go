@@ -199,7 +199,7 @@ func (r *ConsultationRepository) GetAvailableSlotsForStudent(ctx context.Context
 			cs.location, cs.notes, cs.is_cancelled, cs.created_at, cs.updated_at
 		FROM consultation_slots cs
 		JOIN lecturers l ON l.user_id = cs.lecturer_user_id
-		JOIN supervisor_assignments sa ON sa.lecturer_id = l.id AND sa.is_current = TRUE
+		JOIN supervisor_assignments sa ON sa.lecturer_id = l.id AND sa.status = 'ACCEPTED'
 		JOIN supervisor_requests sr ON sr.id = sa.request_id AND sr.student_user_id = $1 AND sr.status IN ('ACCEPTED', 'COMPLETED')
 		WHERE cs.is_cancelled = FALSE
 		  AND (cs.slot_date + cs.start_time) > (NOW() + INTERVAL '12 hours')
