@@ -1,23 +1,31 @@
 import type { Metadata } from "next";
 import {
-  Atkinson_Hyperlegible,
-  Crimson_Pro,
+  Inter,
+  Poppins,
+  IBM_Plex_Sans,
   JetBrains_Mono,
 } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
-const atkinson = Atkinson_Hyperlegible({
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-atkinson",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-inter",
   display: "swap",
 });
 
-const crimson = Crimson_Pro({
+const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-crimson",
+  variable: "--font-poppins",
+  display: "swap",
+});
+
+const ibmPlexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-ibm-plex",
   display: "swap",
 });
 
@@ -41,7 +49,7 @@ export default function RootLayout({
   return (
     <html
       lang="id"
-      className={`${atkinson.variable} ${crimson.variable} ${jetbrainsMono.variable}`}
+      className={`${inter.variable} ${poppins.variable} ${ibmPlexSans.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         {children}

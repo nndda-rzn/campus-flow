@@ -3,91 +3,100 @@
 
 /* ─────────────────────────────────────────────────────────────────────────
  * CampusFlow Design Tokens
- * Style: Trust & Authority · Academic Editorial · Enterprise Admin
- * Palette: Deep Navy · Slate · Cream Surface · Royal Blue Accent
- * Typography: Crimson Pro (display) + Atkinson Hyperlegible (body)
+ * Style: Modern Soft Academic · Clean · Approachable
+ * Palette: Soft Navy · Cool Gray Surface · Gold Warm Accent
+ * Typography: Poppins (display) + Inter (body) + IBM Plex Sans (data)
  * ───────────────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* ── Brand Color (Trust & Authority navy) ── */
-  --color-primary: #0f172a;
-  --color-primary-hover: #1e293b;
-  --color-primary-soft: #e2e8f0;
+  /* ── Brand Color (Soft Navy — approachable, modern academic) ── */
+  --color-primary: #2D3B5E;
+  --color-primary-hover: #3D4F76;
+  --color-primary-soft: #EBEFF6;
 
-  --color-secondary: #334155;
-  --color-secondary-hover: #1e293b;
-  --color-secondary-soft: #e2e8f0;
+  --color-secondary: #475569;
+  --color-secondary-hover: #334155;
+  --color-secondary-soft: #F1F3F6;
 
-  /* CTA accent — confident royal blue, well-contrasted on cream surface */
-  --color-accent: #0369a1;
-  --color-accent-hover: #075985;
-  --color-accent-soft: #e0f2fe;
+  /* Gold warm accent — prestige, warmth (decorative only; use accent-dark for text) */
+  --color-accent: #D6B56D;
+  --color-accent-hover: #C9A55A;
+  --color-accent-soft: #FAF6EE;
+  --color-accent-dark: #B8944F;
 
-  /* ── Surface (cream-leaning to feel editorial, not stark) ── */
-  --color-background: #f6f5f1;
-  --color-background-alt: #efece4;
-  --color-surface: #ffffff;
-  --color-surface-muted: #faf9f5;
+  /* ── Surface (clean, airy) ── */
+  --color-background: #F8F9FB;
+  --color-background-alt: #F0F2F5;
+  --color-surface: #FFFFFF;
+  --color-surface-muted: #FAFBFC;
+  --color-surface-raised: #FCFDFE;
 
-  /* ── Border ── */
-  --color-border: #e6e1d5;
-  --color-border-strong: #cdc5b3;
+  /* ── Border (softer) ── */
+  --color-border: #E5E7EB;
+  --color-border-strong: #D1D5DB;
 
-  /* ── Typography colors ── */
-  --color-text-primary: #0b1220;
-  --color-text-secondary: #334155;
-  --color-text-muted: #5b6471;
-  --color-text-disabled: #94a3b8;
-  --color-text-inverse: #ffffff;
+  /* ── Typography colors (softer contrast) ── */
+  --color-text-heading: #2C3E50;
+  --color-text-primary: #2C3E50;
+  --color-text-secondary: #5A6B7C;
+  --color-text-muted: #8A9BAE;
+  --color-text-disabled: #B0BEC5;
+  --color-text-inverse: #FFFFFF;
 
-  /* ── Status (kept readable on cream) ── */
-  --color-success: #15803d;
-  --color-success-soft: #dcfce7;
-  --color-success-text: #14532d;
+  /* ── Status (soft, modern tones) ── */
+  --color-success: #22C55E;
+  --color-success-soft: #E6F7EC;
+  --color-success-text: #166534;
 
-  --color-warning: #b45309;
-  --color-warning-soft: #fef3c7;
-  --color-warning-text: #78350f;
+  --color-warning: #EAB308;
+  --color-warning-soft: #FEF9E7;
+  --color-warning-text: #854D0E;
 
-  --color-danger: #b91c1c;
-  --color-danger-soft: #fee2e2;
-  --color-danger-text: #7f1d1d;
+  --color-danger: #EF4444;
+  --color-danger-soft: #FDE8E8;
+  --color-danger-text: #991B1B;
 
-  --color-info: #075985;
-  --color-info-soft: #e0f2fe;
-  --color-info-text: #0c4a6e;
+  --color-info: #3B82F6;
+  --color-info-soft: #E8F0FE;
+  --color-info-text: #1E40AF;
 
-  --color-neutral: #5b6471;
-  --color-neutral-soft: #efece4;
-  --color-neutral-text: #1e293b;
+  --color-neutral: #8A9BAE;
+  --color-neutral-soft: #F3F5F7;
+  --color-neutral-text: #374151;
 
-  /* ── Radius (slightly tightened for editorial feel) ── */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-xl: 14px;
-  --radius-2xl: 18px;
+  /* ── Radius (more rounded = softer feel) ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-2xl: 24px;
 
-  /* ── Shadow (subtle ink-stroke layering) ── */
+  /* ── Shadow (soft UI multi-layer) ── */
   --shadow-card:
-    0 1px 0 rgba(11, 18, 32, 0.04), 0 1px 2px rgba(11, 18, 32, 0.04);
+    0 1px 2px rgba(45, 59, 94, 0.04),
+    0 2px 4px rgba(45, 59, 94, 0.04);
   --shadow-card-hover:
-    0 6px 16px rgba(11, 18, 32, 0.08), 0 2px 4px rgba(11, 18, 32, 0.04);
+    0 8px 20px rgba(45, 59, 94, 0.08),
+    0 2px 6px rgba(45, 59, 94, 0.04);
   --shadow-dropdown:
-    0 10px 24px rgba(11, 18, 32, 0.10), 0 2px 6px rgba(11, 18, 32, 0.05);
+    0 12px 28px rgba(45, 59, 94, 0.10),
+    0 4px 8px rgba(45, 59, 94, 0.04);
   --shadow-modal:
-    0 28px 56px rgba(11, 18, 32, 0.18), 0 8px 16px rgba(11, 18, 32, 0.08);
-  --shadow-focus: 0 0 0 3px rgba(3, 105, 161, 0.18);
-  --shadow-focus-danger: 0 0 0 3px rgba(185, 28, 28, 0.16);
+    0 24px 48px rgba(45, 59, 94, 0.14),
+    0 8px 16px rgba(45, 59, 94, 0.06);
+  --shadow-focus: 0 0 0 3px rgba(45, 59, 94, 0.15);
+  --shadow-focus-danger: 0 0 0 3px rgba(239, 68, 68, 0.18);
 
   /* ── Font family tokens ── */
   --font-sans:
-    var(--font-atkinson, "Atkinson Hyperlegible"), "Inter",
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-    Arial, sans-serif;
+    var(--font-inter, "Inter"), -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-display:
-    var(--font-crimson, "Crimson Pro"), "EB Garamond", "Iowan Old Style",
-    Georgia, "Times New Roman", serif;
+    var(--font-poppins, "Poppins"), "Inter", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-data:
+    var(--font-ibm-plex, "IBM Plex Sans"), "Inter", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono:
     var(--font-jetbrains-mono, "JetBrains Mono"), "Fira Code", ui-monospace,
     SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
@@ -98,9 +107,12 @@
  * Base
  * ───────────────────────────────────────────────────────────────────────── */
 
+html {
+  scroll-behavior: smooth;
+}
+
 html,
 body {
-  background-color: var(--color-background);
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-size: 14.5px;
@@ -111,16 +123,16 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Subtle ruled paper texture on the background — gives the academic feel
- * without sacrificing readability. */
+/* Soft modern background — warm glow at top, clean surface below */
 body {
-  background-image:
+  background:
     radial-gradient(
-      circle at 1px 1px,
-      rgba(11, 18, 32, 0.035) 1px,
-      transparent 0
-    );
-  background-size: 22px 22px;
+      ellipse 80% 50% at 50% -10%,
+      rgba(214, 181, 109, 0.06) 0%,
+      transparent 60%
+    ),
+    var(--color-background);
+  background-attachment: fixed;
 }
 
 /* Mono font for IDs, codes, request numbers */
@@ -130,15 +142,21 @@ body {
   font-feature-settings: "calt" 0;
 }
 
-/* Display font utility for editorial headings */
+/* Display font utility for modern headings */
 .font-display {
   font-family: var(--font-display);
-  font-feature-settings: "kern", "liga", "onum";
+  font-feature-settings: "kern", "liga";
+}
+
+/* Data font for tables, dashboards, metrics */
+.font-data {
+  font-family: var(--font-data);
+  font-feature-settings: "tnum", "kern", "liga";
 }
 
 /* Selection */
 ::selection {
-  background-color: rgba(3, 105, 161, 0.18);
+  background-color: rgba(214, 181, 109, 0.20);
   color: var(--color-text-primary);
 }
 
@@ -147,6 +165,18 @@ body {
   outline: none;
   box-shadow: var(--shadow-focus);
   border-radius: var(--radius-sm);
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -370,14 +400,14 @@ body {
 }
 
 .btn-primary {
-  background-color: var(--color-accent);
+  background-color: var(--color-primary);
   color: var(--color-text-inverse);
-  border-color: var(--color-accent);
-  box-shadow: 0 1px 2px rgba(3, 105, 161, 0.18);
+  border-color: var(--color-primary);
+  box-shadow: 0 1px 3px rgba(45, 59, 94, 0.20);
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
 }
 
 .btn-secondary {
@@ -527,11 +557,11 @@ body {
 .tab-list {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 3px;
-  background-color: var(--color-background-alt);
+  gap: 3px;
+  padding: 4px;
+  background-color: var(--color-secondary-soft);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
 }
 
 .tab-trigger {
@@ -544,7 +574,7 @@ body {
   color: var(--color-text-secondary);
   background-color: transparent;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition:
     background-color 0.15s ease,
@@ -560,7 +590,7 @@ body {
   background-color: var(--color-surface);
   color: var(--color-text-primary);
   box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.06),
+    0 1px 3px rgba(45, 59, 94, 0.06),
     0 0 0 1px var(--color-border);
 }
 
@@ -583,7 +613,7 @@ body {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--color-text-muted);
-  background-color: var(--color-background-alt);
+  background-color: var(--color-neutral-soft);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -603,7 +633,7 @@ body {
 }
 
 .data-table tbody tr:hover {
-  background-color: var(--color-background-alt);
+  background-color: var(--color-neutral-soft);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────
@@ -654,7 +684,7 @@ body {
   background: linear-gradient(
     90deg,
     var(--color-background-alt) 0%,
-    #ebf0f5 50%,
+    #E2E5EB 50%,
     var(--color-background-alt) 100%
   );
   background-size: 200% 100%;

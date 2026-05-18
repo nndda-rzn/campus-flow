@@ -75,6 +75,26 @@ service AcademicService {
 
   // Bulk verify academic requests (Epic 10b / FR-255).
   rpc BulkVerifyAcademicRequests(BulkVerifyAcademicRequestsRequest) returns (BulkVerifyAcademicRequestsResponse);
+
+  // Thesis Progress
+  rpc GetMilestonesByDepartment(GetMilestonesByDepartmentRequest) returns (GetMilestonesByDepartmentResponse);
+  rpc GetProgressByStudent(GetProgressByStudentRequest) returns (GetProgressByStudentResponse);
+  rpc UpdateProgress(UpdateProgressRequest) returns (ThesisProgressResponse);
+
+  // Guidance Logs
+  rpc GetLogsByStudent(GetLogsByStudentRequest) returns (GetLogsResponse);
+  rpc GetLogsByLecturer(GetLogsByLecturerRequest) returns (GetLogsResponse);
+  rpc GetLogByID(GetLogByIDRequest) returns (GuidanceLogResponse);
+  rpc CreateLog(CreateLogRequest) returns (GuidanceLogResponse);
+  rpc UpdateLog(UpdateLogRequest) returns (GuidanceLogResponse);
+  rpc DeleteLog(DeleteLogRequest) returns (DeleteLogResponse);
+
+  // Academic Calendar
+  rpc GetEvents(GetEventsRequest) returns (GetEventsResponse);
+
+  // FAQ
+  rpc GetCategories(GetCategoriesRequest) returns (GetCategoriesResponse);
+  rpc GetFAQs(GetFAQsRequest) returns (GetFAQsResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -584,4 +604,204 @@ message BulkVerifyAcademicRequestsResponse {
   repeated BulkVerifyResultItem results = 1;
   int32 succeeded = 2;
   int32 failed = 3;
+}
+
+// ─── Thesis Milestones & Progress ──────────────────────────────────────────
+
+message ThesisMilestoneItem {
+  string id = 1;
+  string department_id = 2;
+  string code = 3;
+  string name = 4;
+  string description = 5;
+  int32 sequence_order = 6;
+  bool is_active = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ThesisProgressItem {
+  string id = 1;
+  string student_user_id = 2;
+  string supervisor_request_id = 3;
+  string milestone_id = 4;
+  string status = 5;
+  string target_date = 6;
+  string completed_at = 7;
+  string notes = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  string milestone_name = 11;
+  string milestone_code = 12;
+  int32 sequence_order = 13;
+}
+
+message GetMilestonesByDepartmentRequest {
+  string department_id = 1;
+}
+
+message GetMilestonesByDepartmentResponse {
+  repeated ThesisMilestoneItem milestones = 1;
+}
+
+message GetProgressByStudentRequest {
+  string student_user_id = 1;
+}
+
+message GetProgressByStudentResponse {
+  repeated ThesisProgressItem progress = 1;
+}
+
+message UpdateProgressRequest {
+  string id = 1;
+  string notes = 2;
+  string target_date = 3;
+  string status = 4;
+}
+
+message ThesisProgressResponse {
+  ThesisProgressItem progress = 1;
+}
+
+// ─── Guidance Logs ──────────────────────────────────────────────────────────
+
+message GuidanceLogItem {
+  string id = 1;
+  string student_user_id = 2;
+  string supervisor_request_id = 3;
+  string lecturer_user_id = 4;
+  string session_date = 5;
+  string start_time = 6;
+  string end_time = 7;
+  string topic = 8;
+  string discussion_summary = 9;
+  string next_action = 10;
+  string status = 11;
+  string submitted_at = 12;
+  string supervisor_feedback = 13;
+  string approved_at = 14;
+  string created_at = 15;
+  string updated_at = 16;
+  string student_name = 17;
+  string lecturer_name = 18;
+}
+
+message GetLogsByStudentRequest {
+  string student_user_id = 1;
+}
+
+message GetLogsByLecturerRequest {
+  string lecturer_user_id = 1;
+}
+
+message GetLogsResponse {
+  repeated GuidanceLogItem logs = 1;
+}
+
+message GetLogByIDRequest {
+  string id = 1;
+}
+
+message GuidanceLogResponse {
+  GuidanceLogItem log = 1;
+}
+
+message CreateLogRequest {
+  string student_user_id = 1;
+  string supervisor_request_id = 2;
+  string lecturer_user_id = 3;
+  string session_date = 4;
+  string start_time = 5;
+  string end_time = 6;
+  string topic = 7;
+  string discussion_summary = 8;
+  string next_action = 9;
+}
+
+message UpdateLogRequest {
+  string id = 1;
+  string session_date = 2;
+  string start_time = 3;
+  string end_time = 4;
+  string topic = 5;
+  string discussion_summary = 6;
+  string next_action = 7;
+  string status = 8;
+  string supervisor_feedback = 9;
+}
+
+message DeleteLogRequest {
+  string id = 1;
+}
+
+message DeleteLogResponse {
+  bool success = 1;
+}
+
+// ─── Academic Calendar ──────────────────────────────────────────────────────
+
+message AcademicCalendarItem {
+  string id = 1;
+  string academic_year_id = 2;
+  string department_id = 3;
+  string title = 4;
+  string description = 5;
+  string event_type = 6;
+  string start_date = 7;
+  string end_date = 8;
+  bool is_all_day = 9;
+  repeated string target_roles = 10;
+  bool is_active = 11;
+  string created_by_user_id = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message GetEventsRequest {
+  string start_date = 1;
+  string end_date = 2;
+  string department_id = 3;
+}
+
+message GetEventsResponse {
+  repeated AcademicCalendarItem events = 1;
+}
+
+// ─── FAQs ───────────────────────────────────────────────────────────────────
+
+message FAQCategoryItem {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string icon = 4;
+  int32 sequence_order = 5;
+  bool is_active = 6;
+  string created_at = 7;
+}
+
+message FAQItem {
+  string id = 1;
+  string category_id = 2;
+  string question = 3;
+  string answer = 4;
+  int32 sequence_order = 5;
+  bool is_active = 6;
+  int32 view_count = 7;
+  string created_at = 8;
+  string updated_at = 9;
+  string category_name = 10;
+}
+
+message GetCategoriesRequest {}
+
+message GetCategoriesResponse {
+  repeated FAQCategoryItem categories = 1;
+}
+
+message GetFAQsRequest {
+  string category_id = 1;
+}
+
+message GetFAQsResponse {
+  repeated FAQItem faqs = 1;
 }

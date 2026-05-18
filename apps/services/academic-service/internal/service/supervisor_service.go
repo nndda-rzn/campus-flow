@@ -120,7 +120,33 @@ func (s *AcademicService) AcceptSupervisorRequest(
 	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
 
 	req, err := supervisorRepo.AcceptSupervisorRequest(ctx, requestID, lecturerUserID, note)
-	return mapSupervisorRepoError(req, err)
+	if err != nil {
+		return mapSupervisorRepoError(req, err)
+	}
+
+	// Auto-create thesis progress milestones when a request is accepted & completed
+	if req.Status == "COMPLETED" {
+		thesisRepo := repository.NewThesisRepository(s.repo.DB())
+		
+		// Find student's department
+		studentRepo := repository.NewDirectoryRepository(s.repo.DB())
+		student, err := studentRepo.GetStudentByUserID(ctx, req.StudentUserID)
+		if err == nil && student != nil && student.DepartmentID != "" {
+			// Initialize progress within a transaction if possible, but for simplicity here we just call it
+			// This would ideally be part of the same transaction in AcceptSupervisorRequest, but calling it here works for now
+			tx, txErr := s.repo.DB().Begin(ctx)
+			if txErr == nil {
+				err = thesisRepo.InitializeProgress(ctx, tx, req.StudentUserID, req.ID, student.DepartmentID)
+				if err == nil {
+					_ = tx.Commit(ctx)
+				} else {
+					_ = tx.Rollback(ctx)
+				}
+			}
+		}
+	}
+
+	return req, nil
 }
 
 func (s *AcademicService) RejectSupervisorRequest(

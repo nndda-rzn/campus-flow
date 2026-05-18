@@ -41,6 +41,33 @@ func main() {
 	academicService := service.NewAcademicService(academicRepo)
 	academicHandler := handler.NewAcademicHandler(academicService)
 
+	// New Student Features Repositories
+	thesisRepo := repository.NewThesisRepository(dbpool)
+	guidanceLogRepo := repository.NewGuidanceLogRepository(dbpool)
+	academicCalendarRepo := repository.NewAcademicCalendarRepository(dbpool)
+	faqRepo := repository.NewFAQRepository(dbpool)
+
+	// New Student Features Services
+	thesisService := service.NewThesisService(thesisRepo)
+	guidanceLogService := service.NewGuidanceLogService(guidanceLogRepo)
+	academicCalendarService := service.NewAcademicCalendarService(academicCalendarRepo)
+	faqService := service.NewFAQService(faqRepo)
+
+	// New Student Features Handlers
+	thesisHandler := handler.NewThesisHandler(thesisService)
+	guidanceLogHandler := handler.NewGuidanceLogHandler(guidanceLogService)
+	academicCalendarHandler := handler.NewAcademicCalendarHandler(academicCalendarService)
+	faqHandler := handler.NewFAQHandler(faqService)
+
+	// Composite Handler
+	fullAcademicHandler := &compositeHandler{
+		AcademicHandler:         academicHandler,
+		ThesisHandler:           thesisHandler,
+		GuidanceLogHandler:      guidanceLogHandler,
+		AcademicCalendarHandler: academicCalendarHandler,
+		FAQHandler:              faqHandler,
+	}
+
 	outboxRepo := repository.NewOutboxRepository(dbpool)
 
 	rootCtx, cancelRoot := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -93,7 +120,7 @@ func main() {
 	}
 
 	grpcServer := grpc.NewServer()
-	academicv1.RegisterAcademicServiceServer(grpcServer, academicHandler)
+	academicv1.RegisterAcademicServiceServer(grpcServer, fullAcademicHandler)
 
 	var ready atomic.Bool
 	ready.Store(true)
@@ -160,4 +187,12 @@ func startHealthServer(addr string, db *pgxpool.Pool, ready *atomic.Bool) *http.
 		}
 	}()
 	return srv
+}
+
+type compositeHandler struct {
+	*handler.AcademicHandler
+	*handler.ThesisHandler
+	*handler.GuidanceLogHandler
+	*handler.AcademicCalendarHandler
+	*handler.FAQHandler
 }

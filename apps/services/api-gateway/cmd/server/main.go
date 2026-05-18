@@ -49,6 +49,10 @@ func main() {
 	bulkVerifyHandler := handler.NewBulkVerifyHandler(academicClient)
 	bulkImportHandler := handler.NewBulkImportHandler(academicClient)
 	searchHandler := handler.NewSearchHandler(authClient, academicClient)
+	thesisHandler := handler.NewThesisHandler(academicClient.Client)
+	guidanceLogHandler := handler.NewGuidanceLogHandler(academicClient.Client)
+	calendarHandler := handler.NewAcademicCalendarHandler(academicClient.Client)
+	faqHandler := handler.NewFAQHandler(academicClient.Client)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -604,6 +608,114 @@ func main() {
 				authMiddleware.RequireRole("SUPER_ADMIN", "KAPRODI", "ADMIN_PRODI")(
 					http.HandlerFunc(reportingHandler.GetLecturerWorkload),
 				),
+			),
+		),
+	)
+
+	// ─── Student Features (New) ────────────────────────────────────────────────
+
+	// Thesis Progress
+	mux.Handle(
+		"/api/v1/student/thesis-progress",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(thesisHandler.GetProgressByStudent),
+				),
+			),
+		),
+	)
+	
+	mux.Handle(
+		"/api/v1/student/thesis-progress/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(thesisHandler.RouteThesisProgressByID),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/thesis-milestones",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(thesisHandler.GetMilestonesByDepartment),
+			),
+		),
+	)
+
+	// Guidance Logs
+	mux.Handle(
+		"/api/v1/student/guidance-logs",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(guidanceLogHandler.RouteStudentGuidanceLogs),
+				),
+			),
+		),
+	)
+	
+	mux.Handle(
+		"/api/v1/student/guidance-logs/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(guidanceLogHandler.RouteStudentGuidanceLogByID),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/guidance-logs",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(guidanceLogHandler.GetLogsByLecturer),
+				),
+			),
+		),
+	)
+	
+	mux.Handle(
+		"/api/v1/lecturer/guidance-logs/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(guidanceLogHandler.RouteLecturerGuidanceLogByID),
+				),
+			),
+		),
+	)
+
+	// Academic Calendar
+	mux.Handle(
+		"/api/v1/academic-calendar",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(calendarHandler.GetEvents),
+			),
+		),
+	)
+
+	// FAQs
+	mux.Handle(
+		"/api/v1/faq-categories",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(faqHandler.GetCategories),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/faqs",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(faqHandler.GetFAQs),
 			),
 		),
 	)
