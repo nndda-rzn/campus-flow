@@ -18,6 +18,14 @@ import {
 } from "@/lib/supervisor-api";
 import { cn } from "@/lib/cn";
 
+type DashboardData = {
+  totalSupervisedStudents: number;
+  pendingSupervisorRequests: number;
+  pendingConsultationBookings: number;
+  quotaUsed: number;
+  quotaMax: number;
+};
+
 export default function LecturerDashboardPage() {
   return (
     <ProtectedPage
@@ -32,22 +40,29 @@ export default function LecturerDashboardPage() {
 
 function DashboardContent() {
   const [requests, setRequests] = useState<SupervisorRequest[] | null>(null);
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
 
   useEffect(() => {
     const token = getAccessToken();
     if (!token) return;
+
     listLecturerSupervisorRequests(token)
       .then((res) => setRequests(res.data.requests))
       .catch(() => setRequests([]));
+
+    fetch("/api/v1/lecturer/dashboard", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setDashboard(data.data))
+      .catch(() => {});
   }, []);
 
   const isLoading = requests === null;
-  const assignedCount = requests
-    ? requests.filter((r) => r.status === "ASSIGNED").length
-    : 0;
-  const acceptedCount = requests
-    ? requests.filter((r) => r.status === "ACCEPTED").length
-    : 0;
+  const assignedCount = dashboard?.pendingSupervisorRequests ?? 
+    (requests ? requests.filter((r) => r.status === "ASSIGNED").length : 0);
+  const acceptedCount = dashboard?.totalSupervisedStudents ??
+    (requests ? requests.filter((r) => r.status === "ACCEPTED").length : 0);
 
   const pending = requests
     ? requests.filter((r) => r.status === "ASSIGNED").slice(0, 5)
@@ -55,7 +70,7 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiTile
           label="Penetapan Baru"
           value={assignedCount}
@@ -69,8 +84,14 @@ function DashboardContent() {
           isLoading={isLoading}
         />
         <KpiTile
-          label="Total Permintaan"
-          value={requests?.length ?? 0}
+          label="Booking Pending"
+          value={dashboard?.pendingConsultationBookings ?? 0}
+          tone="text-info"
+          isLoading={isLoading}
+        />
+        <KpiTile
+          label="Kuota"
+          value={dashboard ? `${dashboard.quotaUsed}/${dashboard.quotaMax}` : "—"}
           tone="text-text-primary"
           isLoading={isLoading}
         />

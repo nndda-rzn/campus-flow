@@ -59,6 +59,8 @@ func main() {
 		[]string{
 			"academic_request.*",
 			"supervisor_request.*",
+			"consultation_booking.*",
+			"thesis_progress.*",
 		},
 	)
 	if err != nil {

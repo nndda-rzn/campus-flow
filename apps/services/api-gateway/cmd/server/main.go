@@ -54,6 +54,7 @@ func main() {
 	calendarHandler := handler.NewAcademicCalendarHandler(academicClient.Client)
 	faqHandler := handler.NewFAQHandler(academicClient.Client)
 	consultationHandler := handler.NewConsultationHandler(academicClient.Client)
+	thesisFinalDocHandler := handler.NewThesisFinalDocumentHandler(academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -478,12 +479,113 @@ func main() {
 		),
 	)
 
+	// Lecturer profile routes (Tahap 3a)
+	mux.Handle(
+		"/api/v1/lecturer/profile",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(academicHandler.GetLecturerProfile),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/dashboard",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(academicHandler.GetLecturerDashboard),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/quota",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(academicHandler.GetLecturerQuota),
+				),
+			),
+		),
+	)
+
 	mux.Handle(
 		"/api/v1/student/supervisor-requests/cancel",
 		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
 			authMiddleware.RequireAuth(
 				authMiddleware.RequireRole("MAHASISWA")(
 					http.HandlerFunc(supervisorHandler.CancelSupervisorRequest),
+				),
+			),
+		),
+	)
+
+	// Lecturer Thesis Final Document Review (Tahap 4)
+	mux.Handle(
+		"/api/v1/lecturer/final-documents",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisFinalDocHandler.ListLecturerFinalDocuments),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/final-documents/start-review",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisFinalDocHandler.StartReview),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/final-documents/approve",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisFinalDocHandler.Approve),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/final-documents/request-revision",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisFinalDocHandler.RequestRevision),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/final-documents/reject",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisFinalDocHandler.Reject),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/final-documents/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisFinalDocHandler.GetFinalDocument),
 				),
 			),
 		),

@@ -5,9 +5,9 @@ import {
   Calendar,
   Clock,
   MapPin,
+  Pencil,
   Plus,
   RefreshCw,
-  Trash2,
   Users,
   X,
 } from "lucide-react";
@@ -33,6 +33,7 @@ import {
   ConsultationSlot,
   listLecturerSlots,
   createSlot,
+  updateSlot,
   cancelSlot,
 } from "@/lib/consultation-api";
 import { cn } from "@/lib/cn";
@@ -59,6 +60,20 @@ function PageContent() {
     slot: ConsultationSlot | null;
   }>({ open: false, slot: null });
   const [isCancelling, setIsCancelling] = useState(false);
+
+  const [editDialog, setEditDialog] = useState<{
+    open: boolean;
+    slot: ConsultationSlot | null;
+  }>({ open: false, slot: null });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    slot_date: "",
+    start_time: "",
+    end_time: "",
+    max_bookings: 1,
+    location: "",
+    notes: "",
+  });
 
   const [formData, setFormData] = useState({
     slot_date: "",
@@ -150,6 +165,51 @@ function PageContent() {
     }
   }
 
+  function handleOpenEdit(slot: ConsultationSlot) {
+    setEditDialog({ open: true, slot });
+    setEditFormData({
+      slot_date: slot.slotDate,
+      start_time: slot.startTime,
+      end_time: slot.endTime,
+      max_bookings: slot.maxBookings,
+      location: slot.location,
+      notes: slot.notes,
+    });
+  }
+
+  async function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editDialog.slot) return;
+    const token = getAccessToken();
+    if (!token) return;
+
+    if (!editFormData.slot_date || !editFormData.start_time || !editFormData.end_time) {
+      toast.error("Tanggal dan waktu wajib diisi");
+      return;
+    }
+
+    setIsEditing(true);
+    try {
+      await updateSlot(token, editDialog.slot.id, {
+        slot_date: editFormData.slot_date,
+        start_time: editFormData.start_time,
+        end_time: editFormData.end_time,
+        max_bookings: editFormData.max_bookings || 1,
+        location: editFormData.location || undefined,
+        notes: editFormData.notes || undefined,
+      });
+      toast.success("Jadwal berhasil diperbarui");
+      setEditDialog({ open: false, slot: null });
+      load();
+    } catch (err) {
+      toast.error("Gagal memperbarui jadwal", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsEditing(false);
+    }
+  }
+
   // Group slots by date
   const slotsByDate = slots.reduce(
     (acc, slot) => {
@@ -201,6 +261,7 @@ function PageContent() {
                   <SlotCard
                     key={slot.id}
                     slot={slot}
+                    onEdit={() => handleOpenEdit(slot)}
                     onCancel={() => setCancelDialog({ open: true, slot })}
                   />
                 ))}
@@ -350,15 +411,126 @@ function PageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialog.open} onOpenChange={(open) => {
+        if (!open) setEditDialog({ open: false, slot: null });
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Jadwal Bimbingan</DialogTitle>
+            <DialogDescription>
+              Perbarui waktu dan lokasi untuk sesi bimbingan.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEdit}>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit_slot_date">Tanggal</Label>
+                <Input
+                  id="edit_slot_date"
+                  type="date"
+                  value={editFormData.slot_date}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, slot_date: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit_start_time">Jam Mulai</Label>
+                  <Input
+                    id="edit_start_time"
+                    type="time"
+                    value={editFormData.start_time}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, start_time: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit_end_time">Jam Selesai</Label>
+                  <Input
+                    id="edit_end_time"
+                    type="time"
+                    value={editFormData.end_time}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, end_time: e.target.value })
+                    }
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_max_bookings">Kuota Mahasiswa</Label>
+                <Input
+                  id="edit_max_bookings"
+                  type="number"
+                  min={1}
+                  value={editFormData.max_bookings}
+                  onChange={(e) =>
+                    setEditFormData({
+                      ...editFormData,
+                      max_bookings: parseInt(e.target.value) || 1,
+                    })
+                  }
+                />
+                <p className="text-xs text-text-muted">
+                  1 untuk bimbingan individu, lebih untuk bimbingan kelompok.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_location">Lokasi (opsional)</Label>
+                <Input
+                  id="edit_location"
+                  placeholder="Ruang 301 / Link Zoom"
+                  value={editFormData.location}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, location: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit_notes">Catatan (opsional)</Label>
+                <Textarea
+                  id="edit_notes"
+                  placeholder="Informasi tambahan untuk mahasiswa..."
+                  rows={2}
+                  value={editFormData.notes}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, notes: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setEditDialog({ open: false, slot: null })}
+              >
+                Batal
+              </Button>
+              <Button type="submit" disabled={isEditing}>
+                {isEditing ? "Menyimpan..." : "Simpan"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 function SlotCard({
   slot,
+  onEdit,
   onCancel,
 }: {
   slot: ConsultationSlot;
+  onEdit: () => void;
   onCancel: () => void;
 }) {
   const isFull = slot.currentBookings >= slot.maxBookings;
@@ -398,14 +570,24 @@ function SlotCard({
           )}
         </div>
         {!slot.isCancelled && !isPast && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCancel}
-            className="text-status-error hover:text-status-error"
-          >
-            <X className="size-4" />
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onEdit}
+              className="text-text-muted hover:text-text-primary"
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCancel}
+              className="text-status-error hover:text-status-error"
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
         )}
       </div>
       {slot.isCancelled && (

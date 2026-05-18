@@ -257,6 +257,18 @@ Setiap microservice mengikuti struktur yang konsisten:
 - Verifikasi oleh Admin Prodi → Penugasan oleh Kaprodi → Konfirmasi oleh Dosen
 - Lecturer dashboard untuk accept/reject permohonan masuk
 
+### Portal Dosen Pembimbing
+
+- **Dashboard** dengan KPI agregat (penetapan baru, mahasiswa bimbingan, booking pending, kuota)
+- **Profil dosen** self-service (lihat/edit nama, email, NIDN, kuota)
+- **Logbook bimbingan** — review, approve, minta revisi, tambah catatan, tag milestone, lampiran
+- **Mahasiswa bimbingan** — progress tracking per mahasiswa dengan milestone timeline
+- **Jadwal konsultasi** — CRUD slot bimbingan (buat, edit, batalkan)
+- **Booking masuk** — approve/reject/reschedule booking mahasiswa
+- **Review dokumen skripsi** — review dan sign-off final thesis documents (SUBMITTED → UNDER_REVIEW → APPROVED/REVISION_REQUESTED/REJECTED)
+- **Pengumuman** — baca pengumuman dari administrasi
+- **Kuota pembimbing** — visibility kuota per tahun akademik
+
 ### Notifikasi
 
 - Notifikasi otomatis dipicu oleh domain event (lewat RabbitMQ)
@@ -284,7 +296,7 @@ Setiap microservice mengikuti struktur yang konsisten:
 | `SUPER_ADMIN` | `/admin`      | Akses ke semua modul, termasuk verifikasi dan approval lintas tahap      |
 | `ADMIN_PRODI` | `/admin`      | Verifikasi awal permohonan akademik & permohonan pembimbing              |
 | `KAPRODI`     | `/head`       | Approve/reject permohonan akademik, assign dosen pembimbing              |
-| `DOSEN`       | `/lecturer`   | Lihat dan respons (accept/reject) permohonan pembimbing yang masuk       |
+| `DOSEN`       | `/lecturer`   | Dashboard, profil, accept/reject penetapan, review logbook, mahasiswa bimbingan, jadwal konsultasi, booking, review skripsi, pengumuman |
 | `MAHASISWA`   | `/student`    | Mengajukan permohonan akademik dan permohonan pembimbing, upload dokumen |
 | `TATA_USAHA`  | `/staff`      | Menyelesaikan permohonan akademik dan upload dokumen final               |
 
@@ -539,6 +551,30 @@ Authorization: Bearer <access_token>
 | POST     | `/api/v1/lecturer/supervisor-requests/accept` | DOSEN                    |
 | POST     | `/api/v1/lecturer/supervisor-requests/reject` | DOSEN                    |
 
+### Protected — Lecturer Portal (DOSEN)
+
+| Method   | Endpoint                                                   | Deskripsi                                          |
+| -------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| GET/PUT  | `/api/v1/lecturer/profile`                                 | Lihat/edit profil dosen self-service               |
+| GET      | `/api/v1/lecturer/dashboard`                               | Agregat KPI dashboard dosen                        |
+| GET      | `/api/v1/lecturer/quota`                                   | Kuota pembimbing per tahun akademik                |
+| GET      | `/api/v1/lecturer/guidance-logs`                           | List logbook bimbingan                             |
+| GET      | `/api/v1/lecturer/supervised-students/progress`            | List mahasiswa bimbingan dengan progress           |
+| GET      | `/api/v1/lecturer/consultation-slots`                      | List slot konsultasi                               |
+| POST     | `/api/v1/lecturer/consultation-slots`                      | Buat slot baru                                     |
+| PUT      | `/api/v1/lecturer/consultation-slots/{id}`                 | Edit slot                                          |
+| DELETE   | `/api/v1/lecturer/consultation-slots/{id}`                 | Batalkan slot                                      |
+| GET      | `/api/v1/lecturer/consultation-bookings`                   | List booking masuk                                 |
+| POST     | `/api/v1/lecturer/consultation-bookings/{id}/approve`      | Approve booking                                    |
+| POST     | `/api/v1/lecturer/consultation-bookings/{id}/reject`       | Reject booking                                     |
+| POST     | `/api/v1/lecturer/consultation-bookings/{id}/reschedule`   | Propose alternative slot                           |
+| GET      | `/api/v1/lecturer/final-documents`                         | List dokumen skripsi (filter status, pagination)   |
+| GET      | `/api/v1/lecturer/final-documents/{id}`                    | Detail dokumen skripsi                             |
+| POST     | `/api/v1/lecturer/final-documents/start-review`            | SUBMITTED → UNDER_REVIEW                           |
+| POST     | `/api/v1/lecturer/final-documents/approve`                 | UNDER_REVIEW → APPROVED                            |
+| POST     | `/api/v1/lecturer/final-documents/request-revision`        | UNDER_REVIEW → REVISION_REQUESTED                  |
+| POST     | `/api/v1/lecturer/final-documents/reject`                  | UNDER_REVIEW → REJECTED                            |
+
 ### Protected — Notifications & Reports
 
 | Method | Endpoint                              | Role                                          |
@@ -725,6 +761,8 @@ Sudah selesai (commit history `git log --oneline`):
 - [x] Multi-tenancy (departmental scope) + academic year context (Epic 10a)
 - [x] Comment threads, bulk verify, CSV export (Epic 10b)
 - [x] Forgot password + SMTP abstraction + SLA reminder cron (Epic 10c)
+- [x] **Lecturer Portal Enhancement (Epic 11)** — profile self-service, dashboard agregat, quota visibility, edit slot konsultasi, halaman pengumuman dosen
+- [x] **Thesis Final Document Review (Epic 12)** — workflow review skripsi oleh dosen pembimbing dengan state machine (SUBMITTED → UNDER_REVIEW → APPROVED/REVISION_REQUESTED/REJECTED), file integration, ownership check
 
 Belum tertutup (kandidat enterprise berikutnya):
 
