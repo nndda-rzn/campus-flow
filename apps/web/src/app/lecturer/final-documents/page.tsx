@@ -168,7 +168,7 @@ function PageContent() {
           {STATUS_OPTIONS.map((opt) => (
             <Button
               key={opt.value}
-              variant={statusFilter === opt.value ? "default" : "secondary"}
+              variant={statusFilter === opt.value ? "primary" : "secondary"}
               size="sm"
               onClick={() => setStatusFilter(opt.value)}
             >
@@ -261,7 +261,7 @@ function PageContent() {
             <Button
               onClick={handleSubmitAction}
               disabled={isSubmitting}
-              variant={actionDialog.type === "REJECT" ? "danger" : "default"}
+              variant={actionDialog.type === "REJECT" ? "danger" : "primary"}
             >
               {isSubmitting ? "Memproses..." : "Konfirmasi"}
             </Button>

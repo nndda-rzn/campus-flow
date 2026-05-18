@@ -160,7 +160,7 @@ function KpiTile({
   isLoading,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   tone: string;
   isLoading: boolean;
 }) {

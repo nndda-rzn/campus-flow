@@ -13,7 +13,7 @@ import {
 } from "@/lib/guidance-api";
 import { getThesisMilestones, ThesisMilestoneItem } from "@/lib/thesis-api";
 import { uploadFile } from "@/lib/file-api";
-import { getAccessToken, getCurrentUser } from "@/lib/auth-storage";
+import { getAccessToken } from "@/lib/auth-storage";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -63,11 +63,10 @@ export default function LecturerGuidanceLogsPage() {
 
   async function loadMilestones() {
     const token = getAccessToken();
-    const user = getCurrentUser();
     if (!token) return;
 
     try {
-      const res = await getThesisMilestones(token, user?.departmentId || "");
+      const res = await getThesisMilestones(token, "");
       setMilestones(res.data?.items || []);
     } catch {
       // Silently fail - milestone tag is optional
