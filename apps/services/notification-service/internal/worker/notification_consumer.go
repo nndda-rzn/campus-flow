@@ -30,6 +30,17 @@ type RequestEventPayload struct {
 	Note           string `json:"note"`
 	LecturerID     string `json:"lecturer_id"`
 	LecturerUserID string `json:"lecturer_user_id"`
+
+	// Reminder fields
+	BookingID   string `json:"booking_id"`
+	Topic       string `json:"topic"`
+	SlotDate    string `json:"slot_date"`
+	StartTime   string `json:"start_time"`
+	EndTime     string `json:"end_time"`
+	Location    string `json:"location"`
+	StudentName string `json:"student_name"`
+	LecturerName string `json:"lecturer_name"`
+	DaysStuck   int    `json:"days_stuck"`
 }
 
 func StartNotificationConsumer(
@@ -134,12 +145,22 @@ func createNotificationFromEvent(
 	entityType := "ACADEMIC_REQUEST"
 	if strings.HasPrefix(eventType, "supervisor_request.") {
 		entityType = "SUPERVISOR_REQUEST"
+	} else if strings.HasPrefix(eventType, "consultation_booking.") {
+		entityType = "CONSULTATION_BOOKING"
+	} else if strings.HasPrefix(eventType, "thesis_progress.") {
+		entityType = "THESIS_PROGRESS"
 	}
 
 	// Determine recipients per event type.
 	recipients := resolveRecipients(ctx, eventType, payload, authClient)
 	if len(recipients) == 0 {
 		return nil
+	}
+
+	// Determine entity ID per event type
+	entityID := payload.RequestID
+	if entityType == "CONSULTATION_BOOKING" {
+		entityID = payload.BookingID
 	}
 
 	seen := make(map[string]bool, len(recipients))
@@ -156,7 +177,7 @@ func createNotificationFromEvent(
 			message,
 			notificationType,
 			entityType,
-			payload.RequestID,
+			entityID,
 		); err != nil {
 			return err
 		}
@@ -206,6 +227,28 @@ func resolveRecipients(
 		if authClient != nil {
 			kaprodiIDs := authClient.ListUserIDsByRole(ctx, "KAPRODI")
 			recipients = append(recipients, kaprodiIDs...)
+		}
+		return recipients
+
+	case "consultation_booking.reminder":
+		// Notify both student and lecturer about upcoming consultation
+		recipients := []string{}
+		if payload.StudentUserID != "" {
+			recipients = append(recipients, payload.StudentUserID)
+		}
+		if payload.LecturerUserID != "" {
+			recipients = append(recipients, payload.LecturerUserID)
+		}
+		return recipients
+
+	case "thesis_progress.stuck_warning":
+		// Notify both student (warning) and lecturer (info)
+		recipients := []string{}
+		if payload.StudentUserID != "" {
+			recipients = append(recipients, payload.StudentUserID)
+		}
+		if payload.LecturerUserID != "" {
+			recipients = append(recipients, payload.LecturerUserID)
 		}
 		return recipients
 
@@ -286,6 +329,26 @@ func buildNotificationContent(
 		return "Penetapan pembimbing selesai",
 			"Dosen telah menerima penetapan. Pengajuan dosen pembimbing Anda selesai diproses.",
 			"SUCCESS"
+
+	case "consultation_booking.reminder":
+		location := payload.Location
+		if location == "" {
+			location = "(belum ditentukan)"
+		}
+		return "Pengingat: Jadwal Bimbingan Besok",
+			fmt.Sprintf(
+				"Anda memiliki jadwal bimbingan pada %s pukul %s di %s. Topik: %s.",
+				payload.SlotDate, payload.StartTime, location, payload.Topic,
+			),
+			"INFO"
+
+	case "thesis_progress.stuck_warning":
+		return "Peringatan Progress Skripsi",
+			fmt.Sprintf(
+				"Tidak ada aktivitas bimbingan/progress selama %d hari terakhir untuk skripsi: %s. Mohon segera ditindaklanjuti.",
+				payload.DaysStuck, payload.TopicTitle,
+			),
+			"WARNING"
 
 	default:
 		return "Status pengajuan diperbarui",

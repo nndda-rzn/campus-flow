@@ -31,6 +31,19 @@ var SupervisorTransitions = map[string][]string{
 	"ACCEPTED":          {"COMPLETED"},
 }
 
+// ThesisFinalDocumentTransitions defines the allowed state transitions for
+// thesis final documents reviewed by supervising lecturers.
+//
+// Terminal statuses: APPROVED, REJECTED.
+//
+// REVISION_REQUESTED allows the student to upload a new version which goes
+// back to SUBMITTED with version+1.
+var ThesisFinalDocumentTransitions = map[string][]string{
+	"SUBMITTED":           {"UNDER_REVIEW"},
+	"UNDER_REVIEW":        {"APPROVED", "REVISION_REQUESTED", "REJECTED"},
+	"REVISION_REQUESTED":  {"SUBMITTED"},
+}
+
 // CanTransition reports whether a transition from `from` to `to` is allowed by
 // the given table.
 func CanTransition(table map[string][]string, from, to string) bool {

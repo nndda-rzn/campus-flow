@@ -652,3 +652,67 @@ func (h *AcademicHandler) getAcademicRequestHistory(w http.ResponseWriter, r *ht
 		Data:    res,
 	})
 }
+
+// Lecturer Profile endpoints
+func (h *AcademicHandler) GetLecturerProfile(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPut {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+	userID := (func() string { userID, _ := middleware.GetUserID(r.Context()); return userID }())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "unauthorized"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	if r.Method == http.MethodGet {
+		res, err := h.academicClient.Client.GetLecturerProfile(ctx, &academicv1.GetLecturerProfileRequest{UserId: userID})
+		if err != nil {
+			writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to get profile"})
+			return
+		}
+		writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "get profile success", Data: res})
+	}
+}
+
+func (h *AcademicHandler) GetLecturerDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+	userID := (func() string { userID, _ := middleware.GetUserID(r.Context()); return userID }())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "unauthorized"})
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	res, err := h.academicClient.Client.GetLecturerDashboard(ctx, &academicv1.GetLecturerDashboardRequest{UserId: userID})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to get dashboard"})
+		return
+	}
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "get dashboard success", Data: res})
+}
+
+func (h *AcademicHandler) GetLecturerQuota(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+	userID := (func() string { userID, _ := middleware.GetUserID(r.Context()); return userID }())
+	if userID == "" {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "unauthorized"})
+		return
+	}
+	academicYearID := r.URL.Query().Get("academic_year_id")
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	res, err := h.academicClient.Client.GetLecturerQuota(ctx, &academicv1.GetLecturerQuotaRequest{UserId: userID, AcademicYearId: academicYearID})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to get quota"})
+		return
+	}
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "get quota success", Data: res})
+}

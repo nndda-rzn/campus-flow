@@ -190,6 +190,16 @@ function getNavigation(role: UserRole): NavGroup[] {
               icon: <IconClipboard />,
             },
             {
+              label: "Review Skripsi",
+              href: "/lecturer/final-documents",
+              icon: <IconDocument />,
+            },
+            {
+              label: "Pengumuman",
+              href: "/lecturer/announcements",
+              icon: <IconMegaphone />,
+            },
+            {
               label: "Notifikasi",
               href: "/notifications",
               icon: <IconBell />,

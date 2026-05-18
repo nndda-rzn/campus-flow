@@ -64,14 +64,20 @@ func main() {
 	consultationService := service.NewConsultationService(consultationRepo)
 	consultationHandler := handler.NewConsultationHandler(consultationService)
 
+	// Thesis Final Document Review (Tahap 4)
+	thesisFinalDocRepo := repository.NewThesisFinalDocumentRepository(dbpool)
+	thesisFinalDocService := service.NewThesisFinalDocumentService(thesisFinalDocRepo)
+	thesisFinalDocHandler := handler.NewThesisFinalDocumentHandler(thesisFinalDocService)
+
 	// Composite Handler
 	fullAcademicHandler := &compositeHandler{
-		AcademicHandler:         academicHandler,
-		ThesisHandler:           thesisHandler,
-		GuidanceLogHandler:      guidanceLogHandler,
-		AcademicCalendarHandler: academicCalendarHandler,
-		FAQHandler:              faqHandler,
-		ConsultationHandler:     consultationHandler,
+		AcademicHandler:            academicHandler,
+		ThesisHandler:              thesisHandler,
+		GuidanceLogHandler:         guidanceLogHandler,
+		AcademicCalendarHandler:    academicCalendarHandler,
+		FAQHandler:                 faqHandler,
+		ConsultationHandler:        consultationHandler,
+		ThesisFinalDocumentHandler: thesisFinalDocHandler,
 	}
 
 	outboxRepo := repository.NewOutboxRepository(dbpool)
@@ -119,6 +125,13 @@ func main() {
 	// SLA reminder worker (FR-266) — scans service_requests setiap jam.
 	go worker.StartSLAReminderWorker(rootCtx, dbpool, 1*time.Hour)
 	fmt.Println("Academic Service SLA reminder worker started (tick=1h)")
+
+	// Lecturer enhancement workers
+	go worker.StartConsultationReminderWorker(rootCtx, dbpool, 1*time.Hour)
+	fmt.Println("Academic Service Consultation reminder worker started (tick=1h)")
+
+	go worker.StartProgressStuckWorker(rootCtx, dbpool, 24*time.Hour)
+	fmt.Println("Academic Service Progress stuck worker started (tick=24h)")
 
 	listener, err := net.Listen("tcp", cfg.GRPCPort)
 	if err != nil {
@@ -202,4 +215,5 @@ type compositeHandler struct {
 	*handler.AcademicCalendarHandler
 	*handler.FAQHandler
 	*handler.ConsultationHandler
+	*handler.ThesisFinalDocumentHandler
 }

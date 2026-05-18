@@ -67,9 +67,7 @@ export default function LecturerGuidanceLogsPage() {
     if (!token) return;
 
     try {
-      // For lecturers, we can fetch all milestones for now, or just leave it empty if department is strictly required
-      // We will try without departmentId first, if it fails, milestones will be empty
-      const res = await getThesisMilestones(token, "");
+      const res = await getThesisMilestones(token, user?.departmentId || "");
       setMilestones(res.data?.items || []);
     } catch {
       // Silently fail - milestone tag is optional

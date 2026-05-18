@@ -45,12 +45,18 @@ service AcademicService {
   rpc SetStudentStatus(SetStudentStatusRequest) returns (StudentItemResponse);
   rpc BulkImportStudents(BulkImportStudentsRequest) returns (BulkImportStudentsResponse);
 
-  rpc ListAllLecturers(ListAllLecturersRequest) returns (ListLecturersResponse);
-  rpc UpsertLecturer(UpsertLecturerRequest) returns (LecturerItemResponse);
-  rpc SetLecturerStatus(SetLecturerStatusRequest) returns (LecturerItemResponse);
-  rpc BulkImportLecturers(BulkImportLecturersRequest) returns (BulkImportLecturersResponse);
+   rpc ListAllLecturers(ListAllLecturersRequest) returns (ListLecturersResponse);
+   rpc UpsertLecturer(UpsertLecturerRequest) returns (LecturerItemResponse);
+   rpc SetLecturerStatus(SetLecturerStatusRequest) returns (LecturerItemResponse);
+   rpc BulkImportLecturers(BulkImportLecturersRequest) returns (BulkImportLecturersResponse);
 
-  // Audit log query (Epic 4).
+   // Lecturer self-service (Tahap 3a)
+   rpc GetLecturerProfile(GetLecturerProfileRequest) returns (LecturerProfileResponse);
+   rpc UpdateLecturerProfile(UpdateLecturerProfileRequest) returns (LecturerProfileResponse);
+   rpc GetLecturerDashboard(GetLecturerDashboardRequest) returns (GetLecturerDashboardResponse);
+   rpc GetLecturerQuota(GetLecturerQuotaRequest) returns (GetLecturerQuotaResponse);
+
+   // Audit log query (Epic 4).
   rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse);
 
   // Announcements (Epic 9 / FR-252).
@@ -133,6 +139,14 @@ service AcademicService {
   rpc CreateBooking(CreateBookingRequest) returns (ConsultationBookingResponse);
   rpc CancelBooking(CancelBookingRequest) returns (ConsultationBookingResponse);
   rpc AcceptReschedule(AcceptRescheduleRequest) returns (ConsultationBookingResponse);
+
+  // Thesis Final Document Review (Lecturer) - Tahap 4
+  rpc ListLecturerFinalDocuments(ListLecturerFinalDocumentsRequest) returns (ListThesisFinalDocumentsResponse);
+  rpc GetThesisFinalDocument(GetThesisFinalDocumentRequest) returns (ThesisFinalDocumentResponse);
+  rpc StartFinalDocumentReview(FinalDocumentActionRequest) returns (ThesisFinalDocumentResponse);
+  rpc ApproveFinalDocument(FinalDocumentActionRequest) returns (ThesisFinalDocumentResponse);
+  rpc RequestRevisionFinalDocument(FinalDocumentActionRequest) returns (ThesisFinalDocumentResponse);
+  rpc RejectFinalDocument(FinalDocumentActionRequest) returns (ThesisFinalDocumentResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -250,6 +264,9 @@ message ListAllSupervisorRequestsRequest {
 
 message ListLecturerSupervisorRequestsRequest {
   string lecturer_user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string status_filter = 4;
 }
 
 message SupervisorWorkflowActionRequest {
@@ -291,6 +308,9 @@ message SupervisorRequestResponse {
 
 message ListSupervisorRequestsResponse {
   repeated SupervisorRequest requests = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
 }
 
 // ─── Directory: Departments, Students, Lecturers (Epic 2) ───────────────────
@@ -397,6 +417,83 @@ message UpsertLecturerRequest {
 message SetLecturerStatusRequest {
   string user_id = 1;
   string status = 2;
+}
+
+// Lecturer self-service messages (Tahap 3a)
+message GetLecturerProfileRequest {
+  string user_id = 1;
+}
+
+message LecturerProfileResponse {
+  string id = 1;
+  string user_id = 2;
+  string nidn = 3;
+  string full_name = 4;
+  string email = 5;
+  string department_id = 6;
+  string department_name = 7;
+  string status = 8;
+  int32 max_supervisor_quota = 9;
+  int32 current_quota_used = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message UpdateLecturerProfileRequest {
+  string user_id = 1;
+  string full_name = 2;
+  string email = 3;
+  string nidn = 4;
+}
+
+message GetLecturerDashboardRequest {
+  string user_id = 1;
+}
+
+message SupervisorRequestSummary {
+  string id = 1;
+  string student_name = 2;
+  string topic_title = 3;
+  string status = 4;
+  string created_at = 5;
+}
+
+message ConsultationBookingSummary {
+  string id = 1;
+  string student_name = 2;
+  string topic = 3;
+  string slot_date = 4;
+  string start_time = 5;
+}
+
+message GetLecturerDashboardResponse {
+  int32 total_supervised_students = 1;
+  int32 pending_supervisor_requests = 2;
+  int32 pending_consultation_bookings = 3;
+  int32 quota_used = 4;
+  int32 quota_max = 5;
+  repeated SupervisorRequestSummary recent_requests = 6;
+  repeated ConsultationBookingSummary pending_bookings = 7;
+}
+
+message GetLecturerQuotaRequest {
+  string user_id = 1;
+  string academic_year_id = 2;
+}
+
+message QuotaDetail {
+  string student_name = 1;
+  string request_id = 2;
+  string status = 3;
+}
+
+message GetLecturerQuotaResponse {
+  string academic_year_id = 1;
+  string academic_year_name = 2;
+  int32 max_quota = 3;
+  int32 current_used = 4;
+  int32 available = 5;
+  repeated QuotaDetail details = 6;
 }
 
 // ─── Bulk import (Epic 11a / FR-275, FR-276) ────────────────────────────────
@@ -992,10 +1089,15 @@ message ListSupervisedProgressRequest {
   string lecturer_user_id = 1;
   bool include_completed = 2;
   int32 stuck_threshold_days = 3;
+  int32 page = 4;
+  int32 page_size = 5;
 }
 
 message ListSupervisedProgressResponse {
   repeated SupervisedStudentProgress students = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
 }
 
 message GetStudentProgressDetailRequest {
@@ -1139,4 +1241,58 @@ message CancelBookingRequest {
 message AcceptRescheduleRequest {
   string booking_id = 1;
   string student_user_id = 2;
+}
+
+// ─── Thesis Final Document Review (Tahap 4) ─────────────────────────────────
+
+message ThesisFinalDocumentItem {
+  string id = 1;
+  string supervisor_request_id = 2;
+  string student_user_id = 3;
+  string lecturer_user_id = 4;
+  string document_type = 5;
+  string title = 6;
+  string file_id = 7;
+  string filename = 8;
+  int32 version = 9;
+  string status = 10;
+  string submitted_at = 11;
+  string reviewed_at = 12;
+  string approved_at = 13;
+  string lecturer_notes = 14;
+  string rejection_reason = 15;
+  string created_at = 16;
+  string updated_at = 17;
+  string student_name = 18;
+  string student_nim = 19;
+  string lecturer_name = 20;
+  string topic_title = 21;
+}
+
+message ListLecturerFinalDocumentsRequest {
+  string lecturer_user_id = 1;
+  string status_filter = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListThesisFinalDocumentsResponse {
+  repeated ThesisFinalDocumentItem documents = 1;
+  int32 total_count = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message GetThesisFinalDocumentRequest {
+  string document_id = 1;
+}
+
+message ThesisFinalDocumentResponse {
+  ThesisFinalDocumentItem document = 1;
+}
+
+message FinalDocumentActionRequest {
+  string document_id = 1;
+  string lecturer_user_id = 2;
+  string notes = 3;
 }
