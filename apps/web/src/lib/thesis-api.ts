@@ -86,3 +86,52 @@ export async function deleteThesisMilestone(token: string, id: string) {
     token,
   });
 }
+
+// ─── Lecturer Progress Tracking ─────────────────────────────────────────────
+
+export type SupervisedStudentProgress = {
+  studentUserId: string;
+  studentName: string;
+  studentNim: string;
+  topicTitle: string;
+  supervisorRequestId: string;
+  totalMilestones: number;
+  completedMilestones: number;
+  lastActivityAt?: string;
+  daysSinceLastActivity: number;
+  progress?: ThesisProgressItem[];
+};
+
+export async function listSupervisedProgress(
+  token: string,
+  options?: { includeCompleted?: boolean; stuckThresholdDays?: number }
+) {
+  const params = new URLSearchParams();
+  if (options?.includeCompleted) {
+    params.set("include_completed", "true");
+  }
+  if (options?.stuckThresholdDays) {
+    params.set("stuck_threshold_days", String(options.stuckThresholdDays));
+  }
+  const query = params.toString();
+  const url = `/api/v1/lecturer/supervised-students/progress${query ? `?${query}` : ""}`;
+  return apiFetch<ApiResponse<{ items: SupervisedStudentProgress[] }>>(url, { token });
+}
+
+export async function getStudentProgressDetail(token: string, studentUserId: string) {
+  return apiFetch<ApiResponse<SupervisedStudentProgress>>(
+    `/api/v1/lecturer/supervised-students/${studentUserId}/progress`,
+    { token }
+  );
+}
+
+export async function completeMilestone(token: string, progressId: string, notes?: string) {
+  return apiFetch<ApiResponse<{ progress: ThesisProgressItem }>>(
+    `/api/v1/lecturer/thesis-progress/${progressId}/complete`,
+    {
+      method: "POST",
+      token,
+      body: { notes: notes ?? "" },
+    }
+  );
+}

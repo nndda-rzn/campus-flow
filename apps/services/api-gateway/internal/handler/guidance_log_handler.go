@@ -63,14 +63,30 @@ func (h *GuidanceLogHandler) RouteLecturerGuidanceLogByID(w http.ResponseWriter,
 	}
 	id := parts[0]
 
-	if len(parts) == 2 {
-		if parts[1] == "approve" && r.Method == http.MethodPost {
+	if len(parts) >= 2 {
+		action := parts[1]
+		if action == "approve" && r.Method == http.MethodPost {
 			h.approveLog(w, r, id)
 			return
 		}
-		if parts[1] == "request-revision" && r.Method == http.MethodPost {
+		if action == "request-revision" && r.Method == http.MethodPost {
 			h.requestRevisionLog(w, r, id)
 			return
+		}
+		if action == "notes" && r.Method == http.MethodPut {
+			h.updateLogNotes(w, r, id)
+			return
+		}
+		if action == "attachments" {
+			if r.Method == http.MethodPost {
+				h.attachFileToLog(w, r, id)
+				return
+			}
+			if r.Method == http.MethodDelete && len(parts) == 3 {
+				fileID := parts[2]
+				h.removeAttachment(w, r, id, fileID)
+				return
+			}
 		}
 	}
 	
@@ -236,6 +252,7 @@ func (h *GuidanceLogHandler) deleteLog(w http.ResponseWriter, r *http.Request, i
 	_, err := h.client.DeleteLog(r.Context(), &academicv1.DeleteLogRequest{
 		Id: id,
 	})
+
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to delete guidance log"})
 		return
@@ -244,6 +261,121 @@ func (h *GuidanceLogHandler) deleteLog(w http.ResponseWriter, r *http.Request, i
 	writeJSON(w, http.StatusOK, APIResponse{
 		Success: true,
 		Message: "Guidance log deleted successfully",
+	})
+}
+
+// ─── Enhanced Guidance Log ──────────────────────────────────────────────────
+
+func (h *GuidanceLogHandler) updateLogNotes(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Unauthorized"})
+		return
+	}
+
+	var payload struct {
+		LecturerNotes string `json:"lecturer_notes"`
+		MilestoneID   string `json:"milestone_id"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Invalid request payload"})
+		return
+	}
+
+	res, err := h.client.UpdateLogNotes(r.Context(), &academicv1.UpdateGuidanceLogNotesRequest{
+		LogId:          id,
+		LecturerUserId: userID,
+		LecturerNotes:  payload.LecturerNotes,
+		MilestoneId:    payload.MilestoneID,
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "PermissionDenied") {
+			writeJSON(w, http.StatusForbidden, APIResponse{Success: false, Message: "You are not authorized to update notes for this log"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to update guidance log notes"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "Guidance log notes updated successfully",
+		Data:    res.Log,
+	})
+}
+
+func (h *GuidanceLogHandler) attachFileToLog(w http.ResponseWriter, r *http.Request, id string) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Unauthorized"})
+		return
+	}
+
+	var payload struct {
+		FileID   string `json:"file_id"`
+		Filename string `json:"filename"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "Invalid request payload"})
+		return
+	}
+
+	res, err := h.client.AttachFileToLog(r.Context(), &academicv1.AttachFileToLogRequest{
+		LogId:      id,
+		FileId:     payload.FileID,
+		UploadedBy: userID,
+		Filename:   payload.Filename,
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "PermissionDenied") {
+			writeJSON(w, http.StatusForbidden, APIResponse{Success: false, Message: "You are not authorized to attach files to this log"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to attach file to guidance log"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "File attached successfully",
+		Data:    res.Log,
+	})
+}
+
+func (h *GuidanceLogHandler) removeAttachment(w http.ResponseWriter, r *http.Request, id, fileID string) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Unauthorized"})
+		return
+	}
+
+	res, err := h.client.RemoveAttachment(r.Context(), &academicv1.RemoveAttachmentRequest{
+		LogId:       id,
+		FileId:      fileID,
+		ActorUserId: userID,
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "PermissionDenied") {
+			writeJSON(w, http.StatusForbidden, APIResponse{Success: false, Message: "You are not authorized to remove this attachment"})
+			return
+		}
+		if strings.Contains(err.Error(), "NotFound") {
+			writeJSON(w, http.StatusNotFound, APIResponse{Success: false, Message: "Attachment not found"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to remove attachment"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "Attachment removed successfully",
+		Data:    res.Log,
 	})
 }
 

@@ -53,6 +53,7 @@ func main() {
 	guidanceLogHandler := handler.NewGuidanceLogHandler(academicClient.Client)
 	calendarHandler := handler.NewAcademicCalendarHandler(academicClient.Client)
 	faqHandler := handler.NewFAQHandler(academicClient.Client)
+	consultationHandler := handler.NewConsultationHandler(academicClient.Client)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -695,6 +696,149 @@ func main() {
 			authMiddleware.RequireAuth(
 				authMiddleware.RequireRole("DOSEN")(
 					http.HandlerFunc(guidanceLogHandler.RouteLecturerGuidanceLogByID),
+				),
+			),
+		),
+	)
+
+	// Generic guidance log file upload (DOSEN & MAHASISWA)
+	mux.Handle(
+		"/api/v1/guidance-logs/upload",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN", "MAHASISWA")(
+					http.HandlerFunc(fileHandler.UploadGuidanceLogAttachment),
+				),
+			),
+		),
+	)
+
+	// Lecturer Thesis Progress Tracking
+	mux.Handle(
+		"/api/v1/lecturer/supervised-students/progress",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisHandler.ListSupervisedProgress),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/supervised-students/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisHandler.RouteLecturerSupervisedStudents),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/thesis-progress/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(thesisHandler.RouteLecturerThesisProgress),
+				),
+			),
+		),
+	)
+
+	// Lecturer Consultation Slots
+	mux.Handle(
+		"/api/v1/lecturer/consultation-slots",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.Method == http.MethodGet {
+							consultationHandler.ListLecturerSlots(w, r)
+						} else if r.Method == http.MethodPost {
+							consultationHandler.CreateSlot(w, r)
+						} else {
+							w.WriteHeader(http.StatusMethodNotAllowed)
+						}
+					}),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/consultation-slots/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(consultationHandler.RouteLecturerSlotByID),
+				),
+			),
+		),
+	)
+
+	// Lecturer Consultation Bookings
+	mux.Handle(
+		"/api/v1/lecturer/consultation-bookings",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(consultationHandler.ListLecturerBookings),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/lecturer/consultation-bookings/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("DOSEN")(
+					http.HandlerFunc(consultationHandler.RouteLecturerBookingAction),
+				),
+			),
+		),
+	)
+
+	// Student Consultation Slots
+	mux.Handle(
+		"/api/v1/student/consultation-slots",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(consultationHandler.ListAvailableSlots),
+				),
+			),
+		),
+	)
+
+	// Student Consultation Bookings
+	mux.Handle(
+		"/api/v1/student/consultation-bookings",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						if r.Method == http.MethodGet {
+							consultationHandler.ListStudentBookings(w, r)
+						} else if r.Method == http.MethodPost {
+							consultationHandler.CreateBooking(w, r)
+						} else {
+							w.WriteHeader(http.StatusMethodNotAllowed)
+						}
+					}),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/student/consultation-bookings/",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("MAHASISWA")(
+					http.HandlerFunc(consultationHandler.RouteStudentBookingByID),
 				),
 			),
 		),

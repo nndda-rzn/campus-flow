@@ -185,6 +185,13 @@ func (h *GuidanceLogHandler) mapLog(l *model.GuidanceLog) *academicv1.GuidanceLo
 		LecturerName:        l.LecturerName,
 		CreatedAt:           l.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           l.UpdatedAt.Format(time.RFC3339),
+		LecturerNotes:       l.LecturerNotes,
+		MilestoneName:       l.MilestoneName,
+		MilestoneCode:       l.MilestoneCode,
+	}
+
+	if l.MilestoneID != nil {
+		item.MilestoneId = *l.MilestoneID
 	}
 
 	if l.StartTime != nil {
@@ -199,5 +206,57 @@ func (h *GuidanceLogHandler) mapLog(l *model.GuidanceLog) *academicv1.GuidanceLo
 	if l.ApprovedAt != nil {
 		item.ApprovedAt = l.ApprovedAt.Format(time.RFC3339)
 	}
+
+	for _, a := range l.Attachments {
+		item.Attachments = append(item.Attachments, &academicv1.GuidanceLogAttachment{
+			FileId:         a.FileID,
+			Filename:       a.Filename,
+			UploadedBy:     a.UploadedBy,
+			UploadedByName: a.UploadedByName,
+			UploadedAt:     a.UploadedAt.Format(time.RFC3339),
+		})
+	}
+
 	return item
+}
+
+// ─── Enhanced Guidance Log ──────────────────────────────────────────────────
+
+func (h *GuidanceLogHandler) UpdateLogNotes(ctx context.Context, req *academicv1.UpdateGuidanceLogNotesRequest) (*academicv1.GuidanceLogResponse, error) {
+	log, err := h.svc.UpdateLecturerNotes(ctx, req.LogId, req.LecturerUserId, req.LecturerNotes, req.MilestoneId)
+	if err != nil {
+		if err == service.ErrLogNotSupervisor {
+			return nil, status.Errorf(codes.PermissionDenied, "you are not the supervisor of this log")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to update log notes: %v", err)
+	}
+
+	return &academicv1.GuidanceLogResponse{Log: h.mapLog(log)}, nil
+}
+
+func (h *GuidanceLogHandler) AttachFileToLog(ctx context.Context, req *academicv1.AttachFileToLogRequest) (*academicv1.GuidanceLogResponse, error) {
+	log, err := h.svc.AttachFile(ctx, req.LogId, req.FileId, req.UploadedBy, req.Filename)
+	if err != nil {
+		if err == service.ErrLogNotSupervisor {
+			return nil, status.Errorf(codes.PermissionDenied, "you are not authorized to attach files to this log")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to attach file: %v", err)
+	}
+
+	return &academicv1.GuidanceLogResponse{Log: h.mapLog(log)}, nil
+}
+
+func (h *GuidanceLogHandler) RemoveAttachment(ctx context.Context, req *academicv1.RemoveAttachmentRequest) (*academicv1.GuidanceLogResponse, error) {
+	log, err := h.svc.RemoveAttachment(ctx, req.LogId, req.FileId, req.ActorUserId)
+	if err != nil {
+		if err == service.ErrLogNotSupervisor {
+			return nil, status.Errorf(codes.PermissionDenied, "you are not authorized to remove this attachment")
+		}
+		if err == service.ErrAttachmentNotFound {
+			return nil, status.Errorf(codes.NotFound, "attachment not found")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to remove attachment: %v", err)
+	}
+
+	return &academicv1.GuidanceLogResponse{Log: h.mapLog(log)}, nil
 }

@@ -48,6 +48,11 @@ function getNavigation(role: UserRole): NavGroup[] {
               icon: <IconTarget />,
             },
             {
+              label: "Konsultasi",
+              href: "/student/consultation",
+              icon: <IconClipboard />,
+            },
+            {
               label: "Kalender Akademik",
               href: "/student/calendar",
               icon: <IconCalendar />,
@@ -173,6 +178,16 @@ function getNavigation(role: UserRole): NavGroup[] {
               label: "Mahasiswa Bimbingan",
               href: "/lecturer/supervised-students",
               icon: <IconGraduationCap />,
+            },
+            {
+              label: "Jadwal Bimbingan",
+              href: "/lecturer/consultation",
+              icon: <IconCalendar />,
+            },
+            {
+              label: "Booking Masuk",
+              href: "/lecturer/consultation/bookings",
+              icon: <IconClipboard />,
             },
             {
               label: "Notifikasi",
@@ -769,6 +784,24 @@ function IconHelpCircle() {
       <circle cx="12" cy="12" r="10" />
       <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function IconClipboard() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
     </svg>
   );
 }

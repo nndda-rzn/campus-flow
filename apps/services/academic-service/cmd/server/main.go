@@ -59,6 +59,11 @@ func main() {
 	academicCalendarHandler := handler.NewAcademicCalendarHandler(academicCalendarService)
 	faqHandler := handler.NewFAQHandler(faqService)
 
+	// Consultation Scheduling
+	consultationRepo := repository.NewConsultationRepository(dbpool)
+	consultationService := service.NewConsultationService(consultationRepo)
+	consultationHandler := handler.NewConsultationHandler(consultationService)
+
 	// Composite Handler
 	fullAcademicHandler := &compositeHandler{
 		AcademicHandler:         academicHandler,
@@ -66,6 +71,7 @@ func main() {
 		GuidanceLogHandler:      guidanceLogHandler,
 		AcademicCalendarHandler: academicCalendarHandler,
 		FAQHandler:              faqHandler,
+		ConsultationHandler:     consultationHandler,
 	}
 
 	outboxRepo := repository.NewOutboxRepository(dbpool)
@@ -195,4 +201,5 @@ type compositeHandler struct {
 	*handler.GuidanceLogHandler
 	*handler.AcademicCalendarHandler
 	*handler.FAQHandler
+	*handler.ConsultationHandler
 }

@@ -3,6 +3,14 @@ import type { ApiResponse } from "@/types/auth";
 
 export type GuidanceLogStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REVISION_REQUIRED";
 
+export type GuidanceLogAttachment = {
+  fileId: string;
+  filename: string;
+  uploadedBy: string;
+  uploadedByName?: string;
+  uploadedAt: string;
+};
+
 export type GuidanceLogItem = {
   id: string;
   studentUserId: string;
@@ -22,6 +30,12 @@ export type GuidanceLogItem = {
   updatedAt: string;
   studentName: string;
   lecturerName: string;
+  // Enhanced fields
+  lecturerNotes?: string;
+  milestoneId?: string;
+  milestoneName?: string;
+  milestoneCode?: string;
+  attachments?: GuidanceLogAttachment[];
 };
 
 export async function getStudentGuidanceLogs(token: string) {
@@ -99,5 +113,30 @@ export async function requestRevisionGuidanceLog(token: string, id: string, feed
     method: "POST",
     token,
     body: { feedback },
+  });
+}
+
+// ─── Enhanced Guidance Log API ──────────────────────────────────────────────
+
+export async function updateGuidanceLogNotes(token: string, id: string, payload: { lecturer_notes: string; milestone_id?: string }) {
+  return apiFetch<ApiResponse<GuidanceLogItem>>(`/api/v1/lecturer/guidance-logs/${id}/notes`, {
+    method: "PUT",
+    token,
+    body: payload,
+  });
+}
+
+export async function attachFileToGuidanceLog(token: string, id: string, payload: { file_id: string; filename: string }) {
+  return apiFetch<ApiResponse<GuidanceLogItem>>(`/api/v1/lecturer/guidance-logs/${id}/attachments`, {
+    method: "POST",
+    token,
+    body: payload,
+  });
+}
+
+export async function removeAttachmentFromGuidanceLog(token: string, id: string, fileId: string) {
+  return apiFetch<ApiResponse<GuidanceLogItem>>(`/api/v1/lecturer/guidance-logs/${id}/attachments/${fileId}`, {
+    method: "DELETE",
+    token,
   });
 }

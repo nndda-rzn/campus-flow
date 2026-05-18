@@ -146,6 +146,49 @@ export async function uploadFinalDocument(
 }
 
 /**
+ * Upload generic file (e.g., for guidance log attachments).
+ * Menggunakan fetch langsung karena multipart/form-data.
+ */
+export async function uploadFile(
+  token: string,
+  file: File,
+  purpose: string
+): Promise<ApiResponse<{ fileId: string; file: FileItem }>> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  // We use the new guidance-logs upload endpoint for this specific purpose
+  // In a real app, you might want a truly generic endpoint or routing based on purpose
+  let endpoint = `${API_BASE_URL}/api/v1/guidance-logs/upload`;
+  
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ?? `Upload gagal dengan status ${response.status}`,
+    );
+  }
+
+  // Map the response format to match what the frontend expects
+  const rawFile = data?.data?.file;
+  const normalizedFile = rawFile ? normalizeFileItem(rawFile) : null;
+
+  return {
+    ...data,
+    data: {
+      fileId: normalizedFile?.id ?? data?.data?.file_id ?? "",
+      file: normalizedFile,
+    }
+  } as ApiResponse<{ fileId: string; file: FileItem }>;
+}
+
+/**
  * Download file — mengembalikan URL object blob agar bisa di-trigger sebagai
  * anchor download tanpa membuka tab baru.
  */

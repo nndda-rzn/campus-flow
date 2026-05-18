@@ -5,9 +5,11 @@ import (
 	"time"
 
 	"github.com/Masterminds/squirrel"
-	"github.com/lib/pq"
-	"campus-flow/apps/services/academic-service/internal/model"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/lib/pq"
+
+	"campus-flow/apps/services/academic-service/internal/model"
 )
 
 type AcademicCalendarRepository struct {
@@ -74,6 +76,12 @@ func (r *AcademicCalendarRepository) GetEvents(ctx context.Context, startDate, e
 		e.TargetRoles = targetRoles
 		events = append(events, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return events, nil
+}
+
 func (r *AcademicCalendarRepository) CreateEvent(ctx context.Context, e *model.AcademicCalendar) (*model.AcademicCalendar, error) {
 	query, args, err := squirrel.Insert("academic_calendar").
 		Columns(

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"campus-flow/apps/services/academic-service/internal/model"
 	"campus-flow/apps/services/academic-service/internal/service"
 	academicv1 "campus-flow/proto/gen/academic/v1"
 	"google.golang.org/grpc/codes"
@@ -66,6 +67,9 @@ func (h *AcademicCalendarHandler) GetEvents(ctx context.Context, req *academicv1
 		
 		res.Events = append(res.Events, item)
 	}
+	return res, nil
+}
+
 func (h *AcademicCalendarHandler) CreateEvent(ctx context.Context, req *academicv1.CreateEventRequest) (*academicv1.AcademicCalendarResponse, error) {
 	startDate, err := time.Parse(time.DateOnly, req.StartDate)
 	if err != nil {

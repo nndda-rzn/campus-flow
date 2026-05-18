@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/Masterminds/squirrel"
-	"campus-flow/apps/services/academic-service/internal/model"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"campus-flow/apps/services/academic-service/internal/model"
 )
 
 type FAQRepository struct {

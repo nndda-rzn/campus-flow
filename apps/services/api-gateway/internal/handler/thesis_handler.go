@@ -233,3 +233,187 @@ func (h *ThesisHandler) DeleteMilestone(w http.ResponseWriter, r *http.Request, 
 		Message: "Milestone deleted successfully",
 	})
 }
+
+// --- Lecturer Progress Endpoints ---
+
+// ListSupervisedProgress returns all supervised students with their progress
+// GET /api/v1/lecturer/supervised-students/progress
+func (h *ThesisHandler) ListSupervisedProgress(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "Method not allowed"})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Unauthorized"})
+		return
+	}
+
+	// Parse query params
+	includeCompleted := r.URL.Query().Get("include_completed") == "true"
+	stuckThresholdDays := int32(0)
+	if days := r.URL.Query().Get("stuck_threshold_days"); days != "" {
+		var d int
+		if _, err := json.Number(days).Int64(); err == nil {
+			d, _ = parseInt(days)
+			stuckThresholdDays = int32(d)
+		}
+	}
+
+	res, err := h.client.ListSupervisedProgress(r.Context(), &academicv1.ListSupervisedProgressRequest{
+		LecturerUserId:     userID,
+		IncludeCompleted:   includeCompleted,
+		StuckThresholdDays: stuckThresholdDays,
+	})
+
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to get supervised students progress"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"items": res.Students,
+		},
+	})
+}
+
+// GetStudentProgressDetail returns detailed progress for a specific student
+// GET /api/v1/lecturer/supervised-students/{id}/progress
+func (h *ThesisHandler) GetStudentProgressDetail(w http.ResponseWriter, r *http.Request, studentUserID string) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "Method not allowed"})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Unauthorized"})
+		return
+	}
+
+	res, err := h.client.GetStudentProgressDetail(r.Context(), &academicv1.GetStudentProgressDetailRequest{
+		StudentUserId:  studentUserID,
+		LecturerUserId: userID,
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "NotFound") || strings.Contains(err.Error(), "not found") {
+			writeJSON(w, http.StatusNotFound, APIResponse{Success: false, Message: "Student not found or not supervised by you"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to get student progress"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data:    res,
+	})
+}
+
+// CompleteMilestone marks a milestone as completed by the lecturer
+// POST /api/v1/lecturer/thesis-progress/{id}/complete
+func (h *ThesisHandler) CompleteMilestone(w http.ResponseWriter, r *http.Request, progressID string) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "Method not allowed"})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "Unauthorized"})
+		return
+	}
+
+	var payload struct {
+		Notes string `json:"notes"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		// Allow empty body
+		payload.Notes = ""
+	}
+
+	res, err := h.client.CompleteMilestone(r.Context(), &academicv1.CompleteMilestoneRequest{
+		ProgressId:     progressID,
+		LecturerUserId: userID,
+		Notes:          payload.Notes,
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "PermissionDenied") {
+			writeJSON(w, http.StatusForbidden, APIResponse{Success: false, Message: "You are not the supervisor of this student"})
+			return
+		}
+		if strings.Contains(err.Error(), "NotFound") {
+			writeJSON(w, http.StatusNotFound, APIResponse{Success: false, Message: "Progress not found"})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to complete milestone"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Message: "Milestone marked as completed",
+		Data:    res.Progress,
+	})
+}
+
+// RouteLecturerSupervisedStudents routes /api/v1/lecturer/supervised-students/*
+func (h *ThesisHandler) RouteLecturerSupervisedStudents(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/lecturer/supervised-students")
+	
+	// /api/v1/lecturer/supervised-students/progress
+	if path == "/progress" || path == "/progress/" {
+		h.ListSupervisedProgress(w, r)
+		return
+	}
+
+	// /api/v1/lecturer/supervised-students/{id}/progress
+	if strings.HasSuffix(path, "/progress") {
+		parts := strings.Split(strings.Trim(path, "/"), "/")
+		if len(parts) >= 2 && parts[1] == "progress" {
+			h.GetStudentProgressDetail(w, r, parts[0])
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusNotFound, APIResponse{Success: false, Message: "Not found"})
+}
+
+// RouteLecturerThesisProgress routes /api/v1/lecturer/thesis-progress/*
+func (h *ThesisHandler) RouteLecturerThesisProgress(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/lecturer/thesis-progress/")
+	parts := strings.Split(path, "/")
+	
+	if len(parts) < 2 || parts[0] == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "progress ID is required"})
+		return
+	}
+
+	progressID := parts[0]
+	action := parts[1]
+
+	if action == "complete" {
+		h.CompleteMilestone(w, r, progressID)
+		return
+	}
+
+	writeJSON(w, http.StatusNotFound, APIResponse{Success: false, Message: "Not found"})
+}
+
+// parseInt helper
+func parseInt(s string) (int, error) {
+	var result int
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0, nil
+		}
+		result = result*10 + int(c-'0')
+	}
+	return result, nil
+}

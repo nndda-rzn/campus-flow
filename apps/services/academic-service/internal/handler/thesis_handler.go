@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"campus-flow/apps/services/academic-service/internal/model"
 	"campus-flow/apps/services/academic-service/internal/service"
 	academicv1 "campus-flow/proto/gen/academic/v1"
 	"google.golang.org/grpc/codes"
@@ -98,6 +99,9 @@ func (h *ThesisHandler) UpdateProgress(ctx context.Context, req *academicv1.Upda
 		item.CompletedAt = p.CompletedAt.Format(time.RFC3339)
 	}
 
+	return &academicv1.ThesisProgressResponse{Progress: item}, nil
+}
+
 func (h *ThesisHandler) CreateMilestone(ctx context.Context, req *academicv1.CreateMilestoneRequest) (*academicv1.MilestoneResponse, error) {
 	milestone := &model.ThesisMilestone{
 		DepartmentID:  req.DepartmentId,
@@ -156,4 +160,121 @@ func (h *ThesisHandler) DeleteMilestone(ctx context.Context, req *academicv1.Del
 	}
 
 	return &academicv1.DeleteMilestoneResponse{Success: true}, nil
+}
+
+// --- Lecturer Progress View ---
+
+func (h *ThesisHandler) ListSupervisedProgress(ctx context.Context, req *academicv1.ListSupervisedProgressRequest) (*academicv1.ListSupervisedProgressResponse, error) {
+	students, err := h.svc.ListSupervisedProgress(ctx, req.LecturerUserId, req.IncludeCompleted, int(req.StuckThresholdDays))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to list supervised progress: %v", err)
+	}
+
+	res := &academicv1.ListSupervisedProgressResponse{}
+	for _, s := range students {
+		item := &academicv1.SupervisedStudentProgress{
+			StudentUserId:         s.StudentUserID,
+			StudentName:           s.StudentName,
+			StudentNim:            s.StudentNIM,
+			TopicTitle:            s.TopicTitle,
+			SupervisorRequestId:   s.SupervisorRequestID,
+			TotalMilestones:       int32(s.TotalMilestones),
+			CompletedMilestones:   int32(s.CompletedMilestones),
+			DaysSinceLastActivity: int32(s.DaysSinceLastActivity),
+		}
+
+		if s.LastActivityAt != nil {
+			item.LastActivityAt = s.LastActivityAt.Format(time.RFC3339)
+		}
+
+		res.Students = append(res.Students, item)
+	}
+
+	return res, nil
+}
+
+func (h *ThesisHandler) GetStudentProgressDetail(ctx context.Context, req *academicv1.GetStudentProgressDetailRequest) (*academicv1.SupervisedStudentProgress, error) {
+	student, err := h.svc.GetStudentProgressDetail(ctx, req.StudentUserId, req.LecturerUserId)
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, status.Errorf(codes.NotFound, "student not found or not supervised by this lecturer")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to get student progress: %v", err)
+	}
+
+	res := &academicv1.SupervisedStudentProgress{
+		StudentUserId:         student.StudentUserID,
+		StudentName:           student.StudentName,
+		StudentNim:            student.StudentNIM,
+		TopicTitle:            student.TopicTitle,
+		SupervisorRequestId:   student.SupervisorRequestID,
+		TotalMilestones:       int32(student.TotalMilestones),
+		CompletedMilestones:   int32(student.CompletedMilestones),
+		DaysSinceLastActivity: int32(student.DaysSinceLastActivity),
+	}
+
+	if student.LastActivityAt != nil {
+		res.LastActivityAt = student.LastActivityAt.Format(time.RFC3339)
+	}
+
+	// Add progress details
+	for _, p := range student.Progress {
+		item := &academicv1.ThesisProgressItem{
+			Id:                  p.ID,
+			StudentUserId:       p.StudentUserID,
+			SupervisorRequestId: p.SupervisorRequestID,
+			MilestoneId:         p.MilestoneID,
+			Status:              p.Status,
+			Notes:               p.Notes,
+			MilestoneName:       p.MilestoneName,
+			MilestoneCode:       p.MilestoneCode,
+			SequenceOrder:       int32(p.SequenceOrder),
+			CreatedAt:           p.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
+		}
+
+		if p.TargetDate != nil {
+			item.TargetDate = p.TargetDate.Format(time.DateOnly)
+		}
+		if p.CompletedAt != nil {
+			item.CompletedAt = p.CompletedAt.Format(time.RFC3339)
+		}
+
+		res.Progress = append(res.Progress, item)
+	}
+
+	return res, nil
+}
+
+func (h *ThesisHandler) CompleteMilestone(ctx context.Context, req *academicv1.CompleteMilestoneRequest) (*academicv1.ThesisProgressResponse, error) {
+	p, err := h.svc.CompleteMilestone(ctx, req.ProgressId, req.LecturerUserId, req.Notes)
+	if err != nil {
+		if err == service.ErrNotSupervisor {
+			return nil, status.Errorf(codes.PermissionDenied, "you are not the supervisor of this student")
+		}
+		if err == service.ErrProgressNotFound {
+			return nil, status.Errorf(codes.NotFound, "progress not found")
+		}
+		return nil, status.Errorf(codes.Internal, "failed to complete milestone: %v", err)
+	}
+
+	item := &academicv1.ThesisProgressItem{
+		Id:                  p.ID,
+		StudentUserId:       p.StudentUserID,
+		SupervisorRequestId: p.SupervisorRequestID,
+		MilestoneId:         p.MilestoneID,
+		Status:              p.Status,
+		Notes:               p.Notes,
+		CreatedAt:           p.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           p.UpdatedAt.Format(time.RFC3339),
+	}
+
+	if p.TargetDate != nil {
+		item.TargetDate = p.TargetDate.Format(time.DateOnly)
+	}
+	if p.CompletedAt != nil {
+		item.CompletedAt = p.CompletedAt.Format(time.RFC3339)
+	}
+
+	return &academicv1.ThesisProgressResponse{Progress: item}, nil
 }

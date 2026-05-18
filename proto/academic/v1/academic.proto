@@ -88,6 +88,11 @@ service AcademicService {
   rpc CreateLog(CreateLogRequest) returns (GuidanceLogResponse);
   rpc UpdateLog(UpdateLogRequest) returns (GuidanceLogResponse);
   rpc DeleteLog(DeleteLogRequest) returns (DeleteLogResponse);
+  
+  // Enhanced Guidance Logs (Lecturer)
+  rpc UpdateLogNotes(UpdateGuidanceLogNotesRequest) returns (GuidanceLogResponse);
+  rpc AttachFileToLog(AttachFileToLogRequest) returns (GuidanceLogResponse);
+  rpc RemoveAttachment(RemoveAttachmentRequest) returns (GuidanceLogResponse);
 
   // Academic Calendar
   rpc GetEvents(GetEventsRequest) returns (GetEventsResponse);
@@ -106,6 +111,28 @@ service AcademicService {
   rpc CreateMilestone(CreateMilestoneRequest) returns (MilestoneResponse);
   rpc UpdateMilestone(UpdateMilestoneRequest) returns (MilestoneResponse);
   rpc DeleteMilestone(DeleteMilestoneRequest) returns (DeleteMilestoneResponse);
+
+  // Thesis Progress (Lecturer View)
+  rpc ListSupervisedProgress(ListSupervisedProgressRequest) returns (ListSupervisedProgressResponse);
+  rpc GetStudentProgressDetail(GetStudentProgressDetailRequest) returns (SupervisedStudentProgress);
+  rpc CompleteMilestone(CompleteMilestoneRequest) returns (ThesisProgressResponse);
+
+  // Consultation Scheduling (Lecturer)
+  rpc ListConsultationSlots(ListConsultationSlotsRequest) returns (ListConsultationSlotsResponse);
+  rpc CreateConsultationSlot(CreateConsultationSlotRequest) returns (ConsultationSlotResponse);
+  rpc UpdateConsultationSlot(UpdateConsultationSlotRequest) returns (ConsultationSlotResponse);
+  rpc CancelConsultationSlot(CancelConsultationSlotRequest) returns (ConsultationSlotResponse);
+  rpc ListLecturerBookings(ListLecturerBookingsRequest) returns (ListConsultationBookingsResponse);
+  rpc ApproveBooking(BookingActionRequest) returns (ConsultationBookingResponse);
+  rpc RejectBooking(BookingActionRequest) returns (ConsultationBookingResponse);
+  rpc RescheduleBooking(RescheduleBookingRequest) returns (ConsultationBookingResponse);
+
+  // Consultation Scheduling (Student)
+  rpc ListAvailableSlots(ListAvailableSlotsRequest) returns (ListConsultationSlotsResponse);
+  rpc ListStudentBookings(ListStudentBookingsRequest) returns (ListConsultationBookingsResponse);
+  rpc CreateBooking(CreateBookingRequest) returns (ConsultationBookingResponse);
+  rpc CancelBooking(CancelBookingRequest) returns (ConsultationBookingResponse);
+  rpc AcceptReschedule(AcceptRescheduleRequest) returns (ConsultationBookingResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -695,6 +722,20 @@ message GuidanceLogItem {
   string updated_at = 16;
   string student_name = 17;
   string lecturer_name = 18;
+  // Enhanced fields
+  string lecturer_notes = 19;
+  string milestone_id = 20;
+  string milestone_name = 21;
+  string milestone_code = 22;
+  repeated GuidanceLogAttachment attachments = 23;
+}
+
+message GuidanceLogAttachment {
+  string file_id = 1;
+  string filename = 2;
+  string uploaded_by = 3;
+  string uploaded_by_name = 4;
+  string uploaded_at = 5;
 }
 
 message GetLogsByStudentRequest {
@@ -747,6 +788,28 @@ message DeleteLogRequest {
 
 message DeleteLogResponse {
   bool success = 1;
+}
+
+// Enhanced Guidance Log messages
+
+message UpdateGuidanceLogNotesRequest {
+  string log_id = 1;
+  string lecturer_user_id = 2;
+  string lecturer_notes = 3;
+  string milestone_id = 4;
+}
+
+message AttachFileToLogRequest {
+  string log_id = 1;
+  string file_id = 2;
+  string uploaded_by = 3;
+  string filename = 4;
+}
+
+message RemoveAttachmentRequest {
+  string log_id = 1;
+  string file_id = 2;
+  string actor_user_id = 3;
 }
 
 // ─── Academic Calendar ──────────────────────────────────────────────────────
@@ -908,4 +971,172 @@ message DeleteMilestoneRequest {
 
 message DeleteMilestoneResponse {
   bool success = 1;
+}
+
+// ─── Thesis Progress (Lecturer View) ────────────────────────────────────────
+
+message SupervisedStudentProgress {
+  string student_user_id = 1;
+  string student_name = 2;
+  string student_nim = 3;
+  string topic_title = 4;
+  string supervisor_request_id = 5;
+  int32 total_milestones = 6;
+  int32 completed_milestones = 7;
+  string last_activity_at = 8;
+  int32 days_since_last_activity = 9;
+  repeated ThesisProgressItem progress = 10;
+}
+
+message ListSupervisedProgressRequest {
+  string lecturer_user_id = 1;
+  bool include_completed = 2;
+  int32 stuck_threshold_days = 3;
+}
+
+message ListSupervisedProgressResponse {
+  repeated SupervisedStudentProgress students = 1;
+}
+
+message GetStudentProgressDetailRequest {
+  string student_user_id = 1;
+  string lecturer_user_id = 2;
+}
+
+message CompleteMilestoneRequest {
+  string progress_id = 1;
+  string lecturer_user_id = 2;
+  string notes = 3;
+}
+
+// ─── Consultation Scheduling ────────────────────────────────────────────────
+
+message ConsultationSlot {
+  string id = 1;
+  string lecturer_user_id = 2;
+  string lecturer_name = 3;
+  string slot_date = 4;           // YYYY-MM-DD
+  string start_time = 5;          // HH:MM
+  string end_time = 6;            // HH:MM
+  int32 max_bookings = 7;
+  int32 current_bookings = 8;     // computed
+  string location = 9;
+  string notes = 10;
+  bool is_cancelled = 11;
+  string created_at = 12;
+  string updated_at = 13;
+}
+
+message ConsultationSlotResponse {
+  ConsultationSlot slot = 1;
+}
+
+message ListConsultationSlotsRequest {
+  string lecturer_user_id = 1;
+  string start_date = 2;          // filter from
+  string end_date = 3;            // filter to
+  bool include_cancelled = 4;
+}
+
+message ListConsultationSlotsResponse {
+  repeated ConsultationSlot slots = 1;
+}
+
+message CreateConsultationSlotRequest {
+  string lecturer_user_id = 1;
+  string slot_date = 2;
+  string start_time = 3;
+  string end_time = 4;
+  int32 max_bookings = 5;
+  string location = 6;
+  string notes = 7;
+}
+
+message UpdateConsultationSlotRequest {
+  string id = 1;
+  string lecturer_user_id = 2;
+  string slot_date = 3;
+  string start_time = 4;
+  string end_time = 5;
+  int32 max_bookings = 6;
+  string location = 7;
+  string notes = 8;
+}
+
+message CancelConsultationSlotRequest {
+  string id = 1;
+  string lecturer_user_id = 2;
+}
+
+// Consultation Bookings
+
+message ConsultationBooking {
+  string id = 1;
+  string slot_id = 2;
+  string student_user_id = 3;
+  string student_name = 4;
+  string student_nim = 5;
+  string topic = 6;
+  string status = 7;              // PENDING, APPROVED, REJECTED, CANCELLED, RESCHEDULED
+  string lecturer_notes = 8;
+  string proposed_slot_id = 9;
+  ConsultationSlot proposed_slot = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  // Slot info (joined)
+  string slot_date = 13;
+  string start_time = 14;
+  string end_time = 15;
+  string location = 16;
+  string lecturer_name = 17;
+}
+
+message ConsultationBookingResponse {
+  ConsultationBooking booking = 1;
+}
+
+message ListLecturerBookingsRequest {
+  string lecturer_user_id = 1;
+  string status = 2;              // filter by status, empty = all
+}
+
+message ListStudentBookingsRequest {
+  string student_user_id = 1;
+}
+
+message ListConsultationBookingsResponse {
+  repeated ConsultationBooking bookings = 1;
+}
+
+message ListAvailableSlotsRequest {
+  string student_user_id = 1;
+}
+
+message CreateBookingRequest {
+  string slot_id = 1;
+  string student_user_id = 2;
+  string topic = 3;
+}
+
+message BookingActionRequest {
+  string booking_id = 1;
+  string actor_user_id = 2;
+  string notes = 3;
+}
+
+message RescheduleBookingRequest {
+  string booking_id = 1;
+  string actor_user_id = 2;
+  string notes = 3;
+  string proposed_slot_id = 4;
+}
+
+message CancelBookingRequest {
+  string booking_id = 1;
+  string student_user_id = 2;
+}
+
+message AcceptRescheduleRequest {
+  string booking_id = 1;
+  string student_user_id = 2;
 }

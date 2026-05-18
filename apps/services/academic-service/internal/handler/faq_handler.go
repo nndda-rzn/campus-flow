@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"campus-flow/apps/services/academic-service/internal/service"
-	"campus-flow/apps/services/academic-service/internal/model"
 	academicv1 "campus-flow/proto/gen/academic/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

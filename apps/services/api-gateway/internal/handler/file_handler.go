@@ -42,6 +42,143 @@ func (h *FileHandler) UploadAcademicFinalDocument(w http.ResponseWriter, r *http
 	h.uploadAcademicFile(w, r, "FINAL_DOCUMENT")
 }
 
+// UploadGuidanceLogAttachment handles file upload for guidance log attachments.
+// Stores file under storage/uploads/guidance-logs/<userID>/ and registers it
+// with file-service using owner_type=GUIDANCE_LOG_ATTACHMENT.
+func (h *FileHandler) UploadGuidanceLogAttachment(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
+			Success: false,
+			Message: "method not allowed",
+		})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{
+			Success: false,
+			Message: "missing user id",
+		})
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
+
+	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "invalid multipart form or file too large",
+		})
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "file is required",
+		})
+		return
+	}
+	defer file.Close()
+
+	if header.Size <= 0 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "empty file is not allowed",
+		})
+		return
+	}
+
+	originalName := filepath.Base(header.Filename)
+	ext := strings.ToLower(filepath.Ext(originalName))
+
+	if !isAllowedUploadExtension(ext) {
+		writeJSON(w, http.StatusBadRequest, APIResponse{
+			Success: false,
+			Message: "file extension not allowed",
+		})
+		return
+	}
+
+	randomName, err := randomHex(16)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, APIResponse{
+			Success: false,
+			Message: "failed to generate file name",
+		})
+		return
+	}
+
+	storedName := randomName + ext
+
+	uploadDir := filepath.Join("storage", "uploads", "guidance-logs", userID)
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		writeJSON(w, http.StatusInternalServerError, APIResponse{
+			Success: false,
+			Message: "failed to create upload directory",
+		})
+		return
+	}
+
+	storagePath := filepath.Join(uploadDir, storedName)
+
+	dst, err := os.Create(storagePath)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, APIResponse{
+			Success: false,
+			Message: "failed to create uploaded file",
+		})
+		return
+	}
+	defer dst.Close()
+
+	written, err := io.Copy(dst, file)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, APIResponse{
+			Success: false,
+			Message: "failed to save uploaded file",
+		})
+		return
+	}
+
+	mimeType := header.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.fileClient.Client.RegisterUploadedFile(ctx, &filev1.RegisterUploadedFileRequest{
+		OriginalName:     originalName,
+		StoredName:       storedName,
+		StoragePath:      filepath.ToSlash(storagePath),
+		MimeType:         mimeType,
+		SizeBytes:        written,
+		UploadedByUserId: userID,
+		OwnerType:        "GUIDANCE_LOG_ATTACHMENT",
+		OwnerId:          userID,
+		Purpose:          "GUIDANCE_LOG_ATTACHMENT",
+	})
+	if err != nil {
+		_ = os.Remove(storagePath)
+
+		writeJSON(w, http.StatusBadGateway, APIResponse{
+			Success: false,
+			Message: "failed to register file metadata",
+		})
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, APIResponse{
+		Success: true,
+		Message: "upload file success",
+		Data:    res,
+	})
+}
+
 func (h *FileHandler) ListAcademicRequestFiles(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{
@@ -472,6 +609,17 @@ func (h *FileHandler) canAccessFile(
 
 	if file.OwnerType == "ACADEMIC_REQUEST" {
 		return h.canAccessAcademicRequestFiles(ctx, userID, role, file.OwnerId)
+	}
+
+	// Guidance log attachments: lecturer, student, and admin roles can access.
+	// The actual ownership check happens at the service layer when attaching/removing.
+	// For download/preview, allow any authenticated DOSEN/MAHASISWA/admin role.
+	if file.OwnerType == "GUIDANCE_LOG_ATTACHMENT" {
+		switch role {
+		case "SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI", "DOSEN", "MAHASISWA":
+			return true, nil
+		}
+		return false, nil
 	}
 
 	if role == "SUPER_ADMIN" {

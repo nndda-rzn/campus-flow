@@ -242,3 +242,215 @@ func (r *ThesisRepository) UpdateProgress(ctx context.Context, id string, notes 
 
 	return &p, nil
 }
+
+// --- Lecturer Progress View ---
+
+// SupervisedStudentProgress represents a student's progress summary for lecturer view
+type SupervisedStudentProgress struct {
+	StudentUserID         string
+	StudentName           string
+	StudentNIM            string
+	TopicTitle            string
+	SupervisorRequestID   string
+	TotalMilestones       int
+	CompletedMilestones   int
+	LastActivityAt        *time.Time
+	DaysSinceLastActivity int
+	Progress              []model.ThesisProgress
+}
+
+// GetProgressByLecturer returns all supervised students with their progress
+func (r *ThesisRepository) GetProgressByLecturer(ctx context.Context, lecturerUserID string, includeCompleted bool, stuckThresholdDays int) ([]SupervisedStudentProgress, error) {
+	// First, get all supervised students (ACCEPTED status)
+	studentsQuery := `
+		SELECT 
+			sr.id as supervisor_request_id,
+			sr.student_user_id,
+			sr.topic_title,
+			s.full_name as student_name,
+			s.nim as student_nim,
+			(SELECT COUNT(*) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id) as total_milestones,
+			(SELECT COUNT(*) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id AND tp.status = 'COMPLETED') as completed_milestones,
+			(SELECT MAX(tp.updated_at) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id) as last_activity_at
+		FROM supervisor_requests sr
+		JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+		JOIN lecturers l ON l.id = sa.lecturer_id
+		JOIN students s ON s.user_id = sr.student_user_id
+		WHERE l.user_id = $1 AND sr.status IN ('ACCEPTED', 'COMPLETED')
+	`
+
+	if !includeCompleted {
+		studentsQuery += ` AND sr.status = 'ACCEPTED'`
+	}
+
+	studentsQuery += ` ORDER BY last_activity_at DESC NULLS LAST`
+
+	rows, err := r.db.Query(ctx, studentsQuery, lecturerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []SupervisedStudentProgress
+	now := time.Now()
+
+	for rows.Next() {
+		var sp SupervisedStudentProgress
+		var lastActivity *time.Time
+
+		if err := rows.Scan(
+			&sp.SupervisorRequestID,
+			&sp.StudentUserID,
+			&sp.TopicTitle,
+			&sp.StudentName,
+			&sp.StudentNIM,
+			&sp.TotalMilestones,
+			&sp.CompletedMilestones,
+			&lastActivity,
+		); err != nil {
+			return nil, err
+		}
+
+		sp.LastActivityAt = lastActivity
+		if lastActivity != nil {
+			sp.DaysSinceLastActivity = int(now.Sub(*lastActivity).Hours() / 24)
+		}
+
+		// Filter by stuck threshold if specified
+		if stuckThresholdDays > 0 && sp.DaysSinceLastActivity < stuckThresholdDays {
+			continue
+		}
+
+		results = append(results, sp)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+// GetStudentProgressForLecturer returns detailed progress for a specific student
+// Validates that the lecturer is the supervisor
+func (r *ThesisRepository) GetStudentProgressForLecturer(ctx context.Context, studentUserID, lecturerUserID string) (*SupervisedStudentProgress, error) {
+	// Verify lecturer is supervisor and get student info
+	query := `
+		SELECT 
+			sr.id as supervisor_request_id,
+			sr.student_user_id,
+			sr.topic_title,
+			s.full_name as student_name,
+			s.nim as student_nim,
+			(SELECT COUNT(*) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id) as total_milestones,
+			(SELECT COUNT(*) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id AND tp.status = 'COMPLETED') as completed_milestones,
+			(SELECT MAX(tp.updated_at) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id) as last_activity_at
+		FROM supervisor_requests sr
+		JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+		JOIN lecturers l ON l.id = sa.lecturer_id
+		JOIN students s ON s.user_id = sr.student_user_id
+		WHERE l.user_id = $1 AND sr.student_user_id = $2 AND sr.status IN ('ACCEPTED', 'COMPLETED')
+	`
+
+	var sp SupervisedStudentProgress
+	var lastActivity *time.Time
+
+	err := r.db.QueryRow(ctx, query, lecturerUserID, studentUserID).Scan(
+		&sp.SupervisorRequestID,
+		&sp.StudentUserID,
+		&sp.TopicTitle,
+		&sp.StudentName,
+		&sp.StudentNIM,
+		&sp.TotalMilestones,
+		&sp.CompletedMilestones,
+		&lastActivity,
+	)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, pgx.ErrNoRows
+		}
+		return nil, err
+	}
+
+	sp.LastActivityAt = lastActivity
+	if lastActivity != nil {
+		sp.DaysSinceLastActivity = int(time.Now().Sub(*lastActivity).Hours() / 24)
+	}
+
+	// Get detailed progress
+	progress, err := r.GetProgressByStudent(ctx, studentUserID)
+	if err != nil {
+		return nil, err
+	}
+	sp.Progress = progress
+
+	return &sp, nil
+}
+
+// GetProgressByID returns a single progress record
+func (r *ThesisRepository) GetProgressByID(ctx context.Context, progressID string) (*model.ThesisProgress, error) {
+	query := `
+		SELECT 
+			tp.id, tp.student_user_id, tp.supervisor_request_id, tp.milestone_id,
+			tp.status, tp.target_date, tp.completed_at, tp.notes, tp.created_at, tp.updated_at,
+			tm.name, tm.code, tm.sequence_order
+		FROM thesis_progress tp
+		JOIN thesis_milestones tm ON tm.id = tp.milestone_id
+		WHERE tp.id = $1
+	`
+
+	var p model.ThesisProgress
+	err := r.db.QueryRow(ctx, query, progressID).Scan(
+		&p.ID, &p.StudentUserID, &p.SupervisorRequestID, &p.MilestoneID,
+		&p.Status, &p.TargetDate, &p.CompletedAt, &p.Notes, &p.CreatedAt, &p.UpdatedAt,
+		&p.MilestoneName, &p.MilestoneCode, &p.SequenceOrder,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &p, nil
+}
+
+// ValidateLecturerSupervisesStudent checks if lecturer is the supervisor of the student
+func (r *ThesisRepository) ValidateLecturerSupervisesStudent(ctx context.Context, lecturerUserID, studentUserID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM supervisor_requests sr
+			JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+			JOIN lecturers l ON l.id = sa.lecturer_id
+			WHERE l.user_id = $1 AND sr.student_user_id = $2 AND sr.status IN ('ACCEPTED', 'COMPLETED')
+		)
+	`
+
+	var exists bool
+	err := r.db.QueryRow(ctx, query, lecturerUserID, studentUserID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
+// ValidateLecturerSupervisesProgress checks if lecturer supervises the student who owns this progress
+func (r *ThesisRepository) ValidateLecturerSupervisesProgress(ctx context.Context, lecturerUserID, progressID string) (bool, error) {
+	query := `
+		SELECT EXISTS(
+			SELECT 1 FROM thesis_progress tp
+			JOIN supervisor_requests sr ON sr.id = tp.supervisor_request_id
+			JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+			JOIN lecturers l ON l.id = sa.lecturer_id
+			WHERE tp.id = $1 AND l.user_id = $2 AND sr.status IN ('ACCEPTED', 'COMPLETED')
+		)
+	`
+
+	var exists bool
+	err := r.db.QueryRow(ctx, query, progressID, lecturerUserID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}

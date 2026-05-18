@@ -49,10 +49,13 @@ func (r *GuidanceLogRepository) fetchLogs(ctx context.Context, cond squirrel.Sql
 		"gl.created_at", "gl.updated_at",
 		"COALESCE(s.full_name, '') as student_name",
 		"COALESCE(l.full_name, '') as lecturer_name",
+		"COALESCE(gl.lecturer_notes, '')", "gl.milestone_id", "COALESCE(tm.name, '') as milestone_name", "COALESCE(tm.code, '') as milestone_code",
+		"gl.attachments",
 	).
 		From("guidance_logs gl").
 		LeftJoin("students s ON s.user_id = gl.student_user_id").
 		LeftJoin("lecturers l ON l.user_id = gl.lecturer_user_id").
+		LeftJoin("thesis_milestones tm ON tm.id = gl.milestone_id").
 		Where(cond).
 		OrderBy("gl.session_date DESC, gl.created_at DESC").
 		PlaceholderFormat(squirrel.Dollar).
@@ -77,6 +80,8 @@ func (r *GuidanceLogRepository) fetchLogs(ctx context.Context, cond squirrel.Sql
 			&l.NextAction, &l.Status, &l.SubmittedAt, &l.SupervisorFeedback, &l.ApprovedAt,
 			&l.CreatedAt, &l.UpdatedAt,
 			&l.StudentName, &l.LecturerName,
+			&l.LecturerNotes, &l.MilestoneID, &l.MilestoneName, &l.MilestoneCode,
+			&l.Attachments,
 		); err != nil {
 			return nil, err
 		}
@@ -157,5 +162,56 @@ func (r *GuidanceLogRepository) DeleteLog(ctx context.Context, id string) error 
 		return pgx.ErrNoRows
 	}
 	
+	return nil
+}
+
+// ─── Enhanced Guidance Log ──────────────────────────────────────────────────
+
+func (r *GuidanceLogRepository) UpdateLecturerNotes(ctx context.Context, logID, notes string, milestoneID *string) error {
+	query, args, err := squirrel.Update("guidance_logs").
+		Set("lecturer_notes", notes).
+		Set("milestone_id", milestoneID).
+		Set("updated_at", time.Now()).
+		Where(squirrel.Eq{"id": logID}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
+	return nil
+}
+
+func (r *GuidanceLogRepository) UpdateAttachments(ctx context.Context, logID string, attachments []model.GuidanceLogAttachment) error {
+	query, args, err := squirrel.Update("guidance_logs").
+		Set("attachments", attachments).
+		Set("updated_at", time.Now()).
+		Where(squirrel.Eq{"id": logID}).
+		PlaceholderFormat(squirrel.Dollar).
+		ToSql()
+
+	if err != nil {
+		return err
+	}
+
+	result, err := r.db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+
 	return nil
 }
