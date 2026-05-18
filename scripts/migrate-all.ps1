@@ -1,6 +1,6 @@
 #requires -Version 7
 #
-# migrate-all.ps1 — Run golang-migrate up for every CampusFlow service DB.
+# migrate-all.ps1 — Run goose up for every CampusFlow service DB.
 #
 # Usage:
 #   .\scripts\migrate-all.ps1                  # use defaults
@@ -8,8 +8,8 @@
 #   $env:DB_HOST="localhost"; .\scripts\migrate-all.ps1
 #
 # Requirements:
-#   - migrate CLI on PATH:
-#       go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+#   - goose CLI on PATH:
+#       go install github.com/pressly/goose/v3/cmd/goose@latest
 #   - Postgres reachable with the credentials below.
 #
 # This script intentionally fails fast — first migration error stops the loop.
@@ -37,11 +37,11 @@ $Services = @(
     @{ Name = "reporting";    Db = "reporting_db" }
 )
 
-if (-not (Get-Command migrate -ErrorAction SilentlyContinue)) {
-    Write-Error "migrate CLI not found on PATH. Install with: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"
+if (-not (Get-Command goose -ErrorAction SilentlyContinue)) {
+    Write-Error "goose CLI not found on PATH. Install with: go install github.com/pressly/goose/v3/cmd/goose@latest"
 }
 
-$direction = if ($Down) { "down 1" } else { "up" }
+$direction = if ($Down) { "down" } else { "up" }
 Write-Host "CampusFlow migrate ($direction)" -ForegroundColor Cyan
 Write-Host "Target: $DbUser@${DbHost}:$DbPort (sslmode=$SslMode)" -ForegroundColor DarkGray
 Write-Host ""
@@ -60,10 +60,15 @@ foreach ($svc in $Services) {
     Write-Host ("[{0,-12}]" -f $name) -NoNewline -ForegroundColor Yellow
     Write-Host " $db ... " -NoNewline
 
-    if ($Down) {
-        & migrate -path $path -database $url down 1 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
-    } else {
-        & migrate -path $path -database $url up 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+    Push-Location $path
+    try {
+        if ($Down) {
+            & goose postgres $url down 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        } else {
+            & goose postgres $url up 2>&1 | ForEach-Object { Write-Host "    $_" -ForegroundColor DarkGray }
+        }
+    } finally {
+        Pop-Location
     }
 
     if ($LASTEXITCODE -ne 0) {

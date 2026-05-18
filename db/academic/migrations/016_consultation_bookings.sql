@@ -1,6 +1,7 @@
 -- 016_consultation_bookings.sql
 -- Student bookings for consultation slots
 
+-- +goose Up
 CREATE TYPE consultation_booking_status AS ENUM (
     'PENDING',
     'APPROVED', 
@@ -31,3 +32,7 @@ COMMENT ON TABLE consultation_bookings IS 'Booking mahasiswa untuk slot bimbinga
 COMMENT ON COLUMN consultation_bookings.topic IS 'Topik yang ingin dibahas mahasiswa';
 COMMENT ON COLUMN consultation_bookings.lecturer_notes IS 'Catatan dosen saat approve/reject/reschedule';
 COMMENT ON COLUMN consultation_bookings.proposed_slot_id IS 'Slot alternatif yang diusulkan dosen saat reschedule';
+
+-- +goose Down
+DROP TABLE IF EXISTS consultation_bookings CASCADE;
+DROP TYPE IF EXISTS consultation_booking_status;

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# migrate-all.sh — Run golang-migrate up for every CampusFlow service DB.
+# migrate-all.sh — Run goose up for every CampusFlow service DB.
 #
 # Usage:
 #   ./scripts/migrate-all.sh           # apply pending up migrations
@@ -8,8 +8,8 @@
 #   DB_HOST=db.local ./scripts/migrate-all.sh
 #
 # Requirements:
-#   - migrate CLI on PATH:
-#       go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+#   - goose CLI on PATH:
+#       go install github.com/pressly/goose/v3/cmd/goose@latest
 
 set -euo pipefail
 
@@ -21,14 +21,14 @@ DB_SSLMODE="${DB_SSLMODE:-disable}"
 
 DIRECTION="${1:-up}"
 case "$DIRECTION" in
-    up)   ARGS=(up) ;;
-    down) ARGS=(down 1) ;;
+    up)   CMD="up" ;;
+    down) CMD="down" ;;
     *)    echo "usage: $0 [up|down]" >&2; exit 2 ;;
 esac
 
-if ! command -v migrate >/dev/null 2>&1; then
-    echo "migrate CLI not found on PATH." >&2
-    echo "Install: go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest" >&2
+if ! command -v goose >/dev/null 2>&1; then
+    echo "goose CLI not found on PATH." >&2
+    echo "Install: go install github.com/pressly/goose/v3/cmd/goose@latest" >&2
     exit 1
 fi
 
@@ -59,7 +59,9 @@ for entry in "${SERVICES[@]}"; do
 
     url="postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${db}?sslmode=${DB_SSLMODE}"
     printf "[%-12s] %s ... " "$name" "$db"
-    if migrate -path "$path" -database "$url" "${ARGS[@]}" >/tmp/cf-migrate.log 2>&1; then
+    
+    cd "$path"
+    if goose postgres "$url" "$CMD" >/tmp/cf-migrate.log 2>&1; then
         echo "ok"
     else
         echo "FAIL"

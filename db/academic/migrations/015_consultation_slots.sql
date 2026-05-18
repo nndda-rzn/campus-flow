@@ -1,6 +1,7 @@
 -- 015_consultation_slots.sql
 -- Consultation scheduling: slots created by lecturers for student bookings
 
+-- +goose Up
 CREATE TABLE consultation_slots (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     lecturer_user_id UUID NOT NULL,
@@ -26,3 +27,6 @@ CREATE INDEX idx_consultation_slots_available ON consultation_slots(lecturer_use
 COMMENT ON TABLE consultation_slots IS 'Jadwal bimbingan yang dibuat oleh dosen';
 COMMENT ON COLUMN consultation_slots.max_bookings IS 'Kuota mahasiswa per slot (1 = one-on-one, >1 = kelompok)';
 COMMENT ON COLUMN consultation_slots.location IS 'Lokasi bimbingan (ruangan, link zoom, dll)';
+
+-- +goose Down
+DROP TABLE IF EXISTS consultation_slots CASCADE;

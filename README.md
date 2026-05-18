@@ -313,7 +313,7 @@ Mapping ini diturunkan dari `apps/web/src/lib/role-redirect.ts` dan diberlakukan
 | npm            | 10.x           | Bawaan Node 20                                                                       |
 | Docker Desktop | terbaru        | Untuk PostgreSQL & RabbitMQ                                                          |
 | `protoc`       | 3.x atau lebih | Hanya jika perlu regenerasi proto                                                    |
-| `migrate` CLI  | opsional       | [`golang-migrate`](https://github.com/golang-migrate/migrate) untuk eksekusi migrasi |
+| `goose` CLI    | v3.x           | [`pressly/goose`](https://github.com/pressly/goose) untuk eksekusi migrasi SQL       |
 
 ---
 
@@ -424,36 +424,83 @@ Detail lengkap ada di [`apps/web/README.md`](apps/web/README.md).
 
 ## Database & Migrasi
 
-Migrasi SQL terorganisir per service di `db/<service>/migrations/`. Format penamaan: `<urutan>_<deskripsi>.sql`.
+Migrasi SQL terorganisir per service di `db/<service>/migrations/`. Format penamaan: `<urutan>_<deskripsi>.sql`. Setiap file menggunakan **goose** sebagai migration tool dengan marker `-- +goose Up` dan `-- +goose Down`.
 
-### Menjalankan Migrasi dengan `golang-migrate`
+### Install Goose CLI (sekali saja)
 
 ```bash
-# Install CLI (sekali saja)
-go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
-# Auth
-migrate -path db/auth/migrations \
-  -database "postgres://campusflow:campusflow_password@localhost:5432/auth_db?sslmode=disable" up
-
-# Academic
-migrate -path db/academic/migrations \
-  -database "postgres://campusflow:campusflow_password@localhost:5432/academic_db?sslmode=disable" up
-
-# File
-migrate -path db/file/migrations \
-  -database "postgres://campusflow:campusflow_password@localhost:5432/file_db?sslmode=disable" up
-
-# Notification
-migrate -path db/notification/migrations \
-  -database "postgres://campusflow:campusflow_password@localhost:5432/notification_db?sslmode=disable" up
-
-# Reporting
-migrate -path db/reporting/migrations \
-  -database "postgres://campusflow:campusflow_password@localhost:5432/reporting_db?sslmode=disable" up
+go install github.com/pressly/goose/v3/cmd/goose@latest
 ```
 
-> Tip: simpan kelima perintah di atas sebagai script lokal (`scripts/migrate-all.ps1`) supaya mudah dijalankan.
+Pastikan `$GOPATH/bin` (atau `$HOME/go/bin`) sudah ada di `PATH`.
+
+### Menjalankan Migrasi (Otomatis)
+
+Cara termudah pakai script orchestrator:
+
+```powershell
+# Windows PowerShell — apply semua migrasi
+.\scripts\migrate-all.ps1
+
+# Rollback satu langkah per service
+.\scripts\migrate-all.ps1 -Down
+```
+
+```bash
+# Linux/macOS — apply semua migrasi
+./scripts/migrate-all.sh
+
+# Rollback satu langkah per service
+./scripts/migrate-all.sh down
+```
+
+### Menjalankan Migrasi Manual (Per-Service)
+
+```bash
+# Auth
+cd db/auth/migrations
+goose postgres "postgres://campusflow:campusflow_password@localhost:5432/auth_db?sslmode=disable" up
+
+# Academic
+cd db/academic/migrations
+goose postgres "postgres://campusflow:campusflow_password@localhost:5432/academic_db?sslmode=disable" up
+
+# File
+cd db/file/migrations
+goose postgres "postgres://campusflow:campusflow_password@localhost:5432/file_db?sslmode=disable" up
+
+# Notification
+cd db/notification/migrations
+goose postgres "postgres://campusflow:campusflow_password@localhost:5432/notification_db?sslmode=disable" up
+
+# Reporting
+cd db/reporting/migrations
+goose postgres "postgres://campusflow:campusflow_password@localhost:5432/reporting_db?sslmode=disable" up
+```
+
+### Goose Commands
+
+| Command                                | Deskripsi                                          |
+| -------------------------------------- | -------------------------------------------------- |
+| `goose postgres "<url>" up`            | Apply semua pending migrations                     |
+| `goose postgres "<url>" down`          | Rollback satu migrasi terakhir                     |
+| `goose postgres "<url>" status`        | Lihat status migrasi (applied / pending)           |
+| `goose postgres "<url>" version`       | Tampilkan versi DB saat ini                        |
+| `goose postgres "<url>" up-to <N>`     | Migrate sampai versi tertentu                      |
+| `goose postgres "<url>" down-to <N>`   | Rollback sampai versi tertentu                     |
+| `goose create <name> sql`              | Generate file migrasi baru dengan template goose   |
+
+### Override Environment Variables
+
+Script `migrate-all.ps1` / `migrate-all.sh` honor variabel berikut:
+
+```bash
+DB_USER=campusflow
+DB_PASSWORD=campusflow_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_SSLMODE=disable
+```
 
 ---
 

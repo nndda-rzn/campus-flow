@@ -7,7 +7,7 @@ Full-stack academic service platform: Go microservices + Next.js 16 frontend + P
 - `apps/services/{auth,academic,file,notification,reporting}-service/` and `api-gateway/` — six Go modules wired by `go.work`.
 - `apps/web/` — Next.js 16 + React 19 + Tailwind v4 frontend (single Node package).
 - `proto/` — `.proto` sources. `proto/gen/` is its own Go module that the workspace `use`s.
-- `db/<service>/migrations/` — golang-migrate SQL files, numbered, **per service database** (`auth_db`, `academic_db`, `file_db`, `notification_db`, `reporting_db`).
+- `db/<service>/migrations/` — goose SQL files with `-- +goose Up` / `-- +goose Down` markers, numbered, **per service database** (`auth_db`, `academic_db`, `file_db`, `notification_db`, `reporting_db`).
 - `infra/docker/` — multi-stage Dockerfiles. `infra/compose/docker-compose.full.yml` brings up the entire stack. `docker-compose.yml` at root brings up Postgres + RabbitMQ only.
 - `scripts/` — orchestrators (`gen-proto.ps1`, `migrate-all.{ps1,sh}`, `run-all.{ps1,sh}`).
 - `.github/workflows/ci.yml` — single CI workflow with parallel `backend` + `web` jobs.
