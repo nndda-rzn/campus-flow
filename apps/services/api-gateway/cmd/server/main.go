@@ -55,6 +55,7 @@ func main() {
 	faqHandler := handler.NewFAQHandler(academicClient.Client)
 	consultationHandler := handler.NewConsultationHandler(academicClient.Client)
 	thesisFinalDocHandler := handler.NewThesisFinalDocumentHandler(academicClient)
+	noteTemplateHandler := handler.NewNoteTemplateHandler(academicClient)
 
 	// Rate limiter: 100 requests per minute for public endpoints, 300 for authenticated
 	publicRateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -650,6 +651,18 @@ func main() {
 	registerAdmin("/api/v1/admin/announcements/deactivate", announcementHandler.Deactivate,
 		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
 
+	// Note Templates (Admin Prodi Enhancement)
+	registerAdmin("/api/v1/admin/note-templates", noteTemplateHandler.List,
+		"SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/note-templates/create", noteTemplateHandler.Create,
+		"SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/note-templates/update", noteTemplateHandler.Update,
+		"SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/note-templates/delete", noteTemplateHandler.Delete,
+		"SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/admin/note-templates/increment-usage", noteTemplateHandler.IncrementUsage,
+		"SUPER_ADMIN", "ADMIN_PRODI")
+
 	// Academic years (Epic 10a / FR-278) — read for everyone authenticated,
 	// write only Super Admin.
 	mux.Handle(
@@ -714,6 +727,22 @@ func main() {
 			),
 		),
 	)
+
+	// Admin Operational Dashboard (SLA)
+	registerAdmin("/api/v1/reports/admin-dashboard", reportingHandler.GetAdminOperationalDashboard,
+		"SUPER_ADMIN", "ADMIN_PRODI")
+	registerAdmin("/api/v1/reports/sla-at-risk", reportingHandler.GetSLAAtRiskRequests,
+		"SUPER_ADMIN", "ADMIN_PRODI")
+
+	// Request Analytics & Trends
+	registerAdmin("/api/v1/reports/trends", reportingHandler.GetRequestTrends,
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+	registerAdmin("/api/v1/reports/processing-time", reportingHandler.GetProcessingTimeReport,
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
+
+	// Thesis Overview (Admin Prodi)
+	registerAdmin("/api/v1/admin/thesis-overview", thesisHandler.ListDepartmentThesisOverview,
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
 
 	// ─── Student Features (New) ────────────────────────────────────────────────
 

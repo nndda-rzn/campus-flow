@@ -417,3 +417,38 @@ func parseInt(s string) (int, error) {
 	}
 	return result, nil
 }
+
+// ListDepartmentThesisOverview returns thesis progress overview for admin prodi
+// GET /api/v1/admin/thesis-overview
+func (h *ThesisHandler) ListDepartmentThesisOverview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "Method not allowed"})
+		return
+	}
+
+	departmentID := r.URL.Query().Get("department_id")
+	search := r.URL.Query().Get("search")
+	stuckOnly := r.URL.Query().Get("stuck_only") == "true"
+
+	res, err := h.client.ListDepartmentThesisOverview(r.Context(), &academicv1.ListDepartmentThesisOverviewRequest{
+		DepartmentId: departmentID,
+		StuckOnly:    stuckOnly,
+		Search:       search,
+	})
+
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, APIResponse{Success: false, Message: "Failed to get thesis overview"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{
+		Success: true,
+		Data: map[string]interface{}{
+			"students":    res.Students,
+			"total":       res.Total,
+			"on_track":    res.OnTrack,
+			"behind":      res.Behind,
+			"not_started": res.NotStarted,
+		},
+	})
+}

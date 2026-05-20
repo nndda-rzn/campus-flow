@@ -91,3 +91,7 @@ func (s *ThesisService) CompleteMilestone(ctx context.Context, progressID, lectu
 	// Update to completed
 	return s.repo.UpdateProgress(ctx, progressID, notes, nil, "COMPLETED")
 }
+
+func (s *ThesisService) ListDepartmentThesisOverview(ctx context.Context, departmentID string, stuckOnly bool, search string) (*repository.ThesisOverviewSummary, error) {
+	return s.repo.ListDepartmentThesisOverview(ctx, departmentID, stuckOnly, search)
+}

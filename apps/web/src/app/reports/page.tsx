@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   BarChart3,
+  Clock,
   GraduationCap,
   PieChart as PieChartIcon,
   TrendingUp,
@@ -15,6 +16,8 @@ import {
   BarChart,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -33,6 +36,12 @@ import {
   getAcademicReport,
   getSupervisorReport,
 } from "@/lib/reporting-api";
+import {
+  getRequestTrends,
+  getProcessingTimeReport,
+  type TrendDataPoint,
+  type ProcessingTimeReport,
+} from "@/lib/trends-api";
 import { cn } from "@/lib/cn";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -108,6 +117,14 @@ function ReportsContent() {
           <GraduationCap className="size-3.5" />
           Dosen Pembimbing
         </TabsTrigger>
+        <TabsTrigger value="trends">
+          <TrendingUp className="size-3.5" />
+          Tren Pengajuan
+        </TabsTrigger>
+        <TabsTrigger value="processing">
+          <Clock className="size-3.5" />
+          Waktu Proses
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="academic" className="!mt-5 space-y-5">
@@ -116,6 +133,14 @@ function ReportsContent() {
 
       <TabsContent value="supervisor" className="!mt-5 space-y-5">
         <SupervisorSection data={supervisor} isLoading={isLoading} />
+      </TabsContent>
+
+      <TabsContent value="trends" className="!mt-5 space-y-5">
+        <TrendsSection />
+      </TabsContent>
+
+      <TabsContent value="processing" className="!mt-5 space-y-5">
+        <ProcessingTimeSection />
       </TabsContent>
     </Tabs>
   );
@@ -520,6 +545,208 @@ function EmptyChart({ label }: { label: string }) {
   return (
     <div className="flex h-64 items-center justify-center">
       <p className="text-[12.5px] text-text-muted">{label}</p>
+    </div>
+  );
+}
+
+// ─── Trends Section ─────────────────────────────────────────────────────────
+
+function TrendsSection() {
+  const [trends, setTrends] = useState<TrendDataPoint[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [granularity, setGranularity] = useState("MONTHLY");
+
+  useEffect(() => {
+    setIsLoading(true);
+    getRequestTrends({ granularity })
+      .then(setTrends)
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, [granularity]);
+
+  const chartData = trends.map((p) => ({
+    period: p.period.slice(0, 10),
+    Diajukan: p.submitted_count,
+    Diverifikasi: p.verified_count,
+    Disetujui: p.approved_count,
+    Selesai: p.completed_count,
+    Ditolak: p.rejected_count,
+  }));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <span className="text-sm font-medium text-muted-foreground">Granularitas:</span>
+        {(["DAILY", "WEEKLY", "MONTHLY"] as const).map((g) => (
+          <button
+            key={g}
+            onClick={() => setGranularity(g)}
+            className={cn(
+              "rounded-full px-3 py-1 text-xs font-medium transition-colors",
+              granularity === g
+                ? "bg-primary text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+            )}
+          >
+            {g === "DAILY" ? "Harian" : g === "WEEKLY" ? "Mingguan" : "Bulanan"}
+          </button>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <TrendingUp className="size-4" />
+            Tren Volume Pengajuan
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : chartData.length === 0 ? (
+            <EmptyChart label="Belum ada data tren" />
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={chartData}>
+                <XAxis dataKey="period" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="Diajukan" stroke="#2563eb" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Diverifikasi" stroke="#0891b2" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Disetujui" stroke="#16a34a" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Selesai" stroke="#059669" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="Ditolak" stroke="#dc2626" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ─── Processing Time Section ────────────────────────────────────────────────
+
+function ProcessingTimeSection() {
+  const [report, setReport] = useState<ProcessingTimeReport | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    getProcessingTimeReport()
+      .then(setReport)
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const stages = report
+    ? [
+        {
+          name: "Pengajuan → Verifikasi",
+          hours: report.avg_submission_to_verification_hours,
+          color: "#2563eb",
+        },
+        {
+          name: "Verifikasi → Persetujuan",
+          hours: report.avg_verification_to_approval_hours,
+          color: "#0891b2",
+        },
+        {
+          name: "Persetujuan → Selesai",
+          hours: report.avg_approval_to_completion_hours,
+          color: "#16a34a",
+        },
+      ]
+    : [];
+
+  const maxHours = Math.max(...stages.map((s) => s.hours), 1);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Rata-rata Total
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-20 mt-2" />
+            ) : (
+              <p className="text-[24px] font-semibold mt-1 tabular-nums">
+                {(report?.avg_total_processing_hours ?? 0).toFixed(1)} <span className="text-sm font-normal text-muted-foreground">jam</span>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              P90 Total
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-20 mt-2" />
+            ) : (
+              <p className="text-[24px] font-semibold mt-1 tabular-nums">
+                {(report?.p90_total_hours ?? 0).toFixed(1)} <span className="text-sm font-normal text-muted-foreground">jam</span>
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+              Bottleneck
+            </p>
+            {isLoading ? (
+              <Skeleton className="h-7 w-32 mt-2" />
+            ) : (
+              <p className="text-sm font-semibold mt-2 text-red-600">
+                {stages.length > 0
+                  ? stages.reduce((a, b) => (a.hours > b.hours ? a : b)).name
+                  : "-"}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Clock className="size-4" />
+            Rata-rata Waktu per Tahap
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-48 w-full" />
+          ) : stages.length === 0 ? (
+            <EmptyChart label="Belum ada data waktu proses" />
+          ) : (
+            <div className="space-y-4">
+              {stages.map((stage) => (
+                <div key={stage.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{stage.name}</span>
+                    <span className="text-sm font-semibold tabular-nums">
+                      {stage.hours.toFixed(1)} jam
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${(stage.hours / maxHours) * 100}%`,
+                        backgroundColor: stage.color,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

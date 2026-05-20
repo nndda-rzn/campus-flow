@@ -8,6 +8,10 @@ service ReportingService {
   rpc GetAcademicDashboard(GetAcademicDashboardRequest) returns (AcademicDashboardResponse);
   rpc GetSupervisorDashboard(GetSupervisorDashboardRequest) returns (SupervisorDashboardResponse);
   rpc GetLecturerWorkload(GetLecturerWorkloadRequest) returns (LecturerWorkloadResponse);
+  rpc GetAdminOperationalDashboard(GetAdminOperationalDashboardRequest) returns (AdminOperationalDashboardResponse);
+  rpc GetSLAAtRiskRequests(GetSLAAtRiskRequestsRequest) returns (SLAAtRiskRequestsResponse);
+  rpc GetRequestTrends(GetRequestTrendsRequest) returns (RequestTrendsResponse);
+  rpc GetProcessingTimeReport(GetProcessingTimeReportRequest) returns (ProcessingTimeReportResponse);
 }
 
 message GetAcademicDashboardRequest {
@@ -61,4 +65,75 @@ message LecturerWorkloadItem {
 
 message LecturerWorkloadResponse {
   repeated LecturerWorkloadItem items = 1;
+}
+
+// ─── Admin Operational Dashboard (SLA) ──────────────────────────────────────
+
+message GetAdminOperationalDashboardRequest {}
+
+message DailyCount {
+  string date = 1;
+  int64 count = 2;
+}
+
+message AdminOperationalDashboardResponse {
+  int64 pending_verification_count = 1;
+  int64 sla_at_risk_count = 2;
+  int64 sla_breached_count = 3;
+  double avg_verification_time_hours = 4;
+  int64 weekly_throughput = 5;
+  repeated DailyCount requests_by_day = 6;
+}
+
+message GetSLAAtRiskRequestsRequest {
+  int32 limit = 1;
+}
+
+message SLAAtRiskItem {
+  string request_id = 1;
+  string request_number = 2;
+  string title = 3;
+  string student_user_id = 4;
+  string status = 5;
+  string due_at = 6;
+  string created_at = 7;
+  double hours_remaining = 8;
+}
+
+message SLAAtRiskRequestsResponse {
+  repeated SLAAtRiskItem items = 1;
+}
+
+// ─── Request Analytics & Trends ─────────────────────────────────────────────
+
+message GetRequestTrendsRequest {
+  string start_date = 1;
+  string end_date = 2;
+  string granularity = 3; // DAILY, WEEKLY, MONTHLY
+}
+
+message TrendDataPoint {
+  string period = 1;
+  int64 submitted_count = 2;
+  int64 verified_count = 3;
+  int64 approved_count = 4;
+  int64 completed_count = 5;
+  int64 rejected_count = 6;
+}
+
+message RequestTrendsResponse {
+  repeated TrendDataPoint data_points = 1;
+}
+
+message GetProcessingTimeReportRequest {
+  string start_date = 1;
+  string end_date = 2;
+}
+
+message ProcessingTimeReportResponse {
+  double avg_submission_to_verification_hours = 1;
+  double avg_verification_to_approval_hours = 2;
+  double avg_approval_to_completion_hours = 3;
+  double avg_total_processing_hours = 4;
+  double p90_total_hours = 5;
 }

@@ -195,3 +195,92 @@ func writeLecturerWorkloadCSV(w http.ResponseWriter, res *reportingv1.LecturerWo
 		})
 	}
 }
+
+func (h *ReportingHandler) GetAdminOperationalDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.reportingClient.Client.GetAdminOperationalDashboard(ctx, &reportingv1.GetAdminOperationalDashboardRequest{})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to get admin dashboard"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "get admin operational dashboard success", Data: res})
+}
+
+func (h *ReportingHandler) GetSLAAtRiskRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	limitStr := r.URL.Query().Get("limit")
+	var limit int32 = 10
+	if limitStr != "" {
+		if v, err := strconv.Atoi(limitStr); err == nil && v > 0 {
+			limit = int32(v)
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.reportingClient.Client.GetSLAAtRiskRequests(ctx, &reportingv1.GetSLAAtRiskRequestsRequest{
+		Limit: limit,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to get SLA at-risk requests"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "get sla at-risk requests success", Data: res})
+}
+
+func (h *ReportingHandler) GetRequestTrends(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.reportingClient.Client.GetRequestTrends(ctx, &reportingv1.GetRequestTrendsRequest{
+		StartDate:   r.URL.Query().Get("start_date"),
+		EndDate:     r.URL.Query().Get("end_date"),
+		Granularity: r.URL.Query().Get("granularity"),
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to get request trends"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "get request trends success", Data: res})
+}
+
+func (h *ReportingHandler) GetProcessingTimeReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.reportingClient.Client.GetProcessingTimeReport(ctx, &reportingv1.GetProcessingTimeReportRequest{
+		StartDate: r.URL.Query().Get("start_date"),
+		EndDate:   r.URL.Query().Get("end_date"),
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, APIResponse{Success: false, Message: "failed to get processing time report"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "get processing time report success", Data: res})
+}

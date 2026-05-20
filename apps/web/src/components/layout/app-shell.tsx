@@ -107,12 +107,18 @@ function getNavigation(role: UserRole): NavGroup[] {
               href: "/admin/lecturers",
               icon: <IconUsers />,
             },
+            {
+              label: "Progress Skripsi",
+              href: "/admin/thesis-overview",
+              icon: <IconDocument />,
+            },
           ],
         },
         {
           title: "Lainnya",
           items: [
             { label: "Pengumuman", href: "/admin/announcements", icon: <IconMegaphone /> },
+            { label: "Template Catatan", href: "/admin/note-templates", icon: <IconDocument /> },
             { label: "Reporting", href: "/reports", icon: <IconChart /> },
             {
               label: "Notifikasi",

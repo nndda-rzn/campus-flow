@@ -65,3 +65,45 @@ type LecturerWorkloadItem struct {
 	CompletedCount int64
 	RejectedCount  int64
 }
+
+type DailyCount struct {
+	Date  string
+	Count int64
+}
+
+type AdminOperationalDashboard struct {
+	PendingVerificationCount int64
+	SLAAtRiskCount           int64
+	SLABreachedCount         int64
+	AvgVerificationTimeHours float64
+	WeeklyThroughput         int64
+	RequestsByDay            []DailyCount
+}
+
+type SLAAtRiskItem struct {
+	RequestID      string
+	RequestNumber  string
+	Title          string
+	StudentUserID  string
+	Status         string
+	DueAt          string
+	CreatedAt      string
+	HoursRemaining float64
+}
+
+type TrendDataPoint struct {
+	Period         string
+	SubmittedCount int64
+	VerifiedCount  int64
+	ApprovedCount  int64
+	CompletedCount int64
+	RejectedCount  int64
+}
+
+type ProcessingTimeReport struct {
+	AvgSubmissionToVerificationHours float64
+	AvgVerificationToApprovalHours   float64
+	AvgApprovalToCompletionHours     float64
+	AvgTotalProcessingHours          float64
+	P90TotalHours                    float64
+}

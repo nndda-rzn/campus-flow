@@ -147,6 +147,16 @@ service AcademicService {
   rpc ApproveFinalDocument(FinalDocumentActionRequest) returns (ThesisFinalDocumentResponse);
   rpc RequestRevisionFinalDocument(FinalDocumentActionRequest) returns (ThesisFinalDocumentResponse);
   rpc RejectFinalDocument(FinalDocumentActionRequest) returns (ThesisFinalDocumentResponse);
+
+  // Note Templates (Admin Prodi)
+  rpc ListNoteTemplates(ListNoteTemplatesRequest) returns (ListNoteTemplatesResponse);
+  rpc CreateNoteTemplate(CreateNoteTemplateRequest) returns (NoteTemplateResponse);
+  rpc UpdateNoteTemplate(UpdateNoteTemplateRequest) returns (NoteTemplateResponse);
+  rpc DeleteNoteTemplate(DeleteNoteTemplateRequest) returns (DeleteNoteTemplateResponse);
+  rpc IncrementTemplateUsage(IncrementTemplateUsageRequest) returns (NoteTemplateResponse);
+
+  // Thesis Overview (Admin Prodi)
+  rpc ListDepartmentThesisOverview(ListDepartmentThesisOverviewRequest) returns (ListDepartmentThesisOverviewResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -1295,4 +1305,88 @@ message FinalDocumentActionRequest {
   string document_id = 1;
   string lecturer_user_id = 2;
   string notes = 3;
+}
+
+// ─── Note Templates ─────────────────────────────────────────────────────────
+
+message NoteTemplateItem {
+  string id = 1;
+  string department_id = 2;
+  string category = 3;
+  string title = 4;
+  string body = 5;
+  int32 usage_count = 6;
+  bool is_active = 7;
+  string created_by_user_id = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message ListNoteTemplatesRequest {
+  string department_id = 1;
+  string category = 2;
+}
+
+message ListNoteTemplatesResponse {
+  repeated NoteTemplateItem templates = 1;
+}
+
+message CreateNoteTemplateRequest {
+  string department_id = 1;
+  string category = 2;
+  string title = 3;
+  string body = 4;
+  string created_by_user_id = 5;
+}
+
+message UpdateNoteTemplateRequest {
+  string id = 1;
+  string title = 2;
+  string body = 3;
+  string category = 4;
+}
+
+message DeleteNoteTemplateRequest {
+  string id = 1;
+}
+
+message DeleteNoteTemplateResponse {
+  bool success = 1;
+}
+
+message NoteTemplateResponse {
+  NoteTemplateItem template = 1;
+}
+
+message IncrementTemplateUsageRequest {
+  string id = 1;
+}
+
+// ─── Thesis Overview (Admin Prodi) ──────────────────────────────────────────
+
+message ListDepartmentThesisOverviewRequest {
+  string department_id = 1;
+  bool stuck_only = 2;
+  string search = 3;
+}
+
+message ThesisOverviewItem {
+  string student_user_id = 1;
+  string student_name = 2;
+  string nim = 3;
+  string topic_title = 4;
+  string lecturer_name = 5;
+  string current_milestone = 6;
+  int32 completion_percentage = 7;
+  int32 days_since_last_activity = 8;
+  bool is_stuck = 9;
+  string supervisor_request_id = 10;
+}
+
+message ListDepartmentThesisOverviewResponse {
+  repeated ThesisOverviewItem students = 1;
+  int32 total = 2;
+  int32 on_track = 3;
+  int32 behind = 4;
+  int32 not_started = 5;
 }

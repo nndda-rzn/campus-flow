@@ -69,6 +69,14 @@ func main() {
 	thesisFinalDocService := service.NewThesisFinalDocumentService(thesisFinalDocRepo)
 	thesisFinalDocHandler := handler.NewThesisFinalDocumentHandler(thesisFinalDocService)
 
+	// Note Templates (Admin Prodi)
+	noteTemplateRepo := repository.NewNoteTemplateRepository(dbpool)
+	noteTemplateService := service.NewNoteTemplateService(noteTemplateRepo)
+	noteTemplateHandler := handler.NewNoteTemplateHandler(noteTemplateService)
+
+	// Thesis Overview (Admin Prodi)
+	thesisOverviewHandler := handler.NewThesisOverviewHandler(thesisService)
+
 	// Composite Handler
 	fullAcademicHandler := &compositeHandler{
 		AcademicHandler:            academicHandler,
@@ -78,6 +86,8 @@ func main() {
 		FAQHandler:                 faqHandler,
 		ConsultationHandler:        consultationHandler,
 		ThesisFinalDocumentHandler: thesisFinalDocHandler,
+		NoteTemplateHandler:        noteTemplateHandler,
+		ThesisOverviewHandler:      thesisOverviewHandler,
 	}
 
 	outboxRepo := repository.NewOutboxRepository(dbpool)
@@ -216,4 +226,6 @@ type compositeHandler struct {
 	*handler.FAQHandler
 	*handler.ConsultationHandler
 	*handler.ThesisFinalDocumentHandler
+	*handler.NoteTemplateHandler
+	*handler.ThesisOverviewHandler
 }

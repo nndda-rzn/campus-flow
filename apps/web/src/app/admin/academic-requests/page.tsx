@@ -60,6 +60,7 @@ import { RequestTimeline } from "@/components/academic/request-timeline";
 import { SLABadge } from "@/components/academic/sla-badge";
 import { CommentThread } from "@/components/academic/comment-thread";
 import { REVISION_TEMPLATES } from "@/lib/note-templates";
+import { listNoteTemplates, incrementTemplateUsage, NoteTemplate } from "@/lib/note-template-api";
 import { cn } from "@/lib/cn";
 
 const STATUS_OPTIONS = [
@@ -135,6 +136,7 @@ function PageContent() {
   const [revisionNote, setRevisionNote] = useState("");
   const [revisionError, setRevisionError] = useState("");
   const [isRequestingRevision, setIsRequestingRevision] = useState(false);
+  const [dynamicTemplates, setDynamicTemplates] = useState<NoteTemplate[]>([]);
 
   async function loadRequests(filter: string) {
     const token = getAccessToken();
@@ -158,6 +160,10 @@ function PageContent() {
     loadRequests(statusFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  useEffect(() => {
+    listNoteTemplates("REVISION").then(setDynamicTemplates).catch(() => {});
+  }, []);
 
   // Filter by search query (client-side over the loaded set)
   const filteredRequests = useMemo(() => {
@@ -743,18 +749,24 @@ function PageContent() {
                 <span className="text-danger">*</span>
               </Label>
               <div className="mb-2 flex flex-wrap gap-1.5">
-                {REVISION_TEMPLATES.map((tpl, i) => (
+                {(dynamicTemplates.length > 0
+                  ? dynamicTemplates.map((t) => ({ id: t.id, text: t.body }))
+                  : REVISION_TEMPLATES.map((t, i) => ({ id: String(i), text: t }))
+                ).map((tpl) => (
                   <button
-                    key={i}
+                    key={tpl.id}
                     type="button"
                     onClick={() => {
-                      setRevisionNote(tpl);
+                      setRevisionNote(tpl.text);
                       if (revisionError) setRevisionError("");
+                      if (dynamicTemplates.length > 0) {
+                        incrementTemplateUsage(tpl.id).catch(() => {});
+                      }
                     }}
                     className="rounded-full border border-border bg-surface px-2.5 py-0.5 text-[10.5px] text-text-secondary transition-colors hover:border-accent hover:text-accent"
-                    title={tpl}
+                    title={tpl.text}
                   >
-                    {tpl.slice(0, 35)}…
+                    {tpl.text.slice(0, 35)}…
                   </button>
                 ))}
               </div>

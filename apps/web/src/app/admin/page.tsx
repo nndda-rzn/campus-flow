@@ -5,13 +5,26 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowUpRight,
   BarChart3,
+  CheckCircle2,
+  Clock,
   ClipboardList,
   FileText,
+  ShieldAlert,
   Users,
+  Zap,
 } from "lucide-react";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -31,43 +44,13 @@ import {
   listAllAcademicRequests,
   type AcademicRequest,
 } from "@/lib/academic-api";
+import {
+  getAdminOperationalDashboard,
+  getSLAAtRiskRequests,
+  type AdminOperationalDashboard,
+  type SLAAtRiskItem,
+} from "@/lib/admin-dashboard-api";
 import { cn } from "@/lib/cn";
-
-// ─── Metric definitions ──────────────────────────────────────────────────────
-
-type MetricKey = "submitted" | "verified" | "approved" | "completed";
-
-const METRIC_CONFIG: Record<
-  MetricKey,
-  { label: string; status: string; tone: string; iconBg: string }
-> = {
-  submitted: {
-    label: "Menunggu Verifikasi",
-    status: "SUBMITTED",
-    tone: "text-info",
-    iconBg: "bg-info-soft text-info",
-  },
-  verified: {
-    label: "Diverifikasi",
-    status: "VERIFIED",
-    tone: "text-accent",
-    iconBg: "bg-accent-soft text-accent",
-  },
-  approved: {
-    label: "Disetujui",
-    status: "APPROVED",
-    tone: "text-success",
-    iconBg: "bg-success-soft text-success",
-  },
-  completed: {
-    label: "Selesai",
-    status: "COMPLETED",
-    tone: "text-text-secondary",
-    iconBg: "bg-background-alt text-text-secondary",
-  },
-};
-
-// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
   return (
@@ -84,6 +67,8 @@ export default function AdminDashboardPage() {
 function DashboardContent() {
   const [requests, setRequests] = useState<AcademicRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [opsDashboard, setOpsDashboard] = useState<AdminOperationalDashboard | null>(null);
+  const [slaAtRisk, setSlaAtRisk] = useState<SLAAtRiskItem[]>([]);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -94,32 +79,27 @@ function DashboardContent() {
       .catch((err) =>
         setError(err instanceof Error ? err.message : "Gagal memuat data"),
       );
+
+    getAdminOperationalDashboard()
+      .then(setOpsDashboard)
+      .catch(() => {});
+
+    getSLAAtRiskRequests(5)
+      .then(setSlaAtRisk)
+      .catch(() => {});
   }, []);
 
   const isLoading = requests === null && !error;
 
-  // Compute metric counts
-  const counts: Record<MetricKey, number> = {
-    submitted: 0,
-    verified: 0,
-    approved: 0,
-    completed: 0,
-  };
+  // Compute metric counts from requests
+  const counts = { submitted: 0, verified: 0, approved: 0, completed: 0 };
   if (requests) {
     requests.forEach((r) => {
       switch (r.status) {
-        case "SUBMITTED":
-          counts.submitted++;
-          break;
-        case "VERIFIED":
-          counts.verified++;
-          break;
-        case "APPROVED":
-          counts.approved++;
-          break;
-        case "COMPLETED":
-          counts.completed++;
-          break;
+        case "SUBMITTED": counts.submitted++; break;
+        case "VERIFIED": counts.verified++; break;
+        case "APPROVED": counts.approved++; break;
+        case "COMPLETED": counts.completed++; break;
       }
     });
   }
@@ -127,76 +107,181 @@ function DashboardContent() {
   const total = requests?.length ?? 0;
   const recent = requests
     ? [...requests]
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-        )
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, 5)
     : [];
 
+  const hasSLAIssues = opsDashboard && ((opsDashboard.sla_at_risk_count ?? 0) > 0 || (opsDashboard.sla_breached_count ?? 0) > 0);
+
   return (
     <div className="space-y-6">
-      {/* ── Metrics row ── */}
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((key) => {
-          const cfg = METRIC_CONFIG[key];
-          const count = counts[key];
-          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+      {/* ── SLA Alert Banner ── */}
+      {hasSLAIssues && (
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-lg border px-4 py-3",
+            (opsDashboard.sla_breached_count ?? 0) > 0
+              ? "border-red-200 bg-red-50 text-red-800"
+              : "border-amber-200 bg-amber-50 text-amber-800",
+          )}
+        >
+          {(opsDashboard.sla_breached_count ?? 0) > 0 ? (
+            <ShieldAlert className="size-5 shrink-0" />
+          ) : (
+            <AlertTriangle className="size-5 shrink-0" />
+          )}
+          <div className="flex-1">
+            <p className="text-sm font-medium">
+              {(opsDashboard.sla_breached_count ?? 0) > 0
+                ? `${opsDashboard.sla_breached_count} pengajuan telah melewati batas SLA`
+                : `${opsDashboard.sla_at_risk_count} pengajuan mendekati batas SLA (< 24 jam)`}
+            </p>
+            <p className="text-xs mt-0.5 opacity-80">
+              Segera verifikasi untuk menghindari keterlambatan layanan.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="outline" className="shrink-0">
+            <Link href="/admin/academic-requests?status=SUBMITTED">Lihat</Link>
+          </Button>
+        </div>
+      )}
 
-          return (
-            <Card key={key} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <p className="text-[11.5px] font-medium uppercase tracking-[0.04em] text-text-muted">
-                      {cfg.label}
-                    </p>
-                    {isLoading ? (
-                      <Skeleton className="h-7 w-16" />
-                    ) : (
-                      <p className="text-[26px] font-semibold leading-none tracking-tight tabular-nums text-text-primary">
-                        {count}
-                      </p>
-                    )}
-                  </div>
-                  <Link
-                    href={`/admin/academic-requests?status=${cfg.status}`}
-                    aria-label={`Lihat ${cfg.label}`}
-                    className="flex size-7 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-background-alt hover:text-text-primary"
-                  >
-                    <ArrowUpRight className="size-3.5" />
-                  </Link>
-                </div>
+      {/* ── KPI Cards ── */}
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <KPICard
+          label="Menunggu Verifikasi"
+          value={opsDashboard?.pending_verification_count ?? counts.submitted}
+          icon={<ClipboardList className="size-4" />}
+          tone="info"
+          isLoading={isLoading && !opsDashboard}
+        />
+        <KPICard
+          label="SLA Berisiko"
+          value={opsDashboard?.sla_at_risk_count ?? 0}
+          icon={<AlertTriangle className="size-4" />}
+          tone="warning"
+          isLoading={!opsDashboard}
+        />
+        <KPICard
+          label="SLA Terlewat"
+          value={opsDashboard?.sla_breached_count ?? 0}
+          icon={<ShieldAlert className="size-4" />}
+          tone="danger"
+          isLoading={!opsDashboard}
+        />
+        <KPICard
+          label="Rata-rata Verifikasi"
+          value={opsDashboard ? `${(opsDashboard.avg_verification_time_hours ?? 0).toFixed(1)} jam` : "-"}
+          icon={<Clock className="size-4" />}
+          tone="neutral"
+          isLoading={!opsDashboard}
+        />
+        <KPICard
+          label="Throughput Minggu Ini"
+          value={opsDashboard?.weekly_throughput ?? 0}
+          icon={<Zap className="size-4" />}
+          tone="success"
+          isLoading={!opsDashboard}
+        />
+      </section>
 
-                {/* Mini progress bar */}
-                <div className="mt-3 h-1 overflow-hidden rounded-full bg-background-alt">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all",
-                      key === "submitted" && "bg-info",
-                      key === "verified" && "bg-accent",
-                      key === "approved" && "bg-success",
-                      key === "completed" && "bg-text-secondary",
-                    )}
-                    style={{ width: `${isLoading ? 0 : pct}%` }}
-                  />
-                </div>
-                <p className="mt-1.5 text-[11.5px] text-text-muted">
-                  {isLoading ? (
-                    <Skeleton className="h-3 w-20" />
-                  ) : (
-                    `${pct}% dari total ${total} pengajuan`
-                  )}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* ── Sparkline + At-Risk Table ── */}
+      <section className="grid gap-4 lg:grid-cols-3">
+        {/* Sparkline chart */}
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="text-sm">Pengajuan 7 Hari Terakhir</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {opsDashboard?.requests_by_day ? (
+              <ResponsiveContainer width="100%" height={140}>
+                <BarChart data={opsDashboard.requests_by_day.map((d) => ({
+                  date: d.date.slice(5),
+                  count: d.count,
+                }))}>
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={30} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="var(--color-accent, #6366f1)" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[140px]">
+                <Skeleton className="h-24 w-full" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* SLA At-Risk Table */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <AlertTriangle className="size-4 text-amber-500" />
+              Request Mendesak
+            </CardTitle>
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/admin/academic-requests?status=SUBMITTED">
+                Lihat semua <ArrowRight className="size-3.5" />
+              </Link>
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {slaAtRisk.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle2 className="size-5 text-green-500" />}
+                title="Semua aman"
+                description="Tidak ada pengajuan yang mendekati batas SLA."
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>No. Pengajuan</TableHead>
+                    <TableHead>Judul</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Sisa Waktu</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {slaAtRisk.map((item) => (
+                    <TableRow key={item.request_id}>
+                      <TableCell className="font-mono text-xs">
+                        {item.request_number}
+                      </TableCell>
+                      <TableCell className="text-sm max-w-[200px] truncate">
+                        {item.title}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={item.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span
+                          className={cn(
+                            "text-xs font-medium",
+                            item.hours_remaining < 0
+                              ? "text-red-600"
+                              : item.hours_remaining < 12
+                                ? "text-amber-600"
+                                : "text-green-600",
+                          )}
+                        >
+                          {item.hours_remaining < 0
+                            ? `Terlewat ${Math.abs(item.hours_remaining).toFixed(0)} jam`
+                            : `${item.hours_remaining.toFixed(0)} jam`}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       </section>
 
       {/* ── Quick actions + Recent activity ── */}
       <section className="grid gap-4 lg:grid-cols-3">
-        {/* Quick actions */}
         <div className="lg:col-span-1 space-y-3">
           <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-text-muted">
             Aksi Cepat
@@ -229,7 +314,6 @@ function DashboardContent() {
           />
         </div>
 
-        {/* Recent activity */}
         <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader className="flex-row items-center justify-between">
             <div>
@@ -305,6 +389,54 @@ function DashboardContent() {
         </Card>
       </section>
     </div>
+  );
+}
+
+// ─── KPICard ────────────────────────────────────────────────────────────────
+
+function KPICard({
+  label,
+  value,
+  icon,
+  tone,
+  isLoading,
+}: {
+  label: string;
+  value: number | string;
+  icon: React.ReactNode;
+  tone: "info" | "warning" | "danger" | "success" | "neutral";
+  isLoading: boolean;
+}) {
+  const toneStyles = {
+    info: "bg-blue-50 text-blue-600",
+    warning: "bg-amber-50 text-amber-600",
+    danger: "bg-red-50 text-red-600",
+    success: "bg-green-50 text-green-600",
+    neutral: "bg-gray-50 text-gray-600",
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <div className="flex items-center gap-2">
+          <span className={cn("flex size-8 items-center justify-center rounded-md", toneStyles[tone])}>
+            {icon}
+          </span>
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-muted">
+            {label}
+          </p>
+        </div>
+        <div className="mt-2">
+          {isLoading ? (
+            <Skeleton className="h-7 w-16" />
+          ) : (
+            <p className="text-[24px] font-semibold leading-none tabular-nums text-text-primary">
+              {value}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
