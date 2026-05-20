@@ -25,6 +25,7 @@ function getNavigation(role: UserRole): NavGroup[] {
     case "MAHASISWA":
       return [
         {
+          title: "Utama",
           items: [
             { label: "Dashboard", href: "/student", icon: <IconHome /> },
             {
@@ -37,6 +38,11 @@ function getNavigation(role: UserRole): NavGroup[] {
               href: "/student/supervisor-requests",
               icon: <IconUsers />,
             },
+          ],
+        },
+        {
+          title: "Bimbingan",
+          items: [
             {
               label: "Logbook Bimbingan",
               href: "/student/guidance-logs",
@@ -52,6 +58,11 @@ function getNavigation(role: UserRole): NavGroup[] {
               href: "/student/consultation",
               icon: <IconClipboard />,
             },
+          ],
+        },
+        {
+          title: "Informasi",
+          items: [
             {
               label: "Kalender Akademik",
               href: "/student/calendar",
@@ -153,9 +164,29 @@ function getNavigation(role: UserRole): NavGroup[] {
           ],
         },
         {
-          title: "Lainnya",
+          title: "Monitoring",
           items: [
+            {
+              label: "Analitik",
+              href: "/head/analytics",
+              icon: <IconChart />,
+            },
+            {
+              label: "Progress Skripsi",
+              href: "/admin/thesis-overview",
+              icon: <IconTarget />,
+            },
             { label: "Reporting", href: "/reports", icon: <IconChart /> },
+          ],
+        },
+        {
+          title: "Pengaturan",
+          items: [
+            {
+              label: "Delegasi",
+              href: "/head/delegations",
+              icon: <IconShield />,
+            },
             {
               label: "Notifikasi",
               href: "/notifications",
@@ -168,6 +199,7 @@ function getNavigation(role: UserRole): NavGroup[] {
     case "DOSEN":
       return [
         {
+          title: "Utama",
           items: [
             { label: "Dashboard", href: "/lecturer", icon: <IconHome /> },
             {
@@ -176,17 +208,22 @@ function getNavigation(role: UserRole): NavGroup[] {
               icon: <IconUsers />,
             },
             {
+              label: "Mahasiswa Bimbingan",
+              href: "/lecturer/supervised-students",
+              icon: <IconGraduationCap />,
+            },
+          ],
+        },
+        {
+          title: "Aktivitas",
+          items: [
+            {
               label: "Logbook Bimbingan",
               href: "/lecturer/guidance-logs",
               icon: <IconBook />,
             },
             {
-              label: "Mahasiswa Bimbingan",
-              href: "/lecturer/supervised-students",
-              icon: <IconGraduationCap />,
-            },
-            {
-              label: "Jadwal Bimbingan",
+              label: "Jadwal Konsultasi",
               href: "/lecturer/consultation",
               icon: <IconCalendar />,
             },
@@ -200,6 +237,11 @@ function getNavigation(role: UserRole): NavGroup[] {
               href: "/lecturer/final-documents",
               icon: <IconDocument />,
             },
+          ],
+        },
+        {
+          title: "Lainnya",
+          items: [
             {
               label: "Pengumuman",
               href: "/lecturer/announcements",
@@ -368,64 +410,59 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-[#F8FAFC]">
       {/* ─── Sidebar ─── */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-border bg-surface lg:flex">
+      <aside className="fixed inset-y-0 left-0 hidden w-[264px] flex-col border-r border-[#E2E8F0] bg-white lg:flex">
         {/* Brand */}
-        <div className="flex h-16 items-center gap-3 border-b border-border px-5">
+        <div className="flex h-16 items-center gap-3 border-b border-[#E2E8F0] px-5">
           <div
-            className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-text-inverse shadow-[inset_0_-1px_0_rgba(255,255,255,0.08)]"
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#2563EB] text-white shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
             aria-hidden
           >
-            <span className="font-display text-[15px] font-semibold tracking-tight">
+            <span className="text-[15px] font-bold tracking-tight">
               CF
             </span>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-display text-[15.5px] font-semibold leading-none tracking-tight text-text-primary">
+            <p className="text-[15px] font-semibold leading-none tracking-[-0.01em] text-[#0F172A]">
               CampusFlow
             </p>
-            <p className="mt-1 text-[10.5px] uppercase tracking-[0.14em] leading-none text-text-muted">
-              Academic Service Suite
+            <p className="mt-1 text-[10.5px] uppercase tracking-[0.12em] leading-none text-[#94A3B8]">
+              Academic Platform
             </p>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2.5 py-4">
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
           {navigation.map((group, idx) => (
             <div key={idx} className={idx > 0 ? "mt-6" : ""}>
               {group.title ? (
-                <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-text-disabled">
+                <p className="px-3 pb-2 pt-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-[#94A3B8]">
                   {group.title}
                 </p>
               ) : null}
-              <ul className="space-y-0.5">
+              <ul className="space-y-1">
                 {group.items.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href !== "/" &&
-                      pathname?.startsWith(item.href + "/"));
+                  const isDashboard = item.href === "/head" || item.href === "/student" || item.href === "/lecturer" || item.href === "/admin" || item.href === "/staff";
+                  const isActive = isDashboard
+                    ? pathname === item.href
+                    : pathname === item.href ||
+                      (item.href !== "/" && pathname?.startsWith(item.href + "/"));
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
-                        className={`group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] transition-colors ${
+                        className={`group flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-[13.5px] transition-all duration-[180ms] ${
                           isActive
-                            ? "bg-accent-soft text-accent font-semibold"
-                            : "text-text-secondary hover:bg-background-alt hover:text-text-primary"
+                            ? "bg-[#EFF6FF] text-[#2563EB] font-semibold"
+                            : "text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]"
                         }`}
                       >
-                        {isActive ? (
-                          <span
-                            aria-hidden
-                            className="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r-full bg-accent"
-                          />
-                        ) : null}
                         <span
                           className={`flex h-4 w-4 shrink-0 items-center justify-center transition-colors ${
                             isActive
-                              ? "text-accent"
+                              ? "text-[#2563EB]"
                               : "text-text-muted group-hover:text-text-secondary"
                           }`}
                         >
@@ -481,9 +518,9 @@ export function AppShell({
       </aside>
 
       {/* ─── Main ─── */}
-      <div className="flex flex-1 flex-col lg:ml-64">
+      <div className="flex flex-1 flex-col lg:ml-[264px]">
         {/* Topbar */}
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface/95 px-5 backdrop-blur-sm lg:px-7">
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-[#E2E8F0] bg-[rgba(255,255,255,0.86)] px-6 backdrop-blur-[16px] lg:px-7">
           <div className="lg:hidden flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-text-inverse text-[11px] font-bold">
               CF

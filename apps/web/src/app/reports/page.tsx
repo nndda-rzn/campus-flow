@@ -643,23 +643,23 @@ function ProcessingTimeSection() {
     ? [
         {
           name: "Pengajuan → Verifikasi",
-          hours: report.avg_submission_to_verification_hours,
+          hours: report.avg_submission_to_verification_hours ?? 0,
           color: "#2563eb",
         },
         {
           name: "Verifikasi → Persetujuan",
-          hours: report.avg_verification_to_approval_hours,
+          hours: report.avg_verification_to_approval_hours ?? 0,
           color: "#0891b2",
         },
         {
           name: "Persetujuan → Selesai",
-          hours: report.avg_approval_to_completion_hours,
+          hours: report.avg_approval_to_completion_hours ?? 0,
           color: "#16a34a",
         },
       ]
     : [];
 
-  const maxHours = Math.max(...stages.map((s) => s.hours), 1);
+  const maxHours = Math.max(...stages.map((s) => s.hours ?? 0), 1);
 
   return (
     <div className="space-y-4">
@@ -729,7 +729,7 @@ function ProcessingTimeSection() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{stage.name}</span>
                     <span className="text-sm font-semibold tabular-nums">
-                      {stage.hours.toFixed(1)} jam
+                      {(stage.hours ?? 0).toFixed(1)} jam
                     </span>
                   </div>
                   <div className="h-3 rounded-full bg-gray-100 overflow-hidden">

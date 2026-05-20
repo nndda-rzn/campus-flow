@@ -39,7 +39,7 @@ func (r *ThesisRepository) ListDepartmentThesisOverview(ctx context.Context, dep
 				s.department_id
 			FROM supervisor_requests sr
 			JOIN students s ON s.user_id = sr.student_user_id
-			JOIN supervisor_assignments sa ON sa.supervisor_request_id = sr.id
+			JOIN supervisor_assignments sa ON sa.request_id = sr.id
 			JOIN lecturers l ON l.id = sa.lecturer_id
 			WHERE sa.status = 'ACCEPTED'
 		),
@@ -51,16 +51,25 @@ func (r *ThesisRepository) ListDepartmentThesisOverview(ctx context.Context, dep
 				sup.nim,
 				sup.topic_title,
 				sup.lecturer_name,
+				sup.department_id,
 				COALESCE(tm.name, 'Belum Mulai') AS current_milestone,
 				COALESCE(
-					(SELECT COUNT(*) FILTER (WHERE tp.status = 'COMPLETED')::int * 100 /
-						NULLIF((SELECT COUNT(*) FROM thesis_milestones WHERE department_id = sup.department_id AND is_active = true)::int, 0)
-					, 0
+					(
+						SELECT
+							CASE
+								WHEN COALESCE((SELECT COUNT(*) FROM thesis_milestones WHERE department_id = sup.department_id AND is_active = true), 0) = 0 THEN 0
+								ELSE (COUNT(*) FILTER (WHERE tp.status = 'COMPLETED'))::int * 100 /
+									(SELECT COUNT(*) FROM thesis_milestones WHERE department_id = sup.department_id AND is_active = true)::int
+							END
+						FROM thesis_progress tp
+						WHERE tp.student_user_id = sup.student_user_id
+					),
+					0
 				) AS completion_percentage,
 				COALESCE(
 					EXTRACT(DAY FROM NOW() - GREATEST(
-						(SELECT MAX(tp2.updated_at) FROM thesis_progress tp2 WHERE tp2.student_user_id = sup.student_user_id),
-						(SELECT MAX(gl.created_at) FROM guidance_logs gl WHERE gl.student_user_id = sup.student_user_id)
+						COALESCE((SELECT MAX(tp2.updated_at) FROM thesis_progress tp2 WHERE tp2.student_user_id = sup.student_user_id), NOW() - INTERVAL '999 days'),
+						COALESCE((SELECT MAX(gl.created_at) FROM guidance_logs gl WHERE gl.student_user_id = sup.student_user_id), NOW() - INTERVAL '999 days')
 					))::int,
 					999
 				) AS days_since_last_activity
@@ -73,7 +82,6 @@ func (r *ThesisRepository) ListDepartmentThesisOverview(ctx context.Context, dep
 				LIMIT 1
 			) latest_progress ON true
 			LEFT JOIN thesis_milestones tm ON tm.id = latest_progress.milestone_id
-			LEFT JOIN thesis_progress tp ON tp.student_user_id = sup.student_user_id
 			WHERE ($1 = '' OR sup.department_id = $1::uuid)
 		)
 		SELECT DISTINCT ON (student_user_id)

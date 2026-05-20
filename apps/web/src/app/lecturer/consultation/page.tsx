@@ -20,6 +20,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
 import {
   Dialog,
   DialogContent,
@@ -284,12 +286,11 @@ function PageContent() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="slot_date">Tanggal</Label>
-                <Input
+                <DatePicker
                   id="slot_date"
-                  type="date"
                   value={formData.slot_date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, slot_date: e.target.value })
+                  onChange={(val) =>
+                    setFormData({ ...formData, slot_date: val })
                   }
                   required
                 />
@@ -297,24 +298,22 @@ function PageContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="start_time">Jam Mulai</Label>
-                  <Input
+                  <TimePicker
                     id="start_time"
-                    type="time"
                     value={formData.start_time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, start_time: e.target.value })
+                    onChange={(val) =>
+                      setFormData({ ...formData, start_time: val })
                     }
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="end_time">Jam Selesai</Label>
-                  <Input
+                  <TimePicker
                     id="end_time"
-                    type="time"
                     value={formData.end_time}
-                    onChange={(e) =>
-                      setFormData({ ...formData, end_time: e.target.value })
+                    onChange={(val) =>
+                      setFormData({ ...formData, end_time: val })
                     }
                     required
                   />
@@ -427,12 +426,11 @@ function PageContent() {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit_slot_date">Tanggal</Label>
-                <Input
+                <DatePicker
                   id="edit_slot_date"
-                  type="date"
                   value={editFormData.slot_date}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, slot_date: e.target.value })
+                  onChange={(val) =>
+                    setEditFormData({ ...editFormData, slot_date: val })
                   }
                   required
                 />
@@ -440,24 +438,22 @@ function PageContent() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="edit_start_time">Jam Mulai</Label>
-                  <Input
+                  <TimePicker
                     id="edit_start_time"
-                    type="time"
                     value={editFormData.start_time}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, start_time: e.target.value })
+                    onChange={(val) =>
+                      setEditFormData({ ...editFormData, start_time: val })
                     }
                     required
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit_end_time">Jam Selesai</Label>
-                  <Input
+                  <TimePicker
                     id="edit_end_time"
-                    type="time"
                     value={editFormData.end_time}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, end_time: e.target.value })
+                    onChange={(val) =>
+                      setEditFormData({ ...editFormData, end_time: val })
                     }
                     required
                   />

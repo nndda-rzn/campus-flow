@@ -273,7 +273,7 @@ func (r *ThesisRepository) GetProgressByLecturer(ctx context.Context, lecturerUs
 			(SELECT COUNT(*) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id AND tp.status = 'COMPLETED') as completed_milestones,
 			(SELECT MAX(tp.updated_at) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id) as last_activity_at
 		FROM supervisor_requests sr
-		JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+		JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.status = 'ACCEPTED'
 		JOIN lecturers l ON l.id = sa.lecturer_id
 		JOIN students s ON s.user_id = sr.student_user_id
 		WHERE l.user_id = $1 AND sr.status IN ('ACCEPTED', 'COMPLETED')
@@ -346,7 +346,7 @@ func (r *ThesisRepository) GetStudentProgressForLecturer(ctx context.Context, st
 			(SELECT COUNT(*) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id AND tp.status = 'COMPLETED') as completed_milestones,
 			(SELECT MAX(tp.updated_at) FROM thesis_progress tp WHERE tp.supervisor_request_id = sr.id) as last_activity_at
 		FROM supervisor_requests sr
-		JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+		JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.status = 'ACCEPTED'
 		JOIN lecturers l ON l.id = sa.lecturer_id
 		JOIN students s ON s.user_id = sr.student_user_id
 		WHERE l.user_id = $1 AND sr.student_user_id = $2 AND sr.status IN ('ACCEPTED', 'COMPLETED')
@@ -419,7 +419,7 @@ func (r *ThesisRepository) ValidateLecturerSupervisesStudent(ctx context.Context
 	query := `
 		SELECT EXISTS(
 			SELECT 1 FROM supervisor_requests sr
-			JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+			JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.status = 'ACCEPTED'
 			JOIN lecturers l ON l.id = sa.lecturer_id
 			WHERE l.user_id = $1 AND sr.student_user_id = $2 AND sr.status IN ('ACCEPTED', 'COMPLETED')
 		)
@@ -440,7 +440,7 @@ func (r *ThesisRepository) ValidateLecturerSupervisesProgress(ctx context.Contex
 		SELECT EXISTS(
 			SELECT 1 FROM thesis_progress tp
 			JOIN supervisor_requests sr ON sr.id = tp.supervisor_request_id
-			JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.is_current = true
+			JOIN supervisor_assignments sa ON sa.request_id = sr.id AND sa.status = 'ACCEPTED'
 			JOIN lecturers l ON l.id = sa.lecturer_id
 			WHERE tp.id = $1 AND l.user_id = $2 AND sr.status IN ('ACCEPTED', 'COMPLETED')
 		)

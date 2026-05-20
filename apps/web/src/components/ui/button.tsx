@@ -7,29 +7,29 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-[13.5px] font-medium leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-150 disabled:pointer-events-none disabled:opacity-55 active:translate-y-[0.5px] focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_rgba(30,58,138,0.12)] [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] text-[14px] font-medium leading-none transition-[background-color,border-color,color,box-shadow,transform] duration-[180ms] ease-[cubic-bezier(0.2,0,0,1)] disabled:pointer-events-none disabled:opacity-50 active:translate-y-[0.5px] focus-visible:outline-none focus-visible:shadow-[0_0_0_4px_rgba(37,99,235,0.16)] [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         primary:
-          "bg-primary text-text-inverse border border-primary shadow-[0_1px_2px_rgba(15,23,42,0.08)] hover:bg-primary-hover hover:border-primary-hover",
+          "bg-[#2563EB] text-white border border-[#2563EB] shadow-[0_1px_2px_rgba(15,23,42,0.08)] hover:bg-[#1D4ED8] hover:border-[#1D4ED8]",
         secondary:
-          "bg-surface text-text-primary border border-border-strong hover:bg-background-alt hover:border-text-muted",
+          "bg-white text-[#0F172A] border border-[#CBD5E1] hover:bg-[#F1F5F9] hover:border-[#94A3B8]",
         danger:
-          "bg-danger text-text-inverse border border-danger shadow-[0_1px_2px_rgba(220,38,38,0.12)] hover:bg-[#b91c1c] hover:border-[#b91c1c] focus-visible:shadow-[0_0_0_3px_rgba(220,38,38,0.12)]",
+          "bg-[#DC2626] text-white border border-[#DC2626] shadow-[0_1px_2px_rgba(220,38,38,0.12)] hover:bg-[#B91C1C] hover:border-[#B91C1C] focus-visible:shadow-[0_0_0_4px_rgba(220,38,38,0.16)]",
         success:
-          "bg-success text-text-inverse border border-success shadow-[0_1px_2px_rgba(22,163,74,0.12)] hover:bg-[#15803d] hover:border-[#15803d]",
+          "bg-[#16A34A] text-white border border-[#16A34A] shadow-[0_1px_2px_rgba(22,163,74,0.12)] hover:bg-[#15803D] hover:border-[#15803D]",
         ghost:
-          "bg-transparent text-text-secondary border border-transparent hover:bg-background-alt hover:text-text-primary",
+          "bg-transparent text-[#475569] border border-transparent hover:bg-[#F1F5F9] hover:text-[#0F172A]",
         outline:
-          "bg-transparent text-text-primary border border-border-strong hover:bg-background-alt",
-        link: "bg-transparent text-primary underline-offset-4 hover:underline border border-transparent",
+          "bg-transparent text-[#0F172A] border border-[#CBD5E1] hover:bg-[#F1F5F9]",
+        link: "bg-transparent text-[#2563EB] underline-offset-4 hover:underline border border-transparent",
       },
       size: {
-        sm: "h-8 px-2.5 text-[12.5px]",
-        md: "h-9 px-3.5",
-        lg: "h-10 px-4 text-[14.5px]",
-        icon: "h-9 w-9 p-0",
+        sm: "h-8 px-3 text-[13px]",
+        md: "h-10 px-4",
+        lg: "h-12 px-5 text-[15px]",
+        icon: "h-10 w-10 p-0",
         "icon-sm": "h-8 w-8 p-0",
       },
     },

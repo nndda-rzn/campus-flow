@@ -8,9 +8,9 @@ const Card = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "rounded-lg border border-border bg-surface text-text-primary shadow-[0_1px_2px_rgba(15,23,42,0.04),0_1px_1px_rgba(15,23,42,0.03)]",
+      "rounded-[16px] border border-[#E2E8F0] bg-white text-[#0F172A] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_1px_3px_rgba(15,23,42,0.06)]",
       interactive &&
-        "transition-[border-color,box-shadow,transform] duration-150 hover:border-border-strong hover:shadow-[0_4px_12px_rgba(15,23,42,0.08),0_2px_4px_rgba(15,23,42,0.04)]",
+        "transition-[border-color,box-shadow] duration-[180ms] ease-[cubic-bezier(0.2,0,0,1)] cursor-pointer hover:border-[#CBD5E1] hover:shadow-[0_4px_12px_rgba(15,23,42,0.08),0_2px_4px_rgba(15,23,42,0.04)]",
       className,
     )}
     {...props}
@@ -25,7 +25,7 @@ const CardHeader = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex flex-col gap-1 px-5 py-4 border-b border-border",
+      "flex flex-col gap-1 px-5 py-4 border-b border-[#E2E8F0]",
       className,
     )}
     {...props}
@@ -40,7 +40,7 @@ const CardTitle = React.forwardRef<
   <h3
     ref={ref}
     className={cn(
-      "text-[15px] font-semibold leading-tight tracking-tight",
+      "text-[15px] font-semibold leading-tight tracking-[-0.01em] text-[#0F172A]",
       className,
     )}
     {...props}
@@ -54,7 +54,7 @@ const CardDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-[13px] leading-relaxed text-text-muted", className)}
+    className={cn("text-[13px] leading-relaxed text-[#64748B]", className)}
     {...props}
   />
 ));
@@ -75,7 +75,7 @@ const CardFooter = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex items-center gap-2 px-5 py-3 border-t border-border bg-background-alt rounded-b-lg",
+      "flex items-center gap-2 px-5 py-3 border-t border-[#E2E8F0] bg-[#F8FAFC] rounded-b-[16px]",
       className,
     )}
     {...props}
