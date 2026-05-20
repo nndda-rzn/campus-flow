@@ -596,6 +596,151 @@ func (r *SupervisorRepository) AssignSupervisor(
 	return r.GetSupervisorRequestByID(ctx, requestID)
 }
 
+// ReassignSupervisor allows Kaprodi to reassign a different lecturer after the
+// previous lecturer rejected the assignment. Transitions REJECTED → ASSIGNED.
+func (r *SupervisorRepository) ReassignSupervisor(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	lecturerID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var currentStatus string
+	var studentUserID string
+	var requestNumber string
+
+	err = tx.QueryRow(
+		ctx, `
+		SELECT status, student_user_id::text, request_number
+		FROM supervisor_requests
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, requestID,
+	).Scan(&currentStatus, &studentUserID, &requestNumber)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrSupervisorRequestNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if currentStatus != "REJECTED" {
+		return nil, ErrInvalidStatusTransition
+	}
+
+	// Lock the lecturer row to make the quota check race-safe.
+	var maxQuota int
+	var lecturerStatus string
+	var lecturerUserID string
+
+	err = tx.QueryRow(
+		ctx, `
+		SELECT
+			max_supervisor_quota,
+			status,
+			COALESCE(user_id::text, '')
+		FROM lecturers
+		WHERE id = $1::uuid
+		FOR UPDATE
+	`, lecturerID,
+	).Scan(&maxQuota, &lecturerStatus, &lecturerUserID)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrLecturerNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if lecturerStatus != "ACTIVE" {
+		return nil, ErrLecturerNotFound
+	}
+
+	// Count active assignments for this lecturer.
+	var activeCount int
+	err = tx.QueryRow(
+		ctx, `
+		SELECT COUNT(*)
+		FROM supervisor_assignments sa
+		JOIN supervisor_requests sr ON sr.id = sa.request_id
+		WHERE sa.lecturer_id = $1::uuid
+		  AND sa.status IN ('PENDING', 'ACCEPTED')
+		  AND sr.status IN ('ASSIGNED', 'ACCEPTED', 'COMPLETED')
+	`, lecturerID,
+	).Scan(&activeCount)
+	if err != nil {
+		return nil, err
+	}
+
+	if activeCount >= maxQuota {
+		return nil, ErrLecturerQuotaExceeded
+	}
+
+	// Create new assignment for the new lecturer.
+	_, err = tx.Exec(
+		ctx, `
+		INSERT INTO supervisor_assignments (
+			request_id,
+			lecturer_id,
+			assigned_by_user_id,
+			status,
+			note
+		)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, 'PENDING', $4)
+	`, requestID, lecturerID, actorUserID, note,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	// Move request back to ASSIGNED.
+	_, err = tx.Exec(
+		ctx, `
+		UPDATE supervisor_requests
+		SET status = 'ASSIGNED',
+		    assigned_at = NOW(),
+		    updated_at = NOW()
+		WHERE id = $1::uuid
+	`, requestID,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.insertSupervisorHistory(ctx, tx, requestID, currentStatus, "ASSIGNED", actorUserID, note); err != nil {
+		return nil, err
+	}
+
+	if err := r.insertSupervisorOutboxWithLecturer(
+		ctx,
+		tx,
+		requestID,
+		requestNumber,
+		studentUserID,
+		"supervisor_request.reassigned",
+		"ASSIGNED",
+		actorUserID,
+		note,
+		lecturerID,
+		lecturerUserID,
+	); err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+
+	return r.GetSupervisorRequestByID(ctx, requestID)
+}
+
 func (r *SupervisorRepository) AcceptSupervisorRequest(
 	ctx context.Context,
 	requestID string,

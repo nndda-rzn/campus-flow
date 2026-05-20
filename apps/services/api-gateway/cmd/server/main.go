@@ -262,6 +262,76 @@ func main() {
 		),
 	)
 
+	// Bulk approve/reject for Kaprodi
+	bulkWorkflowHandler := handler.NewBulkWorkflowHandler(academicClient)
+
+	// Kaprodi Delegation
+	delegationHandler := handler.NewDelegationHandler(academicClient)
+
+	mux.Handle(
+		"/api/v1/head/academic-requests/bulk-approve",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(bulkWorkflowHandler.BulkApprove),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/head/academic-requests/bulk-reject",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(bulkWorkflowHandler.BulkReject),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/head/delegations",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(delegationHandler.List),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/head/delegations/create",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(delegationHandler.Create),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/head/delegations/revoke",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(delegationHandler.Revoke),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/head/delegations/check",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				http.HandlerFunc(delegationHandler.Check),
+			),
+		),
+	)
+
 	mux.Handle(
 		"/api/v1/staff/academic-requests/complete",
 		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
@@ -442,6 +512,17 @@ func main() {
 			authMiddleware.RequireAuth(
 				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
 					http.HandlerFunc(supervisorHandler.AssignSupervisor),
+				),
+			),
+		),
+	)
+
+	mux.Handle(
+		"/api/v1/head/supervisor-requests/reassign",
+		middleware.RateLimitMiddleware(authenticatedRateLimiter)(
+			authMiddleware.RequireAuth(
+				authMiddleware.RequireRole("KAPRODI", "SUPER_ADMIN")(
+					http.HandlerFunc(supervisorHandler.ReassignSupervisor),
 				),
 			),
 		),
@@ -730,9 +811,9 @@ func main() {
 
 	// Admin Operational Dashboard (SLA)
 	registerAdmin("/api/v1/reports/admin-dashboard", reportingHandler.GetAdminOperationalDashboard,
-		"SUPER_ADMIN", "ADMIN_PRODI")
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
 	registerAdmin("/api/v1/reports/sla-at-risk", reportingHandler.GetSLAAtRiskRequests,
-		"SUPER_ADMIN", "ADMIN_PRODI")
+		"SUPER_ADMIN", "ADMIN_PRODI", "KAPRODI")
 
 	// Request Analytics & Trends
 	registerAdmin("/api/v1/reports/trends", reportingHandler.GetRequestTrends,

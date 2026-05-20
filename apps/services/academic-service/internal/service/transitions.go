@@ -19,16 +19,19 @@ var AcademicTransitions = map[string][]string{
 // SupervisorTransitions defines the allowed state transitions for supervisor
 // requests.
 //
-// Terminal statuses: REJECTED, COMPLETED, CANCELLED.
+// Terminal statuses: COMPLETED, CANCELLED.
 //
 // ACCEPTED is treated as a transient status: it is immediately followed by
 // COMPLETED in the same database transaction (see supervisor_repository).
+//
+// REJECTED can be reassigned by Kaprodi to a different lecturer.
 var SupervisorTransitions = map[string][]string{
 	"SUBMITTED":         {"VERIFIED", "REVISION_REQUIRED", "CANCELLED"},
 	"VERIFIED":          {"ASSIGNED"},
 	"REVISION_REQUIRED": {"SUBMITTED", "CANCELLED"},
 	"ASSIGNED":          {"ACCEPTED", "REJECTED"},
 	"ACCEPTED":          {"COMPLETED"},
+	"REJECTED":          {"ASSIGNED"},
 }
 
 // ThesisFinalDocumentTransitions defines the allowed state transitions for

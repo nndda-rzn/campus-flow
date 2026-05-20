@@ -222,6 +222,26 @@ export async function assignSupervisor(
   return normalizeSingleResponse(response);
 }
 
+export async function reassignSupervisor(
+  token: string,
+  payload: {
+    request_id: string;
+    lecturer_id: string;
+    note: string;
+  },
+) {
+  const response = await apiFetch<ApiResponse<RawRecord>>(
+    "/api/v1/head/supervisor-requests/reassign",
+    {
+      method: "POST",
+      token,
+      body: payload,
+    },
+  );
+
+  return normalizeSingleResponse(response);
+}
+
 export async function listLecturerSupervisorRequests(token: string) {
   const response = await apiFetch<ApiResponse<RawRecord>>(
     "/api/v1/lecturer/supervisor-requests",

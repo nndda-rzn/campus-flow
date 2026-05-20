@@ -54,6 +54,7 @@ import {
   Lecturer,
   SupervisorRequest,
   assignSupervisor,
+  reassignSupervisor,
   listAllSupervisorRequests,
   listLecturers,
 } from "@/lib/supervisor-api";
@@ -95,6 +96,7 @@ function PageContent() {
   const [assignTarget, setAssignTarget] = useState<SupervisorRequest | null>(
     null,
   );
+  const [isReassign, setIsReassign] = useState(false);
   const [selectedLecturerId, setSelectedLecturerId] = useState("");
   const [assignNote, setAssignNote] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
@@ -145,19 +147,25 @@ function PageContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchQuery]);
 
-  function openAssignDialog(request: SupervisorRequest) {
+  function openAssignDialog(request: SupervisorRequest, reassign = false) {
     setAssignTarget(request);
+    setIsReassign(reassign);
     // Pre-select first choice if available
     const firstChoice = request.choices[0];
     const matchedLecturer = firstChoice
       ? lecturers.find((l) => l.id === firstChoice.lecturerId)
       : null;
     setSelectedLecturerId(matchedLecturer?.id ?? lecturers[0]?.id ?? "");
-    setAssignNote("Dosen pembimbing ditetapkan oleh Kaprodi.");
+    setAssignNote(
+      reassign
+        ? "Dosen pembimbing baru ditetapkan oleh Kaprodi (reassign)."
+        : "Dosen pembimbing ditetapkan oleh Kaprodi.",
+    );
   }
 
   function closeAssignDialog() {
     setAssignTarget(null);
+    setIsReassign(false);
     setSelectedLecturerId("");
     setAssignNote("");
   }
@@ -169,14 +177,22 @@ function PageContent() {
 
     setIsAssigning(true);
     try {
-      await assignSupervisor(token, {
-        request_id: assignTarget.id,
-        lecturer_id: selectedLecturerId,
-        note: assignNote.trim() || "Dosen pembimbing ditetapkan oleh Kaprodi.",
-      });
+      if (isReassign) {
+        await reassignSupervisor(token, {
+          request_id: assignTarget.id,
+          lecturer_id: selectedLecturerId,
+          note: assignNote.trim() || "Dosen pembimbing baru ditetapkan oleh Kaprodi.",
+        });
+      } else {
+        await assignSupervisor(token, {
+          request_id: assignTarget.id,
+          lecturer_id: selectedLecturerId,
+          note: assignNote.trim() || "Dosen pembimbing ditetapkan oleh Kaprodi.",
+        });
+      }
 
       const selected = lecturers.find((l) => l.id === selectedLecturerId);
-      toast.success("Dosen ditetapkan", {
+      toast.success(isReassign ? "Dosen di-reassign" : "Dosen ditetapkan", {
         description: `${selected?.fullName ?? "Dosen"} ditetapkan untuk ${assignTarget.requestNumber}.`,
       });
       closeAssignDialog();
@@ -332,6 +348,16 @@ function PageContent() {
                           <Users className="size-3.5" />
                           Tetapkan
                         </Button>
+                      ) : request.status === "REJECTED" ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openAssignDialog(request, true)}
+                          disabled={lecturers.length === 0}
+                        >
+                          <Users className="size-3.5" />
+                          Reassign
+                        </Button>
                       ) : (
                         <span className="text-[12.5px] text-text-disabled">
                           —
@@ -364,11 +390,12 @@ function PageContent() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <GraduationCap className="size-4 text-primary" />
-              Tetapkan Dosen Pembimbing
+              {isReassign ? "Reassign Dosen Pembimbing" : "Tetapkan Dosen Pembimbing"}
             </DialogTitle>
             <DialogDescription>
-              Pilih dosen yang akan ditetapkan. Dosen akan menerima notifikasi
-              untuk menerima atau menolak penetapan ini.
+              {isReassign
+                ? "Dosen sebelumnya menolak penetapan. Pilih dosen lain untuk di-reassign."
+                : "Pilih dosen yang akan ditetapkan. Dosen akan menerima notifikasi untuk menerima atau menolak penetapan ini."}
             </DialogDescription>
           </DialogHeader>
 

@@ -100,3 +100,67 @@ func (h *AcademicHandler) BulkVerifyAcademicRequests(
 		Failed:    fail,
 	}, nil
 }
+
+func (h *AcademicHandler) BulkApproveAcademicRequests(
+	ctx context.Context,
+	req *academicv1.BulkApproveAcademicRequestsRequest,
+) (*academicv1.BulkWorkflowResponse, error) {
+	results, err := h.academicService.BulkApproveAcademicRequests(
+		ctx, req.RequestIds, req.ActorUserId, req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	out := make([]*academicv1.BulkWorkflowResultItem, 0, len(results))
+	var ok, fail int32
+	for _, r := range results {
+		if r.Success {
+			ok++
+		} else {
+			fail++
+		}
+		out = append(out, &academicv1.BulkWorkflowResultItem{
+			RequestId: r.RequestID,
+			Success:   r.Success,
+			Error:     r.Error,
+		})
+	}
+	return &academicv1.BulkWorkflowResponse{
+		Results:   out,
+		Succeeded: ok,
+		Failed:    fail,
+	}, nil
+}
+
+func (h *AcademicHandler) BulkRejectAcademicRequests(
+	ctx context.Context,
+	req *academicv1.BulkRejectAcademicRequestsRequest,
+) (*academicv1.BulkWorkflowResponse, error) {
+	results, err := h.academicService.BulkRejectAcademicRequests(
+		ctx, req.RequestIds, req.ActorUserId, req.Note,
+	)
+	if err != nil {
+		return nil, mapWorkflowError(err)
+	}
+
+	out := make([]*academicv1.BulkWorkflowResultItem, 0, len(results))
+	var ok, fail int32
+	for _, r := range results {
+		if r.Success {
+			ok++
+		} else {
+			fail++
+		}
+		out = append(out, &academicv1.BulkWorkflowResultItem{
+			RequestId: r.RequestID,
+			Success:   r.Success,
+			Error:     r.Error,
+		})
+	}
+	return &academicv1.BulkWorkflowResponse{
+		Results:   out,
+		Succeeded: ok,
+		Failed:    fail,
+	}, nil
+}

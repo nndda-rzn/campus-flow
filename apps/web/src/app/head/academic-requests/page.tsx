@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -47,9 +48,17 @@ import { getAccessToken } from "@/lib/auth-storage";
 import {
   AcademicRequest,
   approveAcademicRequest,
+  bulkApproveAcademicRequests,
+  bulkRejectAcademicRequests,
   listAllAcademicRequests,
   rejectAcademicRequest,
 } from "@/lib/academic-api";
+import { BulkActionBar } from "@/components/kaprodi/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/kaprodi/bulk-confirm-dialog";
+import {
+  BulkProgressDialog,
+  type BulkProgressItem,
+} from "@/components/kaprodi/bulk-progress-dialog";
 import { cn } from "@/lib/cn";
 
 const STATUS_OPTIONS = [
@@ -94,6 +103,14 @@ function PageContent() {
   const [actionNote, setActionNote] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Bulk selection state
+  const [selectedIDs, setSelectedIDs] = useState<Set<string>>(new Set());
+  const [bulkNote, setBulkNote] = useState("");
+  const [bulkAction, setBulkAction] = useState<"approve" | "reject" | null>(null);
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+  const [progressItems, setProgressItems] = useState<BulkProgressItem[]>([]);
+  const [showProgress, setShowProgress] = useState(false);
+
   async function loadRequests(filter: string) {
     const token = getAccessToken();
     if (!token) return;
@@ -136,8 +153,140 @@ function PageContent() {
   // Reset to page 1 when filter or search changes
   useEffect(() => {
     goToFirst();
+    setSelectedIDs(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchQuery]);
+
+  // ─── Bulk selection helpers ────────────────────────────────────────────────
+
+  const verifiedRequests = useMemo(
+    () => filteredRequests.filter((r) => r.status === "VERIFIED"),
+    [filteredRequests],
+  );
+
+  function toggleSelected(id: string) {
+    setSelectedIDs((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (selectedIDs.size === verifiedRequests.length && selectedIDs.size > 0) {
+      setSelectedIDs(new Set());
+    } else {
+      setSelectedIDs(new Set(verifiedRequests.map((r) => r.id)));
+    }
+  }
+
+  function clearSelection() {
+    setSelectedIDs(new Set());
+    setBulkNote("");
+    setBulkAction(null);
+  }
+
+  function openBulkConfirm(action: "approve" | "reject") {
+    setBulkAction(action);
+  }
+
+  async function handleBulkConfirm() {
+    if (selectedIDs.size === 0 || !bulkAction) return;
+    const token = getAccessToken();
+    if (!token) return;
+
+    const ids = Array.from(selectedIDs);
+
+    // Build progress items
+    const items: BulkProgressItem[] = ids.map((id) => {
+      const req = requests.find((r) => r.id === id);
+      return {
+        id,
+        requestNumber: req?.requestNumber ?? id.slice(0, 8),
+        status: "pending" as const,
+      };
+    });
+    setProgressItems(items);
+    setShowProgress(true);
+    setBulkAction(null);
+    setIsBulkProcessing(true);
+
+    try {
+      // Mark all as processing
+      setProgressItems((prev) =>
+        prev.map((p) => ({ ...p, status: "processing" as const })),
+      );
+
+      let res;
+      if (bulkAction === "approve") {
+        res = await bulkApproveAcademicRequests(token, {
+          request_ids: ids,
+          note: bulkNote.trim() || undefined,
+        });
+      } else {
+        res = await bulkRejectAcademicRequests(token, {
+          request_ids: ids,
+          note: bulkNote.trim(),
+        });
+      }
+
+      // Update progress items with results
+      const results = res.data?.results ?? [];
+      setProgressItems((prev) =>
+        prev.map((p) => {
+          const result = results.find((r) => r.request_id === p.id);
+          if (result) {
+            return {
+              ...p,
+              status: result.success ? ("success" as const) : ("error" as const),
+              error: result.error || undefined,
+            };
+          }
+          return { ...p, status: "success" as const };
+        }),
+      );
+
+      const succeeded = res.data?.succeeded ?? 0;
+      const failed = res.data?.failed ?? 0;
+
+      if (failed === 0) {
+        toast.success(
+          `${succeeded} pengajuan ${bulkAction === "approve" ? "disetujui" : "ditolak"}`,
+          {
+            description:
+              bulkAction === "approve"
+                ? "Semua berhasil diteruskan ke Tata Usaha."
+                : "Semua dikembalikan ke mahasiswa.",
+          },
+        );
+      } else {
+        toast.warning(`${succeeded} berhasil, ${failed} gagal`, {
+          description: "Beberapa pengajuan tidak bisa diproses.",
+        });
+      }
+    } catch (err) {
+      setProgressItems((prev) =>
+        prev.map((p) => ({
+          ...p,
+          status: "error" as const,
+          error: err instanceof Error ? err.message : "Unknown error",
+        })),
+      );
+      toast.error("Gagal memproses bulk operation", {
+        description: err instanceof Error ? err.message : undefined,
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  }
+
+  function handleProgressClose() {
+    setShowProgress(false);
+    setProgressItems([]);
+    clearSelection();
+    loadRequests(statusFilter);
+  }
 
   function openActionDialog(type: ActionType, request: AcademicRequest) {
     setActionTarget({ type, request });
@@ -270,6 +419,21 @@ function PageContent() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-10 px-3">
+                    {statusFilter === "VERIFIED" && verifiedRequests.length > 0 ? (
+                      <Checkbox
+                        checked={
+                          selectedIDs.size === verifiedRequests.length && selectedIDs.size > 0
+                            ? true
+                            : selectedIDs.size > 0
+                              ? "indeterminate"
+                              : false
+                        }
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Pilih semua"
+                      />
+                    ) : null}
+                  </TableHead>
                   <TableHead>Pengajuan</TableHead>
                   <TableHead>Layanan</TableHead>
                   <TableHead>Status</TableHead>
@@ -279,7 +443,21 @@ function PageContent() {
               </TableHeader>
               <TableBody>
                 {paginatedItems.map((request) => (
-                  <TableRow key={request.id}>
+                  <TableRow
+                    key={request.id}
+                    className={cn(
+                      selectedIDs.has(request.id) && "bg-primary/5",
+                    )}
+                  >
+                    <TableCell className="w-10 px-3">
+                      {request.status === "VERIFIED" ? (
+                        <Checkbox
+                          checked={selectedIDs.has(request.id)}
+                          onCheckedChange={() => toggleSelected(request.id)}
+                          aria-label={`Pilih ${request.requestNumber}`}
+                        />
+                      ) : null}
+                    </TableCell>
                     <TableCell className="max-w-md">
                       <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
                         {request.title}
@@ -439,6 +617,46 @@ function PageContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Action Bar (floating) */}
+      <BulkActionBar
+        selectedCount={selectedIDs.size}
+        note={bulkNote}
+        onNoteChange={setBulkNote}
+        onApprove={() => openBulkConfirm("approve")}
+        onReject={() => openBulkConfirm("reject")}
+        onClear={clearSelection}
+        isProcessing={isBulkProcessing}
+      />
+
+      {/* Bulk Confirm Dialog */}
+      <BulkConfirmDialog
+        open={bulkAction !== null}
+        onOpenChange={(open) => !open && setBulkAction(null)}
+        action={bulkAction ?? "approve"}
+        items={Array.from(selectedIDs).map((id) => {
+          const req = requests.find((r) => r.id === id);
+          return {
+            id,
+            requestNumber: req?.requestNumber ?? "",
+            title: req?.title ?? "",
+            serviceName: req?.serviceName ?? "",
+          };
+        })}
+        note={bulkNote}
+        onNoteChange={setBulkNote}
+        onConfirm={handleBulkConfirm}
+        isProcessing={isBulkProcessing}
+      />
+
+      {/* Bulk Progress Dialog */}
+      <BulkProgressDialog
+        open={showProgress}
+        onOpenChange={(open) => !open && handleProgressClose()}
+        action={bulkAction ?? "approve"}
+        items={progressItems}
+        onClose={handleProgressClose}
+      />
     </>
   );
 }

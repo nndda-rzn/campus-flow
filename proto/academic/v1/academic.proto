@@ -30,6 +30,7 @@ service AcademicService {
   rpc VerifySupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc RequestRevisionSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc AssignSupervisor(AssignSupervisorRequest) returns (SupervisorRequestResponse);
+  rpc ReassignSupervisor(AssignSupervisorRequest) returns (SupervisorRequestResponse);
   rpc AcceptSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc RejectSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
   rpc CompleteSupervisorRequest(SupervisorWorkflowActionRequest) returns (SupervisorRequestResponse);
@@ -81,6 +82,12 @@ service AcademicService {
 
   // Bulk verify academic requests (Epic 10b / FR-255).
   rpc BulkVerifyAcademicRequests(BulkVerifyAcademicRequestsRequest) returns (BulkVerifyAcademicRequestsResponse);
+
+  // Bulk approve academic requests (Kaprodi).
+  rpc BulkApproveAcademicRequests(BulkApproveAcademicRequestsRequest) returns (BulkWorkflowResponse);
+
+  // Bulk reject academic requests (Kaprodi).
+  rpc BulkRejectAcademicRequests(BulkRejectAcademicRequestsRequest) returns (BulkWorkflowResponse);
 
   // Thesis Progress
   rpc GetMilestonesByDepartment(GetMilestonesByDepartmentRequest) returns (GetMilestonesByDepartmentResponse);
@@ -157,6 +164,12 @@ service AcademicService {
 
   // Thesis Overview (Admin Prodi)
   rpc ListDepartmentThesisOverview(ListDepartmentThesisOverviewRequest) returns (ListDepartmentThesisOverviewResponse);
+
+  // Kaprodi Delegation
+  rpc ListDelegations(ListDelegationsRequest) returns (ListDelegationsResponse);
+  rpc CreateDelegation(CreateDelegationRequest) returns (DelegationResponse);
+  rpc RevokeDelegation(RevokeDelegationRequest) returns (DelegationResponse);
+  rpc CheckDelegation(CheckDelegationRequest) returns (CheckDelegationResponse);
 }
 
 message ListAcademicServicesRequest {}
@@ -747,6 +760,32 @@ message BulkVerifyResultItem {
 
 message BulkVerifyAcademicRequestsResponse {
   repeated BulkVerifyResultItem results = 1;
+  int32 succeeded = 2;
+  int32 failed = 3;
+}
+
+// ─── Bulk approve/reject (Kaprodi) ─────────────────────────────────────────
+
+message BulkApproveAcademicRequestsRequest {
+  repeated string request_ids = 1;
+  string actor_user_id = 2;
+  string note = 3;
+}
+
+message BulkRejectAcademicRequestsRequest {
+  repeated string request_ids = 1;
+  string actor_user_id = 2;
+  string note = 3;
+}
+
+message BulkWorkflowResultItem {
+  string request_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message BulkWorkflowResponse {
+  repeated BulkWorkflowResultItem results = 1;
   int32 succeeded = 2;
   int32 failed = 3;
 }
@@ -1389,4 +1428,57 @@ message ListDepartmentThesisOverviewResponse {
   int32 on_track = 3;
   int32 behind = 4;
   int32 not_started = 5;
+}
+
+// ─── Kaprodi Delegation ─────────────────────────────────────────────────────
+
+message DelegationItem {
+  string id = 1;
+  string delegator_user_id = 2;
+  string delegate_user_id = 3;
+  string delegate_name = 4;
+  string reason = 5;
+  string starts_at = 6;
+  string ends_at = 7;
+  bool is_active = 8;
+  string revoked_at = 9;
+  string created_at = 10;
+}
+
+message DelegationResponse {
+  DelegationItem delegation = 1;
+}
+
+message ListDelegationsRequest {
+  string delegator_user_id = 1;
+  bool include_expired = 2;
+}
+
+message ListDelegationsResponse {
+  repeated DelegationItem delegations = 1;
+}
+
+message CreateDelegationRequest {
+  string delegator_user_id = 1;
+  string delegate_user_id = 2;
+  string delegate_name = 3;
+  string reason = 4;
+  string starts_at = 5;
+  string ends_at = 6;
+}
+
+message RevokeDelegationRequest {
+  string id = 1;
+  string actor_user_id = 2;
+}
+
+message CheckDelegationRequest {
+  string user_id = 1;
+}
+
+message CheckDelegationResponse {
+  bool has_active_delegation = 1;
+  string delegator_user_id = 2;
+  string delegator_name = 3;
+  DelegationItem delegation = 4;
 }

@@ -149,3 +149,104 @@ func (h *BulkVerifyHandler) BulkVerifyAcademic(w http.ResponseWriter, r *http.Re
 	}
 	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "bulk verify success", Data: res})
 }
+
+// ─── Bulk approve/reject (Kaprodi) ──────────────────────────────────────────
+
+type BulkWorkflowHTTPBody struct {
+	RequestIDs []string `json:"request_ids"`
+	Note       string   `json:"note"`
+}
+
+type BulkWorkflowHandler struct {
+	academicClient *client.AcademicClient
+}
+
+func NewBulkWorkflowHandler(academicClient *client.AcademicClient) *BulkWorkflowHandler {
+	return &BulkWorkflowHandler{academicClient: academicClient}
+}
+
+func (h *BulkWorkflowHandler) BulkApprove(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "missing user id"})
+		return
+	}
+
+	var body BulkWorkflowHTTPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "invalid request body"})
+		return
+	}
+	if len(body.RequestIDs) == 0 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "request_ids wajib diisi"})
+		return
+	}
+	if len(body.RequestIDs) > 100 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "maksimal 100 pengajuan per batch"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	res, err := h.academicClient.Client.BulkApproveAcademicRequests(ctx, &academicv1.BulkApproveAcademicRequestsRequest{
+		RequestIds:  body.RequestIDs,
+		ActorUserId: actorID,
+		Note:        body.Note,
+	})
+	if err != nil {
+		writeAdminError(w, err, "failed to bulk approve")
+		return
+	}
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "bulk approve success", Data: res})
+}
+
+func (h *BulkWorkflowHandler) BulkReject(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	actorID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "missing user id"})
+		return
+	}
+
+	var body BulkWorkflowHTTPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "invalid request body"})
+		return
+	}
+	if len(body.RequestIDs) == 0 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "request_ids wajib diisi"})
+		return
+	}
+	if len(body.RequestIDs) > 100 {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "maksimal 100 pengajuan per batch"})
+		return
+	}
+	if strings.TrimSpace(body.Note) == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "note wajib diisi untuk penolakan"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	res, err := h.academicClient.Client.BulkRejectAcademicRequests(ctx, &academicv1.BulkRejectAcademicRequestsRequest{
+		RequestIds:  body.RequestIDs,
+		ActorUserId: actorID,
+		Note:        body.Note,
+	})
+	if err != nil {
+		writeAdminError(w, err, "failed to bulk reject")
+		return
+	}
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "bulk reject success", Data: res})
+}

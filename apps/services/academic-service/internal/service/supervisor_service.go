@@ -107,6 +107,23 @@ func (s *AcademicService) AssignSupervisor(
 	return mapSupervisorRepoError(req, err)
 }
 
+func (s *AcademicService) ReassignSupervisor(
+	ctx context.Context,
+	requestID string,
+	actorUserID string,
+	lecturerID string,
+	note string,
+) (*model.SupervisorRequest, error) {
+	if strings.TrimSpace(requestID) == "" || strings.TrimSpace(actorUserID) == "" || strings.TrimSpace(lecturerID) == "" {
+		return nil, ErrInvalidInput
+	}
+
+	supervisorRepo := repository.NewSupervisorRepository(s.repo.DB())
+
+	req, err := supervisorRepo.ReassignSupervisor(ctx, requestID, actorUserID, lecturerID, note)
+	return mapSupervisorRepoError(req, err)
+}
+
 func (s *AcademicService) AcceptSupervisorRequest(
 	ctx context.Context,
 	requestID string,

@@ -124,6 +124,40 @@ export async function rejectAcademicRequest(
   );
 }
 
+// ─── Bulk Approve/Reject (Kaprodi) ──────────────────────────────────────────
+
+export type BulkWorkflowResult = {
+  request_id: string;
+  success: boolean;
+  error: string;
+};
+
+export type BulkWorkflowResponseData = {
+  results?: BulkWorkflowResult[];
+  succeeded?: number;
+  failed?: number;
+};
+
+export async function bulkApproveAcademicRequests(
+  token: string,
+  payload: { request_ids: string[]; note?: string },
+) {
+  return apiFetch<ApiResponse<BulkWorkflowResponseData>>(
+    "/api/v1/head/academic-requests/bulk-approve",
+    { method: "POST", token, body: payload },
+  );
+}
+
+export async function bulkRejectAcademicRequests(
+  token: string,
+  payload: { request_ids: string[]; note: string },
+) {
+  return apiFetch<ApiResponse<BulkWorkflowResponseData>>(
+    "/api/v1/head/academic-requests/bulk-reject",
+    { method: "POST", token, body: payload },
+  );
+}
+
 export async function completeAcademicRequest(
   token: string,
   payload: WorkflowPayload,

@@ -120,6 +120,18 @@ func (h *AcademicHandler) AssignSupervisor(
 	return &academicv1.SupervisorRequestResponse{Request: toProtoSupervisorRequest(updated)}, nil
 }
 
+func (h *AcademicHandler) ReassignSupervisor(
+	ctx context.Context,
+	req *academicv1.AssignSupervisorRequest,
+) (*academicv1.SupervisorRequestResponse, error) {
+	updated, err := h.academicService.ReassignSupervisor(ctx, req.RequestId, req.ActorUserId, req.LecturerId, req.Note)
+	if err != nil {
+		return nil, mapSupervisorError(err)
+	}
+
+	return &academicv1.SupervisorRequestResponse{Request: toProtoSupervisorRequest(updated)}, nil
+}
+
 func (h *AcademicHandler) AcceptSupervisorRequest(
 	ctx context.Context,
 	req *academicv1.SupervisorWorkflowActionRequest,

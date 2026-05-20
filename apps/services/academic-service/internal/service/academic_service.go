@@ -18,6 +18,7 @@ var (
 	ErrNoteRequired            = errors.New("revision note is required")
 	ErrNoteTooLong             = errors.New("note exceeds maximum length of 2000 characters")
 	ErrQuotaExceeded           = errors.New("lecturer supervisor quota exceeded")
+	ErrDelegationOverlap       = errors.New("active delegation already exists for this period")
 )
 
 const maxNoteLength = 2000

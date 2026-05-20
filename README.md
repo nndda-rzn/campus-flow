@@ -295,7 +295,7 @@ Setiap microservice mengikuti struktur yang konsisten:
 | ------------- | ------------- | ------------------------------------------------------------------------ |
 | `SUPER_ADMIN` | `/admin`      | Akses ke semua modul, termasuk verifikasi dan approval lintas tahap      |
 | `ADMIN_PRODI` | `/admin`      | Verifikasi awal permohonan akademik & permohonan pembimbing              |
-| `KAPRODI`     | `/head`       | Approve/reject permohonan akademik, assign dosen pembimbing              |
+| `KAPRODI`     | `/head`       | Approve/reject permohonan akademik (single & bulk), assign/reassign dosen pembimbing, delegasi approval, SLA monitoring, analytics |
 | `DOSEN`       | `/lecturer`   | Dashboard, profil, accept/reject penetapan, review logbook, mahasiswa bimbingan, jadwal konsultasi, booking, review skripsi, pengumuman |
 | `MAHASISWA`   | `/student`    | Mengajukan permohonan akademik dan permohonan pembimbing, upload dokumen |
 | `TATA_USAHA`  | `/staff`      | Menyelesaikan permohonan akademik dan upload dokumen final               |
@@ -580,6 +580,8 @@ Authorization: Bearer <access_token>
 | POST     | `/api/v1/admin/academic-requests/verify`                       | ADMIN_PRODI, SUPER_ADMIN                      |
 | POST     | `/api/v1/head/academic-requests/approve`                       | KAPRODI, SUPER_ADMIN                          |
 | POST     | `/api/v1/head/academic-requests/reject`                        | KAPRODI, SUPER_ADMIN                          |
+| POST     | `/api/v1/head/academic-requests/bulk-approve`                  | KAPRODI, SUPER_ADMIN                          |
+| POST     | `/api/v1/head/academic-requests/bulk-reject`                   | KAPRODI, SUPER_ADMIN                          |
 | POST     | `/api/v1/staff/academic-requests/complete`                     | TATA_USAHA, SUPER_ADMIN                       |
 | POST     | `/api/v1/student/academic-requests/upload-supporting-document` | MAHASISWA                                     |
 | POST     | `/api/v1/staff/academic-requests/upload-final-document`        | TATA_USAHA, SUPER_ADMIN                       |
@@ -594,9 +596,19 @@ Authorization: Bearer <access_token>
 | GET/POST | `/api/v1/student/supervisor-requests`         | MAHASISWA                |
 | POST     | `/api/v1/admin/supervisor-requests/verify`    | ADMIN_PRODI, SUPER_ADMIN |
 | POST     | `/api/v1/head/supervisor-requests/assign`     | KAPRODI, SUPER_ADMIN     |
+| POST     | `/api/v1/head/supervisor-requests/reassign`   | KAPRODI, SUPER_ADMIN     |
 | GET      | `/api/v1/lecturer/supervisor-requests`        | DOSEN                    |
 | POST     | `/api/v1/lecturer/supervisor-requests/accept` | DOSEN                    |
 | POST     | `/api/v1/lecturer/supervisor-requests/reject` | DOSEN                    |
+
+### Protected — Kaprodi Delegation
+
+| Method | Endpoint                            | Role             |
+| ------ | ----------------------------------- | ---------------- |
+| GET    | `/api/v1/head/delegations`          | KAPRODI, SUPER_ADMIN |
+| POST   | `/api/v1/head/delegations/create`   | KAPRODI, SUPER_ADMIN |
+| POST   | `/api/v1/head/delegations/revoke`   | KAPRODI, SUPER_ADMIN |
+| GET    | `/api/v1/head/delegations/check`    | Semua role (authenticated) |
 
 ### Protected — Lecturer Portal (DOSEN)
 
@@ -810,6 +822,7 @@ Sudah selesai (commit history `git log --oneline`):
 - [x] Forgot password + SMTP abstraction + SLA reminder cron (Epic 10c)
 - [x] **Lecturer Portal Enhancement (Epic 11)** — profile self-service, dashboard agregat, quota visibility, edit slot konsultasi, halaman pengumuman dosen
 - [x] **Thesis Final Document Review (Epic 12)** — workflow review skripsi oleh dosen pembimbing dengan state machine (SUBMITTED → UNDER_REVIEW → APPROVED/REVISION_REQUESTED/REJECTED), file integration, ownership check
+- [x] **Kaprodi Enhancement (Epic 13)** — bulk approve/reject academic requests, reassign supervisor (REJECTED → ASSIGNED), SLA monitoring dashboard, request analytics (recharts), thesis progress overview, delegation/wakil kaprodi dengan time-bound access control
 
 Belum tertutup (kandidat enterprise berikutnya):
 

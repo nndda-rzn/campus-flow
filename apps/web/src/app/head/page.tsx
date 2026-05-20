@@ -5,12 +5,15 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   ArrowUpRight,
   BarChart3,
   ClipboardList,
+  Clock,
   FileText,
   GraduationCap,
+  ShieldAlert,
 } from "lucide-react";
 import { ProtectedPage } from "@/components/layout/protected-page";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +31,16 @@ import {
 } from "@/components/ui/table";
 import { getAccessToken } from "@/lib/auth-storage";
 import { AcademicRequest, listAllAcademicRequests } from "@/lib/academic-api";
+import {
+  AdminOperationalDashboard,
+  SLAAtRiskItem,
+  getAdminOperationalDashboard,
+  getSLAAtRiskRequests,
+} from "@/lib/admin-dashboard-api";
+import {
+  ThesisOverviewData,
+  getThesisOverview,
+} from "@/lib/thesis-overview-api";
 import { cn } from "@/lib/cn";
 
 export default function HeadDashboardPage() {
@@ -44,6 +57,9 @@ export default function HeadDashboardPage() {
 
 function DashboardContent() {
   const [requests, setRequests] = useState<AcademicRequest[] | null>(null);
+  const [slaDashboard, setSlaDashboard] = useState<AdminOperationalDashboard | null>(null);
+  const [slaAtRisk, setSlaAtRisk] = useState<SLAAtRiskItem[]>([]);
+  const [thesisData, setThesisData] = useState<ThesisOverviewData | null>(null);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -51,6 +67,15 @@ function DashboardContent() {
     listAllAcademicRequests(token)
       .then((res) => setRequests(res.data?.requests ?? []))
       .catch(() => setRequests([]));
+    getAdminOperationalDashboard()
+      .then(setSlaDashboard)
+      .catch(() => {});
+    getSLAAtRiskRequests(10)
+      .then(setSlaAtRisk)
+      .catch(() => {});
+    getThesisOverview()
+      .then(setThesisData)
+      .catch(() => {});
   }, []);
 
   const isLoading = requests === null;
@@ -70,7 +95,7 @@ function DashboardContent() {
 
   return (
     <div className="space-y-6">
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiTile
           label="Menunggu Keputusan"
           value={verifiedCount}
@@ -107,6 +132,24 @@ function DashboardContent() {
           }
           isLoading={isLoading}
         />
+        <KpiTile
+          label="SLA Berisiko"
+          value={slaDashboard?.sla_at_risk_count ?? 0}
+          tone="text-warning"
+          progressTone="bg-warning"
+          progress={0}
+          isLoading={slaDashboard === null}
+          icon={<AlertTriangle className="size-3.5 text-warning" />}
+        />
+        <KpiTile
+          label="SLA Terlewat"
+          value={slaDashboard?.sla_breached_count ?? 0}
+          tone="text-danger"
+          progressTone="bg-danger"
+          progress={0}
+          isLoading={slaDashboard === null}
+          icon={<ShieldAlert className="size-3.5 text-danger" />}
+        />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
@@ -131,11 +174,34 @@ function DashboardContent() {
             description="Tetapkan dosen pembimbing"
           />
           <QuickAction
+            href="/admin/thesis-overview"
+            icon={<GraduationCap className="size-4" />}
+            iconBg="bg-success-soft text-success"
+            title="Progress Skripsi"
+            description="Pantau progress mahasiswa"
+            count={thesisData?.behind ?? undefined}
+            countLabel="terlambat"
+          />
+          <QuickAction
             href="/reports"
             icon={<BarChart3 className="size-4" />}
             iconBg="bg-info-soft text-info"
             title="Reporting"
             description="Lihat distribusi pengajuan"
+          />
+          <QuickAction
+            href="/head/analytics"
+            icon={<BarChart3 className="size-4" />}
+            iconBg="bg-primary-soft text-primary"
+            title="Analitik"
+            description="Tren dan performa pengajuan"
+          />
+          <QuickAction
+            href="/head/delegations"
+            icon={<Clock className="size-4" />}
+            iconBg="bg-slate-100 text-slate-600"
+            title="Delegasi"
+            description="Kelola delegasi approval"
           />
         </div>
 
@@ -205,6 +271,118 @@ function DashboardContent() {
           )}
         </Card>
       </section>
+
+      {/* SLA At-Risk Section */}
+      {slaAtRisk.length > 0 && (
+        <section>
+          <Card className="overflow-hidden border-warning/30">
+            <CardHeader className="flex-row items-center justify-between bg-warning/5">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="size-4 text-warning" />
+                  Pengajuan Mendekati / Melewati Deadline
+                </CardTitle>
+                <p className="mt-0.5 text-[12.5px] text-text-muted">
+                  Pengajuan yang perlu segera ditindaklanjuti berdasarkan SLA
+                </p>
+              </div>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/head/academic-requests?status=VERIFIED">
+                  Lihat semua
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
+            </CardHeader>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Pengajuan</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Sisa Waktu</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {slaAtRisk.map((item) => (
+                  <TableRow key={item.request_id}>
+                    <TableCell>
+                      <p className="line-clamp-1 text-[13.5px] font-medium text-text-primary">
+                        {item.title}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11.5px] text-text-muted">
+                        {item.request_number}
+                      </p>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={item.status} />
+                    </TableCell>
+                    <TableCell>
+                      <SlaTimeLabel hoursRemaining={item.hours_remaining} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </section>
+      )}
+
+      {/* Thesis Progress Summary */}
+      {thesisData && thesisData.total > 0 && (
+        <section>
+          <Card className="overflow-hidden">
+            <CardHeader className="flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <GraduationCap className="size-4 text-text-muted" />
+                  Progress Skripsi Mahasiswa
+                </CardTitle>
+                <p className="mt-0.5 text-[12.5px] text-text-muted">
+                  Ringkasan progress bimbingan skripsi di prodi
+                </p>
+              </div>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/admin/thesis-overview">
+                  Detail
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent className="pb-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <ThesisStatTile label="Total" value={thesisData.total} tone="text-text-primary" />
+                <ThesisStatTile label="On Track" value={thesisData.on_track} tone="text-success" />
+                <ThesisStatTile label="Terlambat" value={thesisData.behind} tone="text-warning" />
+                <ThesisStatTile label="Belum Mulai" value={thesisData.not_started} tone="text-text-muted" />
+              </div>
+              {thesisData.total > 0 && (
+                <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-background-alt">
+                  {thesisData.on_track > 0 && (
+                    <div
+                      className="h-full bg-success transition-all"
+                      style={{ width: `${(thesisData.on_track / thesisData.total) * 100}%` }}
+                      title={`On Track: ${thesisData.on_track}`}
+                    />
+                  )}
+                  {thesisData.behind > 0 && (
+                    <div
+                      className="h-full bg-warning transition-all"
+                      style={{ width: `${(thesisData.behind / thesisData.total) * 100}%` }}
+                      title={`Terlambat: ${thesisData.behind}`}
+                    />
+                  )}
+                  {thesisData.not_started > 0 && (
+                    <div
+                      className="h-full bg-slate-300 transition-all"
+                      style={{ width: `${(thesisData.not_started / thesisData.total) * 100}%` }}
+                      title={`Belum Mulai: ${thesisData.not_started}`}
+                    />
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 }
@@ -216,6 +394,7 @@ function KpiTile({
   progressTone,
   progress,
   isLoading,
+  icon,
 }: {
   label: string;
   value: number;
@@ -223,11 +402,13 @@ function KpiTile({
   progressTone: string;
   progress: number;
   isLoading: boolean;
+  icon?: React.ReactNode;
 }) {
   return (
     <Card>
       <CardContent className="p-4">
-        <p className="text-[11.5px] font-medium uppercase tracking-[0.04em] text-text-muted">
+        <p className="flex items-center gap-1.5 text-[11.5px] font-medium uppercase tracking-[0.04em] text-text-muted">
+          {icon}
           {label}
         </p>
         {isLoading ? (
@@ -306,5 +487,66 @@ function QuickAction({
         <ArrowUpRight className="size-3.5 shrink-0 text-text-disabled transition-all group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />
       )}
     </Link>
+  );
+}
+
+function SlaTimeLabel({ hoursRemaining }: { hoursRemaining: number }) {
+  const isOverdue = hoursRemaining < 0;
+  const absHours = Math.abs(hoursRemaining);
+
+  let label: string;
+  if (absHours < 1) {
+    const mins = Math.max(1, Math.round(absHours * 60));
+    label = `${mins}m`;
+  } else if (absHours < 24) {
+    label = `${Math.round(absHours)}j`;
+  } else {
+    label = `${Math.round(absHours / 24)}h`;
+  }
+
+  if (isOverdue) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-0.5 text-[11.5px] font-semibold text-danger">
+        <Clock className="size-3" />
+        Telat {label}
+      </span>
+    );
+  }
+
+  if (absHours < 24) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-[11.5px] font-semibold text-warning">
+        <Clock className="size-3" />
+        Sisa {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1 text-[12px] text-text-muted">
+      <Clock className="size-3" />
+      Sisa {label}
+    </span>
+  );
+}
+
+function ThesisStatTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-md border border-border bg-background-alt p-3 text-center">
+      <p className={cn("text-[20px] font-semibold leading-none tabular-nums", tone)}>
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.04em] text-text-muted">
+        {label}
+      </p>
+    </div>
   );
 }

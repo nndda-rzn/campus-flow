@@ -404,3 +404,45 @@ func (h *SupervisorHandler) AssignSupervisor(w http.ResponseWriter, r *http.Requ
 
 	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "assign supervisor success", Data: res})
 }
+
+func (h *SupervisorHandler) ReassignSupervisor(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, APIResponse{Success: false, Message: "method not allowed"})
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusUnauthorized, APIResponse{Success: false, Message: "missing user id"})
+		return
+	}
+
+	var body AssignSupervisorHTTPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "invalid request body"})
+		return
+	}
+
+	if body.RequestID == "" || body.LecturerID == "" {
+		writeJSON(w, http.StatusBadRequest, APIResponse{Success: false, Message: "request_id and lecturer_id are required"})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	res, err := h.academicClient.Client.ReassignSupervisor(
+		ctx, &academicv1.AssignSupervisorRequest{
+			RequestId:   body.RequestID,
+			ActorUserId: userID,
+			LecturerId:  body.LecturerID,
+			Note:        body.Note,
+		},
+	)
+	if err != nil {
+		writeSupervisorError(w, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, APIResponse{Success: true, Message: "reassign supervisor success", Data: res})
+}

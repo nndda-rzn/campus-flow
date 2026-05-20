@@ -103,3 +103,104 @@ func (s *AcademicService) BulkVerifyAcademicRequests(
 	}
 	return results, nil
 }
+
+// ─── Bulk approve/reject (Kaprodi) ──────────────────────────────────────────
+
+type BulkWorkflowResult struct {
+	RequestID string
+	Success   bool
+	Error     string
+}
+
+// BulkApproveAcademicRequests applies ApproveAcademicRequest per id.
+// Partial failures are tolerated; result list mirrors input order.
+func (s *AcademicService) BulkApproveAcademicRequests(
+	ctx context.Context,
+	requestIDs []string,
+	actorUserID string,
+	note string,
+) ([]BulkWorkflowResult, error) {
+	actorUserID = strings.TrimSpace(actorUserID)
+	if actorUserID == "" || len(requestIDs) == 0 {
+		return nil, ErrInvalidInput
+	}
+
+	if strings.TrimSpace(note) == "" {
+		note = "Pengajuan disetujui oleh Kaprodi."
+	}
+
+	results := make([]BulkWorkflowResult, 0, len(requestIDs))
+	for _, id := range requestIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			results = append(results, BulkWorkflowResult{
+				RequestID: id,
+				Success:   false,
+				Error:     "empty request id",
+			})
+			continue
+		}
+
+		_, err := s.ApproveAcademicRequest(ctx, id, actorUserID, note)
+		if err != nil {
+			results = append(results, BulkWorkflowResult{
+				RequestID: id,
+				Success:   false,
+				Error:     err.Error(),
+			})
+			continue
+		}
+		results = append(results, BulkWorkflowResult{
+			RequestID: id,
+			Success:   true,
+		})
+	}
+	return results, nil
+}
+
+// BulkRejectAcademicRequests applies RejectAcademicRequest per id.
+// Note is required for rejection.
+func (s *AcademicService) BulkRejectAcademicRequests(
+	ctx context.Context,
+	requestIDs []string,
+	actorUserID string,
+	note string,
+) ([]BulkWorkflowResult, error) {
+	actorUserID = strings.TrimSpace(actorUserID)
+	note = strings.TrimSpace(note)
+
+	if actorUserID == "" || len(requestIDs) == 0 {
+		return nil, ErrInvalidInput
+	}
+	if note == "" {
+		return nil, ErrNoteRequired
+	}
+
+	results := make([]BulkWorkflowResult, 0, len(requestIDs))
+	for _, id := range requestIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			results = append(results, BulkWorkflowResult{
+				RequestID: id,
+				Success:   false,
+				Error:     "empty request id",
+			})
+			continue
+		}
+
+		_, err := s.RejectAcademicRequest(ctx, id, actorUserID, note)
+		if err != nil {
+			results = append(results, BulkWorkflowResult{
+				RequestID: id,
+				Success:   false,
+				Error:     err.Error(),
+			})
+			continue
+		}
+		results = append(results, BulkWorkflowResult{
+			RequestID: id,
+			Success:   true,
+		})
+	}
+	return results, nil
+}
